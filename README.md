@@ -1,6 +1,6 @@
 # Agents League Contest
 
-**An AI developer challenge running between June 8 - 14, 2026 with live coding battles, community building, and competition.**
+**An AI developer challenge running between June 4 - 14, 2026 with live coding battles, community building, and competition.**
 
 Build innovative AI agents for Creative Apps, Reasoning Agents or Enterprise Agents categories. Compete for recognition, network with developers globally, and get feedback from Microsoft product teams. This time, all projects must integrate with at least one of the **Microsoft IQ** intelligence layer: Foundry IQ, Work IQ, or Fabric IQ.
 
