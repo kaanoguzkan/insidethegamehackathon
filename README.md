@@ -1,4 +1,4 @@
-# Agents League Contest
+# Inside the Game: Developer Hackathon
 
 **An AI developer challenge running between June 4 - 14, 2026 with live coding battles, community building, and competition.**
 
