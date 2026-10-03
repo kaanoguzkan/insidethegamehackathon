@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Node / web
+node_modules/
+web/dist/
+web/.vite/
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+local.settings.json
+*.pem
+
+# Azure / azd
+.azure/
+
+# Generated at run time (see `matchmind --help`)
+/out/
+/runs/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
