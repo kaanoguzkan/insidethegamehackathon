@@ -10,20 +10,30 @@ dependencies = [
   "pydantic>=2.7",
   "pyyaml>=6.0",
   "jsonschema>=4.22",
+  # Microsoft Agent Framework: the core package only. The `agent-framework` meta-package pulls in
+  # about 30 provider packages this project does not use.
+  "agent-framework-core>=1.20",
+  "mcp>=1.30,<2",
 ]
 
 [project.optional-dependencies]
-# Model access. Works with Microsoft Foundry, GitHub Models and Ollama
-# through one OpenAI-compatible client.
-llm = ["openai>=1.50"]
-# The Brain service (REST API, MCP server) and its agent runtime.
-brain = ["fastapi>=0.115", "uvicorn>=0.30", "mcp>=1.2", "openai>=1.50"]
+# Any OpenAI-compatible endpoint: GitHub Models, Ollama, Azure OpenAI v1.
+openai = ["agent-framework-openai>=1.15"]
+# A Microsoft Foundry project (model deployments, hosted agents, tracing, evaluations).
+foundry = ["agent-framework-foundry>=1.14", "azure-identity>=1.19"]
+# The Brain service: REST API plus the MCP server over streamable HTTP.
+brain = ["fastapi>=0.115", "uvicorn>=0.30", "httpx>=0.27"]
+# Azure adapters (Cosmos DB, Blob Storage, SignalR publishing, telemetry).
+azure = [
+  "azure-cosmos>=4.7", "azure-storage-blob>=12.20", "azure-identity>=1.19",
+  "azure-functions>=1.20", "azure-monitor-opentelemetry>=1.6",
+]
 
 [project.scripts]
 matchmind = "matchmind.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = ["pytest>=8", "ruff>=0.6", "fastapi>=0.115", "uvicorn>=0.30", "httpx>=0.27", "agent-framework-openai>=1.15"]
 
 [build-system]
 requires = ["hatchling"]
@@ -34,6 +44,7 @@ packages = ["src/matchmind"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = [".", "tests"]
 addopts = "-q"
 markers = [
   "slow: simulates many matches; deselect with -m 'not slow'",

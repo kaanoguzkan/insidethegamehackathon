@@ -52,9 +52,12 @@ def _round(v: Any) -> Any:
     return round(v, 2) if isinstance(v, float) else v
 
 
-def build_server(registry: MatchRegistry | None = None) -> FastMCP:
+def build_server(registry: MatchRegistry | None = None, path: str = "/mcp") -> FastMCP:
     reg = registry or MatchRegistry()
-    mcp = FastMCP("matchmind-match-data", instructions=INSTRUCTIONS, stateless_http=True, json_response=True)
+    mcp = FastMCP(
+        "matchmind-match-data", instructions=INSTRUCTIONS, stateless_http=True, json_response=True,
+        streamable_http_path=path,
+    )
 
     @mcp.tool()
     def list_matches() -> list[str]:
