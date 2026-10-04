@@ -1,12 +1,13 @@
 id: pressing-collapse
 description: >-
-  Northbridge press hard and win the ball high in the first hour. Around 55 minutes the front
-  line tires and they stop pressing; Harbour City, who sit on 1-1 or better, start to play through
-  midfield at will. The pipeline is never told this: it has to notice the change in PPDA,
-  pressing and sprint counts, then explain what it means for the match.
+  Northbridge press hard, win the ball high and lead 2-0. Around 55 minutes the front
+  line tires and they stop pressing; Harbour City, who trail, start to play through
+  midfield at will. The pipeline is never told this: it has to notice how far the
+  nearest defender stands from the ball, the pressure and sprint counts, then explain what it
+  means for the match.
 home: HAR
 away: NOR
-seed: 42
+seed: 15
 script:
   - at: "55:00"
     team: NOR

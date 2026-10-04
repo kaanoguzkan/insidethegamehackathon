@@ -25,7 +25,7 @@ from .intel.baselines import load_baselines
 from .intel.pipeline import interpret_match
 from .intel.xt import XTGrid
 from .tracking.analyzer import analyze_match
-from .tracking.frames import write_chunks
+from .tracking import bundle
 
 BATCH_WINDOW_MS = 60_000
 STORY_BUDGET_PER_10_MIN = 3
@@ -141,7 +141,7 @@ def build_replay(
 
 
 def write_replay(replay: Replay, result, outdir: Path) -> Path:
-    """Write the static package: JSON documents plus the 5-second tracking chunks."""
+    """Write the static package: JSON documents plus one compact tracking bundle."""
     outdir.mkdir(parents=True, exist_ok=True)
 
     def dump(name: str, obj) -> None:
@@ -153,8 +153,8 @@ def write_replay(replay: Replay, result, outdir: Path) -> Path:
     dump("facts.json", replay.facts)
     dump("overlays.json", [o.model_dump(mode="json") for o in replay.overlays])
     dump("events.json", [_slim_event(e) for e in replay.events])
-    n = write_chunks(result, outdir / "tracking")
-    dump("manifest.json", {**replay.info, "matchId": replay.meta["matchId"], "chunks": n, "files": ["meta.json", "moments.json", "snapshots.json", "facts.json", "overlays.json", "events.json"]})
+    size = bundle.write(result, outdir)
+    dump("manifest.json", {**replay.info, "matchId": replay.meta["matchId"], "trackingBytes": size, "files": ["meta.json", "moments.json", "snapshots.json", "facts.json", "overlays.json", "events.json", "slots.json", "tracking.bin.gz"]})
     return outdir
 
 

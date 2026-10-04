@@ -80,7 +80,7 @@ def test_package_files_are_complete_and_loadable(built, tmp_path):
     manifest = json.loads((out / "manifest.json").read_text())
     for name in manifest["files"]:
         assert (out / name).stat().st_size > 2
-    assert manifest["chunks"] == len(list((out / "tracking").glob("*.json.gz")))
+    assert (out / "tracking.bin.gz").stat().st_size == manifest["trackingBytes"]
     meta = json.loads((out / "meta.json").read_text())
     assert meta["package"]["version"] == "1" and meta["matchId"] == "rt"
     events = json.loads((out / "events.json").read_text())

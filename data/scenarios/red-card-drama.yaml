@@ -1,0 +1,15 @@
+id: red-card-drama
+description: >-
+  A tight match turns on a sending-off. Redmoor lose a defender just before the hour and have to
+  defend with ten; Saltmarsh, a side that normally sits back, start pressing high to punish them.
+  The pipeline sees the card as an event and has to notice and explain what happens next.
+home: RED
+away: SAL
+seed: 35
+script:
+  - at: "58:00"
+    team: RED
+    event: red_card
+  - at: "60:00"
+    team: SAL
+    change: { press_intensity: 0.3, press_height: 0.4 }

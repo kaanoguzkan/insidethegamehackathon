@@ -72,3 +72,21 @@ def test_streaming_matches_batch(match):
     enrich += out.enrichments
     assert sorted(e["id"] for e in events) == sorted(e["id"] for e in batch.events)
     assert {d["ref"]: d["physics"] for d in enrich} == {d["ref"]: d["physics"] for d in batch.enrichments}
+
+
+def test_bundle_roundtrip_and_size(match):
+    import json
+
+    from matchmind.tracking import bundle
+
+    data = bundle.encode(match)
+    pos, ball, hz = bundle.decode(data)
+    n = match.meta["frames"]
+    assert pos.shape == (n, 22, 2) and ball.shape == (n, 4) and hz == 5
+    assert np.allclose(pos, match.frames[:n], atol=0.06, equal_nan=True)
+    assert np.array_equal(ball[:, 3] > 0.5, match.ball[:n, 3] > 0.5)
+    assert len(data) < 3_000_000, "a whole match should be a couple of megabytes"
+    table = bundle.slot_table(match)
+    assert table[0]["fromFrame"] == 0 and all(len(r["ids"]) == 22 for r in table)
+    assert len(table) > 1, "substitutions must show up as slot changes"
+    assert json.dumps(table)
