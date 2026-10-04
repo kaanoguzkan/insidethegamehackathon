@@ -55,7 +55,7 @@ def encode_chunk(chunk: Chunk) -> bytes:
         "alive": [int(a) for a in chunk.alive],
         "players": rows,
     }
-    return gzip.compress(json.dumps(body, separators=(",", ":")).encode(), compresslevel=6)
+    return gzip.compress(json.dumps(body, separators=(",", ":")).encode(), compresslevel=6, mtime=0)
 
 
 def decode_chunk(data: bytes) -> Chunk:

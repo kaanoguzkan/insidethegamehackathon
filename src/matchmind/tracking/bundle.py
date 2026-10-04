@@ -31,7 +31,8 @@ def encode(result) -> bytes:
     ball = result.ball[:n]
     b = np.stack([np.round(ball[:, 0] * 10), np.round(ball[:, 1] * 10), np.round(ball[:, 2] * 10), (ball[:, 3] > 0.5).astype(float)], axis=1).astype("<i2")
     head = HEADER.pack(MAGIC, 1, result.meta["hz"], 0, n, 22)
-    return gzip.compress(head + pos.tobytes() + b.tobytes(), compresslevel=9)
+    # mtime=0: the gzip header would otherwise embed the current time and make builds non-reproducible
+    return gzip.compress(head + pos.tobytes() + b.tobytes(), compresslevel=9, mtime=0)
 
 
 def slot_table(result) -> list[dict]:

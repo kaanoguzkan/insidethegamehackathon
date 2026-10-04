@@ -90,3 +90,13 @@ def test_bundle_roundtrip_and_size(match):
     assert table[0]["fromFrame"] == 0 and all(len(r["ids"]) == 22 for r in table)
     assert len(table) > 1, "substitutions must show up as slot changes"
     assert json.dumps(table)
+
+
+def test_encoded_files_are_byte_reproducible(match):
+    """gzip headers carry a timestamp; without mtime=0 every rebuild would churn the committed packages."""
+    from matchmind.tracking import bundle
+    from matchmind.tracking.frames import encode_chunk, iter_chunks
+
+    assert bundle.encode(match) == bundle.encode(match)
+    ch = next(iter(iter_chunks(match)))
+    assert encode_chunk(ch) == encode_chunk(ch)
