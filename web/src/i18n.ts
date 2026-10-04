@@ -71,6 +71,11 @@ const en: Dict = {
   selectMatch: 'Choose a match',
   poweredBy: 'Built on Microsoft Foundry, Agent Framework and Azure',
   synthetic: 'All data is synthetic. Clubs and players are fictional.',
+  recaps: 'Recaps',
+  recapPreview: 'Preview',
+  recapHalf: 'Half time',
+  recapFull: 'Full time',
+  recapWait: 'Available once the match reaches this point.',
 }
 
 const es: Dict = {
@@ -142,6 +147,11 @@ const es: Dict = {
   selectMatch: 'Elige un partido',
   poweredBy: 'Creado con Microsoft Foundry, Agent Framework y Azure',
   synthetic: 'Todos los datos son sintéticos. Los clubes y jugadores son ficticios.',
+  recaps: 'Resúmenes',
+  recapPreview: 'Previa',
+  recapHalf: 'Descanso',
+  recapFull: 'Final',
+  recapWait: 'Disponible cuando el partido llegue a este punto.',
 }
 
 const tr: Dict = {
@@ -213,6 +223,11 @@ const tr: Dict = {
   selectMatch: 'Bir maç seç',
   poweredBy: 'Microsoft Foundry, Agent Framework ve Azure ile geliştirildi',
   synthetic: 'Tüm veriler sentetiktir. Kulüpler ve oyuncular hayalidir.',
+  recaps: 'Özetler',
+  recapPreview: 'Ön izleme',
+  recapHalf: 'Devre arası',
+  recapFull: 'Maç sonu',
+  recapWait: 'Maç bu noktaya gelince görünür.',
 }
 
 const DICTS: Record<Lang, Dict> = { en, es, tr }

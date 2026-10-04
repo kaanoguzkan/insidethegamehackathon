@@ -15,7 +15,7 @@ from typing import Any, TypeVar
 from agent_framework import Agent, BaseChatClient
 from pydantic import BaseModel, ValidationError
 
-from ..core.contracts import Cohort, EditorOut, Explanation, StoryOut, StoryVariant
+from ..core.contracts import Cohort, EditorOut, Explanation, Recap, StoryOut, StoryVariant
 from . import prompts
 from .llm import task_message
 
@@ -52,6 +52,7 @@ class AgentTeam:
         self.explainer = Agent(client, prompts.EXPLAINER, name="explainer", tools=explainer_tools)
         self.storyteller = Agent(client, prompts.STORYTELLER, name="storyteller")
         self.localizer = Agent(client, prompts.LOCALIZER, name="localizer")
+        self.recap_writer = Agent(client, prompts.RECAP, name="recap_writer")
 
     # ----- one call ----------------------------------------------------------------------------
 
@@ -103,3 +104,12 @@ class AgentTeam:
     async def localize(self, pack: dict, base: StoryVariant, cohort: Cohort) -> StoryVariant:
         payload = {"pack": pack, "variant": base.model_dump(), "cohort": cohort.key}
         return await self._ask(self.localizer, "localize", payload, StoryVariant, self.settings.story_temperature)
+
+    async def recap(self, pack: dict, cohort: Cohort, moments: dict[str, dict] | None = None) -> Recap:
+        # The prompt carries a slim summary of the key moments; full packs stay out of it.
+        slim = [
+            {"id": mid, "type": m["type"], "label": m["detectedAt"]["label"], "team": m["subjectTeam"]}
+            for mid in pack.get("keyMoments", []) if (m := (moments or {}).get(mid))
+        ]
+        payload = {"pack": pack, "cohort": cohort.key, "moments": slim}
+        return await self._ask(self.recap_writer, "recap", payload, Recap, self.settings.story_temperature)

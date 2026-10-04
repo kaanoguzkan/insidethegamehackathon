@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .agents import producer, templates
+from .agents import recap as recap_writer
 from .agents.llm import Faults, make_chat_client
 from .agents.store import InMemoryMomentStore
 from .agents.team import AgentSettings, AgentTeam
@@ -23,6 +24,7 @@ from .core.contracts import SUPPORTED_LANGUAGES, Cohort, Overlay
 from .core.paths import league_dir
 from .intel.baselines import load_baselines
 from .intel.pipeline import interpret_match
+from .intel.recap import build_pack, build_preview_pack
 from .intel.xt import XTGrid
 from .tracking import bundle
 from .tracking.analyzer import analyze_match
@@ -49,6 +51,7 @@ class Replay:
     facts: list[dict]
     overlays: list[Overlay]
     events: list[dict]
+    recaps: list[dict] = field(default_factory=list)
     info: dict = field(default_factory=dict)
 
 
@@ -57,6 +60,16 @@ def _explanations(pack: dict, agent_made: dict | None) -> dict:
     out = {lang: templates.explain(pack, lang).model_dump() for lang in SUPPORTED_LANGUAGES}
     if agent_made:
         out["en"] = agent_made
+    return out
+
+
+async def _write_recaps(team, ip, cohorts, moments: dict[str, dict], registry, meta: dict) -> list[dict]:
+    packs = {"preview": build_preview_pack(meta), "half_time": build_pack(ip, "half_time"), "full_time": build_pack(ip, "full_time")}
+    out = []
+    for kind, pack in packs.items():
+        for c in cohorts:
+            r = await recap_writer.write_recap(team, pack, c, moments, registry)
+            out.append(r.model_dump(mode="json"))
     return out
 
 
@@ -109,6 +122,10 @@ def build_replay(
     registry = Registry.from_meta(meta)
     deps = WorkflowDeps(team=AgentTeam(client, settings), registry=registry, store=store)
     beats = asyncio.run(_run_agents(out.moments, cohorts, deps, budget_s))
+    by_id = {m["id"]: m for m in out.moments}
+    if hasattr(client, "context"):
+        client.context["moments"] = by_id
+    recaps = asyncio.run(_write_recaps(deps.team, ip, cohorts, by_id, registry, meta))
 
     names = {pid: p["name"] for side in ("home", "away") for pid, p in meta[side]["players"].items()}
     short = {meta[s]["id"]: meta[s]["short"] for s in ("home", "away")}
@@ -143,10 +160,11 @@ def build_replay(
         "languages": list(SUPPORTED_LANGUAGES),
         "moments": len(moments),
         "overlays": len(overlays),
+        "recaps": len(recaps),
         "levels": {str(k): sum(1 for b in beats if b.level == k) for k in (0, 1, 2, 3)},
     }
     events = sorted([*result.events, *analysis.events], key=lambda e: (e["clock"]["matchMs"], e["seq"]))
-    return Replay(meta=meta, cohorts=cohorts, moments=moments, snapshots=out.snapshots, facts=out.facts, overlays=overlays, events=events, info=info)
+    return Replay(meta=meta, cohorts=cohorts, moments=moments, snapshots=out.snapshots, facts=out.facts, overlays=overlays, events=events, recaps=recaps, info=info)
 
 
 def write_replay(replay: Replay, result, outdir: Path) -> Path:
@@ -160,10 +178,11 @@ def write_replay(replay: Replay, result, outdir: Path) -> Path:
     dump("moments.json", replay.moments)
     dump("snapshots.json", replay.snapshots)
     dump("facts.json", replay.facts)
+    dump("recaps.json", replay.recaps)
     dump("overlays.json", [o.model_dump(mode="json") for o in replay.overlays])
     dump("events.json", [_slim_event(e) for e in replay.events])
     size = bundle.write(result, outdir)
-    dump("manifest.json", {**replay.info, "matchId": replay.meta["matchId"], "trackingBytes": size, "files": ["meta.json", "moments.json", "snapshots.json", "facts.json", "overlays.json", "events.json", "slots.json", "tracking.bin.gz"]})
+    dump("manifest.json", {**replay.info, "matchId": replay.meta["matchId"], "trackingBytes": size, "files": ["meta.json", "moments.json", "snapshots.json", "facts.json", "overlays.json", "recaps.json", "events.json", "slots.json", "tracking.bin.gz"]})
     return outdir
 
 

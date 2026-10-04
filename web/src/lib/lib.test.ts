@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest'
 import { clockAt, totalMs } from './clock'
 import { covers } from './cohort'
 import { activeAt, isShown, visibleOverlays } from './overlays'
+import { SAFE_ID } from './data'
+import { recapFor, recapReady } from './recap'
 import { maybeGunzip, Tracking } from './tracking'
 import { DEFAULT_PROFILE, type Cohort, type Meta, type Overlay, type Profile } from './types'
 
@@ -125,5 +127,35 @@ describe('gzip handling across hosts', () => {
     const decoded = await maybeGunzip(ab)
     const again = await maybeGunzip(decoded)
     expect(again.byteLength).toBe(decoded.byteLength)
+  })
+})
+
+describe('replay ids', () => {
+  it('accepts slugs and rejects path tricks', () => {
+    for (const ok of ['pressing-collapse', 'red-card-drama', 'a1']) expect(SAFE_ID.test(ok)).toBe(true)
+    for (const bad of ['../x', 'a/b', '..', '', 'A', 'a b', 'x?y', '%2e%2e']) expect(SAFE_ID.test(bad)).toBe(false)
+  })
+})
+
+describe('recaps', () => {
+  const recaps = JSON.parse(read('recaps.json').toString()) as import('./types').Recap[]
+  const p: Profile = { ...DEFAULT_PROFILE, mode: 'casual', language: 'es', perspective: 'neutral' }
+  it('has a recap for every kind in the viewer language and mode', () => {
+    for (const kind of ['preview', 'half_time', 'full_time'] as const) {
+      const r = recapFor(recaps, kind, p)!
+      expect(r.cohort).toBe('casual/es/neutral/-')
+      expect(r.summary.length).toBeGreaterThan(20)
+      expect(r.provenance.verified).toBe(true)
+    }
+  })
+  it('falls back to the neutral cohort when no club-specific recap exists', () => {
+    const r = recapFor(recaps, 'full_time', { ...p, perspective: 'HAR' })
+    expect(r?.cohort).toBe('casual/es/neutral/-')
+  })
+  it('only reveals a recap once the match has reached it', () => {
+    expect(recapReady('preview', 0, 1000, 5000)).toBe(true)
+    expect(recapReady('half_time', 999, 1000, 5000)).toBe(false)
+    expect(recapReady('half_time', 1000, 1000, 5000)).toBe(true)
+    expect(recapReady('full_time', 4999, 1000, 5000)).toBe(false)
   })
 })

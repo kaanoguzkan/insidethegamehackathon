@@ -165,3 +165,20 @@ def test_lower_third_timing_follows_the_match_clock(mtype):
     v = T.render(P[mtype], COHORTS[0])
     o = producer.lower_third(P[mtype], v, COHORTS[0], priority=2, level=0, agents=["x"], verified=True)
     assert o.displayAt.matchMs == P[mtype]["detectedAt"]["matchMs"] + producer.LEAD_MS.get(mtype, producer.DEFAULT_LEAD_MS)
+
+
+def test_verified_flag_is_earned_not_assumed():
+    """If text reaching the Producer fails verification, it must not be badged as verified."""
+    from matchmind.agents import workflow as W
+
+    res, _, _ = run(moments=("goal",))
+    assert all(o.provenance.verified for o in res["t-mo-goal"].overlays)
+    # The Producer's check is the Verifier itself: a hallucinated body is rejected by it.
+    from matchmind.agents import templates as T
+    from matchmind.core.contracts import StoryVariant
+
+    good = T.render(P["goal"], COHORTS[0])
+    bad = StoryVariant(cohort=good.cohort, headline=good.headline, body="Rafael Brandmont made 99 shots.", claims=good.claims)
+    assert verify.verify_variant(good, P["goal"], COHORTS[0], REG).ok
+    assert not verify.verify_variant(bad, P["goal"], COHORTS[0], REG).ok
+    assert W.verify is verify

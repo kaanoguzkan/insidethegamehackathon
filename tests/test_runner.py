@@ -94,3 +94,11 @@ def test_building_twice_gives_identical_packages(built):
     again = build_replay(res)
     strip = lambda r: [(o.id, o.content.headline, o.content.body, o.displayAt.matchMs) for o in r.overlays]  # noqa: E731
     assert strip(again) == strip(replay)
+
+
+def test_package_includes_a_verified_recap_for_every_cohort_and_kind(built):
+    _, replay = built
+    assert len(replay.recaps) == 3 * len(replay.cohorts)
+    kinds = {(r["kind"], r["cohort"]) for r in replay.recaps}
+    assert {k for k, _ in kinds} == {"preview", "half_time", "full_time"}
+    assert all(r["provenance"]["fallbackLevel"] == 0 and r["provenance"]["verified"] for r in replay.recaps)

@@ -150,3 +150,14 @@ export const DEFAULT_PROFILE: Profile = {
   reducedMotion: false,
   highContrast: false,
 }
+
+export interface Recap {
+  cohort: string
+  kind: 'preview' | 'half_time' | 'full_time'
+  headline: string
+  summary: string
+  key_moments: { momentId: string; label: string; text: string }[]
+  player_of_the_match: { id: string; goals: number; assists: number; shots: number } | null
+  stats: Chip[]
+  provenance: { agents: string[]; verified: boolean; fallbackLevel: number }
+}

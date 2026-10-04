@@ -208,6 +208,16 @@ button { cursor: pointer; }
 .dot.type-big_chance { background: var(--gold); } .dot.type-pressure_collapse, .dot.type-pressure_surge { background: var(--accent); }
 .dot.type-momentum_swing { background: #b794f6; }
 
+/* ---------- recaps ---------- */
+.recap .seg { margin: 4px 0 10px; }
+.recap h3 { margin: 0 0 6px; font-size: 16px; }
+.recap p { margin: 0 0 8px; font-size: 14px; }
+.recap-wait { font-size: 13px; }
+.recap-moments { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.recap-moments button { width: 100%; text-align: left; background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font-size: 13px; }
+.recap-moments button:hover { border-color: var(--accent); }
+.recap-moments b { color: var(--accent); margin-right: 6px; font-variant-numeric: tabular-nums; }
+
 /* ---------- evidence drawer ---------- */
 .drawer { position: fixed; z-index: 40; top: 0; right: 0; bottom: 0; width: min(480px, 100vw); background: var(--panel); border-left: 1px solid var(--line); box-shadow: -18px 0 50px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; animation: drawer-in 0.28s ease both; }
 @keyframes drawer-in { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }

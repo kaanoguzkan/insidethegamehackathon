@@ -243,10 +243,12 @@ def build_workflow(deps: WorkflowDeps) -> Workflow:
             if b.ticker:
                 overlays.append(producer.ticker(b.pack, v, c, priority=b.priority))
             else:
+                # "verified" is earned here, not assumed: the Producer re-checks what it publishes.
+                ok = verify.verify_variant(v, b.pack, c, registry).ok
                 overlays.append(
                     producer.lower_third(
                         b.pack, v, c, priority=b.priority, level=level, agents=list(dict.fromkeys(b.agents)),
-                        verified=True, model="agent-team" if level < 2 else "template",
+                        verified=ok, model="agent-team" if level < 2 else "template",
                     )
                 )
         worst = max((levels.get(k, 2) for k, _ in b.variants), default=3)

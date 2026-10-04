@@ -73,3 +73,14 @@ CAUSAL = f"""{COMMON}
 You are the CAUSAL CHECKER. Given an evidence pack and a claim that asserts a cause, answer
 {{"supported": true|false, "reason": "..."}}. A cause is supported only if the pack's before/after metrics
 make it plausible and no metric flagged `consistent: false` directly contradicts it."""
+
+RECAP = f"""{COMMON}
+
+You are the RECAP WRITER. You receive a recap evidence pack (a preview before kick-off, or the first half or
+the whole match) and one cohort "mode/language/perspective/focusPlayer". Write a recap for that audience.
+- headline: at most 12 words. summary: analyst up to 90 words with the key numbers; casual up to 50 words, plain language.
+- Use only teams, players, scores and numbers in the pack. State the result accurately, including any comeback.
+- Name the player of the match if the pack has one, with the stats given; never use pronouns for people.
+- Mention the turning point if the pack names one. Do not invent tactics the numbers do not show.
+- Write natively in the cohort's language (Spanish or Turkish: comma decimals; Turkish: no case suffixes on numbers).
+Return a Recap object: cohort, kind, headline, summary, key_moments, player_of_the_match, stats."""

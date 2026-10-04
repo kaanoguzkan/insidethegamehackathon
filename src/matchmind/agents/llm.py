@@ -118,7 +118,7 @@ def _cohort(key: str) -> Cohort:
     return Cohort(mode=mode, language=lang, perspective=persp, focusPlayer=None if focus == "-" else focus)
 
 
-def offline_answer(task: str, payload: dict) -> str:
+def offline_answer(task: str, payload: dict, context: dict | None = None) -> str:
     if task == "edit":
         return offline_edit(payload).model_dump_json()
     if task == "explain":
@@ -128,6 +128,10 @@ def offline_answer(task: str, payload: dict) -> str:
         return StoryOut(variants=variants).model_dump_json()
     if task == "localize":
         return T.render(payload["pack"], _cohort(payload["cohort"])).model_dump_json()
+    if task == "recap":
+        from . import recap as R
+
+        return R.render(payload["pack"], _cohort(payload["cohort"]), (context or {}).get("moments")).model_dump_json()
     if task == "causal":
         return json.dumps({"supported": True, "reason": "offline"})
     raise ValueError(f"unknown task {task!r}")
@@ -144,6 +148,8 @@ def hallucinate(task: str, answer: str) -> str:
             v["body"] = f"{fake}. {v['body']}"
     elif task == "localize":
         data["body"] = f"{fake}. {data['body']}"
+    elif task == "recap":
+        data["summary"] = f"{fake}. {data['summary']}"
     return json.dumps(data, ensure_ascii=False)
 
 
@@ -154,13 +160,15 @@ class OfflineChatClient(BaseChatClient):
         super().__init__(**kwargs)
         self.faults = faults or Faults()
         self.calls: list[str] = []
+        # Side channel for data a real model would get through tools, not the prompt (e.g. full moment packs).
+        self.context: dict = {}
 
     async def _inner_get_response(self, *, messages, stream, options, **kwargs):  # type: ignore[override]
         await self._validate_options(options)
         user = [m for m in messages if m.role == "user"][-1].text
         task, payload = parse_task(user)
         self.calls.append(task)
-        answer = offline_answer(task, payload)
+        answer = offline_answer(task, payload, self.context)
         if self.faults.active(task):
             mode = self.faults.mode
             self.faults.consume()

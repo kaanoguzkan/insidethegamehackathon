@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EvidenceDrawer } from './components/EvidenceDrawer'
 import { MomentList } from './components/MomentList'
 import { ProfilePanel } from './components/ProfilePanel'
+import { RecapPanel } from './components/RecapPanel'
 import { Screen } from './components/Screen'
 import { Timeline } from './components/Timeline'
 import { Transport } from './components/Transport'
@@ -37,7 +38,9 @@ export function App() {
   useEffect(() => {
     loadIndex().then(setIndex).catch((e: Error) => setIndexError(e.message))
   }, [])
-  const matchId = route.match ?? index?.[0]?.id ?? null
+  // Only ids the index lists are loaded; anything else in the URL falls back to the first match.
+  const known = new Set((index ?? []).map((m) => m.id))
+  const matchId = route.match && known.has(route.match) ? route.match : (index?.[0]?.id ?? null)
   const { replay, error } = useReplay(matchId)
   const lang = route.profile.language
 
@@ -157,6 +160,7 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
         <aside className="side-col">
           <ProfilePanel profile={profile} onChange={setProfile} replay={replay} heading={route.split ? `${t(lang, 'viewer')} A` : undefined} />
           {route.split && <ProfilePanel profile={profileB} onChange={setProfileB} replay={replay} heading={`${t(lang, 'viewer')} B`} />}
+          <RecapPanel replay={replay} profile={profile} ms={ms} onPick={pick} />
           <section className="panel">
             <h2 className="panel-title">{t(lang, 'moments')}</h2>
             <MomentList replay={replay} lang={lang} selected={selected} onPick={pick} />

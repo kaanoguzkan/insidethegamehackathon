@@ -469,9 +469,11 @@ class MatchSim(ShapeMixin, ActionsMixin):
             "short": club.short,
             "colors": club.colors,
             "formation": self.formation_name[t],
+            "style": self.clubs[t].style.to_dict(),
             "lineup": self.lineups[t],
             "players": {
-                pid: {"name": p.name, "pos": p.pos, "number": p.number} for pid, p in known.items()
+                pid: {"name": p.name, "pos": p.pos, "number": p.number, "rating": round(p.overall)}
+                for pid, p in known.items()
             },
         }
 
