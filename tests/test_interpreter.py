@@ -136,3 +136,14 @@ def test_scripted_pressing_collapse_is_detected_without_being_told(league):
     early = [m for m in out.moments if m["type"].startswith("pressure_") and m["detectedAt"]["clock"]["minute"] < 55]
     assert not early
     assert "nearest_defender_m" in first["glossary"]
+
+
+def test_hand_built_packs_match_the_interpreters_shape(interpreted):
+    """tests/packs.py stands in for moment types a given match may not contain; keep it faithful."""
+    from packs import packs
+
+    _, out = interpreted
+    real = set(out.moments[0])
+    for mtype, pack in packs().items():
+        assert set(pack) == real, (mtype, set(pack) ^ real)
+        assert set(pack["detectedAt"]) == set(out.moments[0]["detectedAt"])

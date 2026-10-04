@@ -64,6 +64,7 @@ class Interpreter:
         self.season = season or {}
         self.clubs = [meta["home"]["id"], meta["away"]["id"]]
         self.club_names = {meta[s]["id"]: meta[s]["name"] for s in ("home", "away")}
+        self.club_short = {meta[s]["id"]: meta[s]["short"] for s in ("home", "away")}
         self.players: dict[str, dict] = {}
         for side in ("home", "away"):
             for pid, p in meta[side]["players"].items():
@@ -416,6 +417,7 @@ class Interpreter:
             "subjectTeam": subject,
             "beneficiaryTeam": beneficiary,
             "teamNames": dict(self.club_names),
+            "teamShort": dict(self.club_short),
             "windows": windows or {},
             "metrics": metrics,
             "facts": {"score": dict(self.score), **(extra or {})},
