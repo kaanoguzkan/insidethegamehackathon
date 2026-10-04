@@ -647,26 +647,49 @@ TAGS = {
 }
 
 
-def explain(pack: dict) -> Explanation:
-    """The template Explainer: what changed, why, what it means, each backed by evidence keys."""
-    s = sheet(pack, "en")
-    headline, body = _BUILDERS[pack["type"]]["en"](s, True)
-    sentences = [x.strip() for x in _SENTENCE.split(body) if x.strip()]
+_METRIC_NAMES = {
+    "en": {"ppda": "PPDA", "xt": "threat created", "possession_share": "possession", "progressive_passes": "progressive passes",
+           "final_third_entries": "final-third entries", "front_sprints": "front-line sprints", "high_regains": "high regains",
+           "pressures_per_min": "pressures per minute", "nearest_defender_m": "nearest-defender distance",
+           "players_near_ball": "players near the ball"},
+    "es": {"ppda": "PPDA", "xt": "amenaza creada", "possession_share": "posesión", "progressive_passes": "pases progresivos",
+           "final_third_entries": "entradas al último tercio", "front_sprints": "sprints de la línea de ataque",
+           "high_regains": "recuperaciones altas", "pressures_per_min": "presiones por minuto",
+           "nearest_defender_m": "distancia del defensor más cercano", "players_near_ball": "jugadores cerca del balón"},
+    "tr": {"ppda": "PPDA", "xt": "üretilen tehdit", "possession_share": "topa sahip olma", "progressive_passes": "ileriye paslar",
+           "final_third_entries": "son üçte bire girişler", "front_sprints": "hücum hattı sprintleri",
+           "high_regains": "yüksek top kazanma", "pressures_per_min": "dakikadaki baskı sayısı",
+           "nearest_defender_m": "en yakın savunmacı mesafesi", "players_near_ball": "topa yakın oyuncular"},
+}
+_CAVEAT = {
+    "en": "Not every indicator agrees: {names} moved the other way.",
+    "es": "No todos los indicadores coinciden: {names} se movieron en sentido contrario.",
+    "tr": "Tüm göstergeler aynı yönde değil: {names} ters yönde hareket etti.",
+}
+
+
+def explain(pack: dict, lang: str = "en") -> Explanation:
+    """The template Explainer: what changed, why, what it means, each backed by evidence keys.
+
+    ``what`` is the headline, ``why`` the numbers, ``so_what`` the plain-language reading of the same
+    evidence, and any metric that moved against the story is admitted in ``caveats``.
+    """
+    s = sheet(pack, lang)
+    headline, body = _BUILDERS[pack["type"]][lang](s, True)
     what = headline.split(" ", 1)[1] if headline[:1].isdigit() else headline
-    why = " ".join(sentences[:2]) if sentences else body
-    so_what = " ".join(sentences[2:]) if len(sentences) > 2 else ""
+    _, so_what = _BUILDERS[pack["type"]][lang](s, False)
     caveats = []
-    if pack["type"] in ("pressure_collapse", "pressure_surge"):
-        contradicting = [k for k, v in pack["metrics"].items() if v.get("consistent") is False]
-        if contradicting:
-            caveats.append("Not every indicator agrees: " + ", ".join(k.split(".", 1)[1] for k in contradicting) + " moved the other way.")
+    contradicting = [k for k, v in pack["metrics"].items() if v.get("consistent") is False]
+    if contradicting:
+        names = ", ".join(_METRIC_NAMES[lang].get(k.split(".", 1)[1], k.split(".", 1)[1].replace("_", " ")) for k in contradicting)
+        caveats.append(_CAVEAT[lang].format(names=names))
     consistent = [v.get("consistent") for v in pack["metrics"].values() if "consistent" in v]
     confidence = "high"
     if consistent:
         share = sum(1 for c in consistent if c) / len(consistent)
         confidence = "high" if share >= 0.75 else ("medium" if share >= 0.5 else "low")
     return Explanation(
-        what=what, why=why, so_what=so_what, claims=claims_from_text(body, pack),
+        what=what, why=body, so_what=so_what, claims=claims_from_text(body, pack),
         tactical_tag=TAGS.get(pack["type"], "other"), confidence=confidence, caveats=caveats,
     )
 

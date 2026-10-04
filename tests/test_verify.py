@@ -219,3 +219,19 @@ def test_registry_builds_from_match_meta(match):
 def test_unused_registry_means_no_name_check():
     assert V.check_names("Kofi Dalman", PC, None) == []
     assert isinstance(Explanation, type)
+
+
+@pytest.mark.parametrize("mtype", sorted(PACKS))
+@pytest.mark.parametrize("lang", SUPPORTED_LANGUAGES)
+def test_localized_explanations_verify(mtype, lang):
+    e = T.explain(PACKS[mtype], lang)
+    res = V.verify_explanation(e, PACKS[mtype], REG, lang)
+    assert res.ok, [str(i) for i in res.errors]
+    assert e.so_what and "{" not in e.why + e.so_what
+
+
+def test_caveats_use_readable_metric_names_in_every_language():
+    for lang in SUPPORTED_LANGUAGES:
+        text = T.explain(PC, lang).caveats[0]
+        assert "PPDA" in text
+        assert "_" not in text, text

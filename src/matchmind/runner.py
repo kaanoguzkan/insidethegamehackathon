@@ -13,7 +13,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .agents import producer
+from .agents import producer, templates
 from .agents.llm import Faults, make_chat_client
 from .agents.store import InMemoryMomentStore
 from .agents.team import AgentSettings, AgentTeam
@@ -24,8 +24,8 @@ from .core.paths import league_dir
 from .intel.baselines import load_baselines
 from .intel.pipeline import interpret_match
 from .intel.xt import XTGrid
-from .tracking.analyzer import analyze_match
 from .tracking import bundle
+from .tracking.analyzer import analyze_match
 
 BATCH_WINDOW_MS = 60_000
 STORY_BUDGET_PER_10_MIN = 3
@@ -50,6 +50,14 @@ class Replay:
     overlays: list[Overlay]
     events: list[dict]
     info: dict = field(default_factory=dict)
+
+
+def _explanations(pack: dict, agent_made: dict | None) -> dict:
+    """The explanation in every language: English from the agent team when it ran, the rest from templates."""
+    out = {lang: templates.explain(pack, lang).model_dump() for lang in SUPPORTED_LANGUAGES}
+    if agent_made:
+        out["en"] = agent_made
+    return out
 
 
 def _batches(moments: list[dict]) -> list[list[dict]]:
@@ -124,6 +132,7 @@ def build_replay(
                 "status": doc.get("status"),
                 "level": doc.get("level"),
                 "explanation": doc.get("explanation"),
+                "explanations": _explanations(m, doc.get("explanation")),
                 "trace": [{k: v for k, v in step.items() if k in ("agent", "outcome", "issues")} for step in doc.get("trace", [])],
             }
         )

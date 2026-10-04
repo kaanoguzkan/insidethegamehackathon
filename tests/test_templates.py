@@ -93,7 +93,7 @@ def test_template_explanation_is_grounded(mtype):
 
 def test_mixed_evidence_is_admitted_in_caveats_and_lowers_confidence():
     e = T.explain(PACKS["pressure_collapse"])
-    assert e.caveats and "ppda" in e.caveats[0]
+    assert e.caveats and "PPDA" in e.caveats[0] and "_" not in e.caveats[0]
     assert e.confidence in ("medium", "low")
     surge = T.explain(PACKS["goal"])
     assert not surge.caveats

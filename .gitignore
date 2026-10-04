@@ -32,3 +32,10 @@ local.settings.json
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# web build output and the synced copy of data/replays
+web/public/replays/
+
+# browser-automation scratch
+.playwright-mcp/
+shot-*.png
