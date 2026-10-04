@@ -13,7 +13,7 @@ from .geometry import goal_dist, shot_angle
 
 # Calibration constants. The realism report (``matchmind report-realism``) checks the
 # resulting league averages against target bands; adjust here, not in call sites.
-XG_INTERCEPT = -0.95
+XG_INTERCEPT = -0.80
 XPASS_INTERCEPT = 3.25
 
 

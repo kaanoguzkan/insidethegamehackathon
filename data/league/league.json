@@ -1,0 +1,2987 @@
+{
+ "league": "Lumen League",
+ "clubs": [
+  {
+   "id": "HAR",
+   "name": "Harbour City",
+   "short": "Harbour",
+   "colors": {
+    "primary": "#5BA8E0",
+    "secondary": "#FFFFFF"
+   },
+   "strength": 1.08,
+   "style": {
+    "formation": "4-3-3",
+    "press_intensity": 0.8,
+    "press_height": 0.8,
+    "directness": 0.25,
+    "tempo": 0.65,
+    "width": 0.7,
+    "line_height": 0.8,
+    "counter_bias": 0.3
+   },
+   "squad": [
+    {
+     "id": "HAR-01",
+     "club": "HAR",
+     "number": 1,
+     "name": "Samuel Olstein",
+     "pos": "GK",
+     "age": 19,
+     "attrs": {
+      "pace": 52,
+      "stamina": 62,
+      "passing": 67,
+      "vision": 62,
+      "dribbling": 47,
+      "finishing": 35,
+      "defending": 61,
+      "aggression": 59,
+      "keeping": 78
+     }
+    },
+    {
+     "id": "HAR-13",
+     "club": "HAR",
+     "number": 13,
+     "name": "Mehmet Kelenini",
+     "pos": "GK",
+     "age": 35,
+     "attrs": {
+      "pace": 46,
+      "stamina": 65,
+      "passing": 60,
+      "vision": 61,
+      "dribbling": 44,
+      "finishing": 35,
+      "defending": 53,
+      "aggression": 53,
+      "keeping": 75
+     }
+    },
+    {
+     "id": "HAR-31",
+     "club": "HAR",
+     "number": 31,
+     "name": "Adrian Norarado",
+     "pos": "GK",
+     "age": 33,
+     "attrs": {
+      "pace": 55,
+      "stamina": 61,
+      "passing": 60,
+      "vision": 65,
+      "dribbling": 44,
+      "finishing": 35,
+      "defending": 58,
+      "aggression": 64,
+      "keeping": 88
+     }
+    },
+    {
+     "id": "HAR-04",
+     "club": "HAR",
+     "number": 4,
+     "name": "Kofi Ivarez",
+     "pos": "CB",
+     "age": 34,
+     "attrs": {
+      "pace": 66,
+      "stamina": 63,
+      "passing": 70,
+      "vision": 65,
+      "dribbling": 49,
+      "finishing": 40,
+      "defending": 83,
+      "aggression": 68,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-05",
+     "club": "HAR",
+     "number": 5,
+     "name": "Tomas Ivarham",
+     "pos": "CB",
+     "age": 19,
+     "attrs": {
+      "pace": 66,
+      "stamina": 67,
+      "passing": 64,
+      "vision": 59,
+      "dribbling": 48,
+      "finishing": 38,
+      "defending": 76,
+      "aggression": 68,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-15",
+     "club": "HAR",
+     "number": 15,
+     "name": "Pablo Eldsen",
+     "pos": "CB",
+     "age": 24,
+     "attrs": {
+      "pace": 63,
+      "stamina": 70,
+      "passing": 64,
+      "vision": 65,
+      "dribbling": 54,
+      "finishing": 35,
+      "defending": 79,
+      "aggression": 71,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-25",
+     "club": "HAR",
+     "number": 25,
+     "name": "Theo Ossez",
+     "pos": "CB",
+     "age": 19,
+     "attrs": {
+      "pace": 65,
+      "stamina": 77,
+      "passing": 75,
+      "vision": 75,
+      "dribbling": 57,
+      "finishing": 38,
+      "defending": 72,
+      "aggression": 81,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-03",
+     "club": "HAR",
+     "number": 3,
+     "name": "Joel Solberg",
+     "pos": "LB",
+     "age": 34,
+     "attrs": {
+      "pace": 83,
+      "stamina": 78,
+      "passing": 70,
+      "vision": 62,
+      "dribbling": 68,
+      "finishing": 38,
+      "defending": 67,
+      "aggression": 68,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-18",
+     "club": "HAR",
+     "number": 18,
+     "name": "Declan Ossisen",
+     "pos": "LB",
+     "age": 29,
+     "attrs": {
+      "pace": 80,
+      "stamina": 81,
+      "passing": 76,
+      "vision": 65,
+      "dribbling": 61,
+      "finishing": 46,
+      "defending": 74,
+      "aggression": 70,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-02",
+     "club": "HAR",
+     "number": 2,
+     "name": "Elias Joranford",
+     "pos": "RB",
+     "age": 33,
+     "attrs": {
+      "pace": 82,
+      "stamina": 95,
+      "passing": 72,
+      "vision": 67,
+      "dribbling": 70,
+      "finishing": 54,
+      "defending": 72,
+      "aggression": 73,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-22",
+     "club": "HAR",
+     "number": 22,
+     "name": "Rafael Ivaranell",
+     "pos": "RB",
+     "age": 22,
+     "attrs": {
+      "pace": 81,
+      "stamina": 80,
+      "passing": 64,
+      "vision": 73,
+      "dribbling": 74,
+      "finishing": 42,
+      "defending": 74,
+      "aggression": 64,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-06",
+     "club": "HAR",
+     "number": 6,
+     "name": "Eren Roweerham",
+     "pos": "DM",
+     "age": 19,
+     "attrs": {
+      "pace": 66,
+      "stamina": 81,
+      "passing": 74,
+      "vision": 75,
+      "dribbling": 64,
+      "finishing": 45,
+      "defending": 66,
+      "aggression": 73,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-14",
+     "club": "HAR",
+     "number": 14,
+     "name": "Karim Olberg",
+     "pos": "DM",
+     "age": 35,
+     "attrs": {
+      "pace": 65,
+      "stamina": 89,
+      "passing": 79,
+      "vision": 68,
+      "dribbling": 65,
+      "finishing": 49,
+      "defending": 78,
+      "aggression": 70,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-08",
+     "club": "HAR",
+     "number": 8,
+     "name": "Alex Laniell",
+     "pos": "CM",
+     "age": 32,
+     "attrs": {
+      "pace": 61,
+      "stamina": 89,
+      "passing": 78,
+      "vision": 83,
+      "dribbling": 80,
+      "finishing": 62,
+      "defending": 62,
+      "aggression": 67,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-16",
+     "club": "HAR",
+     "number": 16,
+     "name": "Zane Vasastein",
+     "pos": "CM",
+     "age": 25,
+     "attrs": {
+      "pace": 60,
+      "stamina": 72,
+      "passing": 76,
+      "vision": 70,
+      "dribbling": 70,
+      "finishing": 49,
+      "defending": 63,
+      "aggression": 65,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-20",
+     "club": "HAR",
+     "number": 20,
+     "name": "Adrian Yararsen",
+     "pos": "CM",
+     "age": 21,
+     "attrs": {
+      "pace": 79,
+      "stamina": 88,
+      "passing": 86,
+      "vision": 78,
+      "dribbling": 74,
+      "finishing": 54,
+      "defending": 68,
+      "aggression": 59,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-28",
+     "club": "HAR",
+     "number": 28,
+     "name": "Karim Olenez",
+     "pos": "CM",
+     "age": 31,
+     "attrs": {
+      "pace": 65,
+      "stamina": 73,
+      "passing": 75,
+      "vision": 70,
+      "dribbling": 63,
+      "finishing": 47,
+      "defending": 56,
+      "aggression": 64,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-10",
+     "club": "HAR",
+     "number": 10,
+     "name": "Samuel Pranell",
+     "pos": "AM",
+     "age": 24,
+     "attrs": {
+      "pace": 70,
+      "stamina": 73,
+      "passing": 68,
+      "vision": 72,
+      "dribbling": 73,
+      "finishing": 57,
+      "defending": 35,
+      "aggression": 46,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-21",
+     "club": "HAR",
+     "number": 21,
+     "name": "Lars Falham",
+     "pos": "AM",
+     "age": 19,
+     "attrs": {
+      "pace": 70,
+      "stamina": 75,
+      "passing": 82,
+      "vision": 75,
+      "dribbling": 75,
+      "finishing": 70,
+      "defending": 43,
+      "aggression": 54,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-11",
+     "club": "HAR",
+     "number": 11,
+     "name": "Dario Vasworth",
+     "pos": "LW",
+     "age": 28,
+     "attrs": {
+      "pace": 79,
+      "stamina": 80,
+      "passing": 59,
+      "vision": 69,
+      "dribbling": 82,
+      "finishing": 70,
+      "defending": 35,
+      "aggression": 46,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-17",
+     "club": "HAR",
+     "number": 17,
+     "name": "Theo Lanez",
+     "pos": "LW",
+     "age": 20,
+     "attrs": {
+      "pace": 86,
+      "stamina": 76,
+      "passing": 76,
+      "vision": 72,
+      "dribbling": 72,
+      "finishing": 65,
+      "defending": 39,
+      "aggression": 53,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-07",
+     "club": "HAR",
+     "number": 7,
+     "name": "Dani Lorenard",
+     "pos": "RW",
+     "age": 20,
+     "attrs": {
+      "pace": 84,
+      "stamina": 73,
+      "passing": 76,
+      "vision": 79,
+      "dribbling": 84,
+      "finishing": 70,
+      "defending": 48,
+      "aggression": 54,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-19",
+     "club": "HAR",
+     "number": 19,
+     "name": "Finn Calard",
+     "pos": "RW",
+     "age": 32,
+     "attrs": {
+      "pace": 87,
+      "stamina": 73,
+      "passing": 69,
+      "vision": 76,
+      "dribbling": 81,
+      "finishing": 73,
+      "defending": 38,
+      "aggression": 58,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-09",
+     "club": "HAR",
+     "number": 9,
+     "name": "Joel Jorson",
+     "pos": "ST",
+     "age": 29,
+     "attrs": {
+      "pace": 78,
+      "stamina": 66,
+      "passing": 61,
+      "vision": 62,
+      "dribbling": 72,
+      "finishing": 73,
+      "defending": 36,
+      "aggression": 54,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "HAR-23",
+     "club": "HAR",
+     "number": 23,
+     "name": "Mateo Calelham",
+     "pos": "ST",
+     "age": 22,
+     "attrs": {
+      "pace": 82,
+      "stamina": 71,
+      "passing": 61,
+      "vision": 67,
+      "dribbling": 73,
+      "finishing": 90,
+      "defending": 36,
+      "aggression": 59,
+      "keeping": 10
+     }
+    }
+   ]
+  },
+  {
+   "id": "NOR",
+   "name": "Northbridge Athletic",
+   "short": "Northbridge",
+   "colors": {
+    "primary": "#C8102E",
+    "secondary": "#FFFFFF"
+   },
+   "strength": 1.04,
+   "style": {
+    "formation": "4-2-3-1",
+    "press_intensity": 0.85,
+    "press_height": 0.7,
+    "directness": 0.6,
+    "tempo": 0.75,
+    "width": 0.55,
+    "line_height": 0.6,
+    "counter_bias": 0.8
+   },
+   "squad": [
+    {
+     "id": "NOR-01",
+     "club": "NOR",
+     "number": 1,
+     "name": "Mateo Landal",
+     "pos": "GK",
+     "age": 20,
+     "attrs": {
+      "pace": 55,
+      "stamina": 70,
+      "passing": 70,
+      "vision": 62,
+      "dribbling": 37,
+      "finishing": 35,
+      "defending": 53,
+      "aggression": 55,
+      "keeping": 71
+     }
+    },
+    {
+     "id": "NOR-13",
+     "club": "NOR",
+     "number": 13,
+     "name": "Joel Ossstein",
+     "pos": "GK",
+     "age": 28,
+     "attrs": {
+      "pace": 46,
+      "stamina": 60,
+      "passing": 52,
+      "vision": 58,
+      "dribbling": 38,
+      "finishing": 35,
+      "defending": 43,
+      "aggression": 45,
+      "keeping": 65
+     }
+    },
+    {
+     "id": "NOR-31",
+     "club": "NOR",
+     "number": 31,
+     "name": "Mateo Holiov",
+     "pos": "GK",
+     "age": 21,
+     "attrs": {
+      "pace": 50,
+      "stamina": 57,
+      "passing": 66,
+      "vision": 63,
+      "dribbling": 36,
+      "finishing": 35,
+      "defending": 57,
+      "aggression": 51,
+      "keeping": 67
+     }
+    },
+    {
+     "id": "NOR-04",
+     "club": "NOR",
+     "number": 4,
+     "name": "Yusuf Fenadski",
+     "pos": "CB",
+     "age": 26,
+     "attrs": {
+      "pace": 66,
+      "stamina": 80,
+      "passing": 53,
+      "vision": 63,
+      "dribbling": 51,
+      "finishing": 35,
+      "defending": 76,
+      "aggression": 70,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-05",
+     "club": "NOR",
+     "number": 5,
+     "name": "Ayo Lanton",
+     "pos": "CB",
+     "age": 34,
+     "attrs": {
+      "pace": 70,
+      "stamina": 76,
+      "passing": 68,
+      "vision": 66,
+      "dribbling": 58,
+      "finishing": 39,
+      "defending": 88,
+      "aggression": 78,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-15",
+     "club": "NOR",
+     "number": 15,
+     "name": "Marco Vorez",
+     "pos": "CB",
+     "age": 33,
+     "attrs": {
+      "pace": 65,
+      "stamina": 65,
+      "passing": 63,
+      "vision": 58,
+      "dribbling": 50,
+      "finishing": 37,
+      "defending": 83,
+      "aggression": 78,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-25",
+     "club": "NOR",
+     "number": 25,
+     "name": "Mateo Loreman",
+     "pos": "CB",
+     "age": 32,
+     "attrs": {
+      "pace": 51,
+      "stamina": 63,
+      "passing": 60,
+      "vision": 54,
+      "dribbling": 47,
+      "finishing": 35,
+      "defending": 68,
+      "aggression": 70,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-03",
+     "club": "NOR",
+     "number": 3,
+     "name": "Zane Jorenton",
+     "pos": "LB",
+     "age": 33,
+     "attrs": {
+      "pace": 84,
+      "stamina": 88,
+      "passing": 79,
+      "vision": 68,
+      "dribbling": 79,
+      "finishing": 56,
+      "defending": 68,
+      "aggression": 72,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-18",
+     "club": "NOR",
+     "number": 18,
+     "name": "Rafael Vorerberg",
+     "pos": "LB",
+     "age": 27,
+     "attrs": {
+      "pace": 66,
+      "stamina": 70,
+      "passing": 65,
+      "vision": 56,
+      "dribbling": 62,
+      "finishing": 38,
+      "defending": 58,
+      "aggression": 58,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-02",
+     "club": "NOR",
+     "number": 2,
+     "name": "Omar Pelwick",
+     "pos": "RB",
+     "age": 26,
+     "attrs": {
+      "pace": 83,
+      "stamina": 84,
+      "passing": 67,
+      "vision": 60,
+      "dribbling": 62,
+      "finishing": 46,
+      "defending": 76,
+      "aggression": 65,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-22",
+     "club": "NOR",
+     "number": 22,
+     "name": "Gabriel Garesen",
+     "pos": "RB",
+     "age": 34,
+     "attrs": {
+      "pace": 66,
+      "stamina": 80,
+      "passing": 70,
+      "vision": 62,
+      "dribbling": 66,
+      "finishing": 40,
+      "defending": 63,
+      "aggression": 70,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-06",
+     "club": "NOR",
+     "number": 6,
+     "name": "Elias Pranelell",
+     "pos": "DM",
+     "age": 28,
+     "attrs": {
+      "pace": 70,
+      "stamina": 95,
+      "passing": 80,
+      "vision": 67,
+      "dribbling": 67,
+      "finishing": 53,
+      "defending": 73,
+      "aggression": 89,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-14",
+     "club": "NOR",
+     "number": 14,
+     "name": "Elias Jorford",
+     "pos": "DM",
+     "age": 28,
+     "attrs": {
+      "pace": 61,
+      "stamina": 76,
+      "passing": 74,
+      "vision": 76,
+      "dribbling": 64,
+      "finishing": 44,
+      "defending": 76,
+      "aggression": 72,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-08",
+     "club": "NOR",
+     "number": 8,
+     "name": "Kofi Pransen",
+     "pos": "CM",
+     "age": 32,
+     "attrs": {
+      "pace": 64,
+      "stamina": 78,
+      "passing": 65,
+      "vision": 68,
+      "dribbling": 57,
+      "finishing": 55,
+      "defending": 57,
+      "aggression": 66,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-16",
+     "club": "NOR",
+     "number": 16,
+     "name": "Hugo Doraford",
+     "pos": "CM",
+     "age": 28,
+     "attrs": {
+      "pace": 73,
+      "stamina": 84,
+      "passing": 75,
+      "vision": 79,
+      "dribbling": 67,
+      "finishing": 58,
+      "defending": 60,
+      "aggression": 60,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-20",
+     "club": "NOR",
+     "number": 20,
+     "name": "Eren Belez",
+     "pos": "CM",
+     "age": 33,
+     "attrs": {
+      "pace": 66,
+      "stamina": 83,
+      "passing": 77,
+      "vision": 80,
+      "dribbling": 77,
+      "finishing": 68,
+      "defending": 65,
+      "aggression": 67,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-28",
+     "club": "NOR",
+     "number": 28,
+     "name": "Gustav Morwick",
+     "pos": "CM",
+     "age": 23,
+     "attrs": {
+      "pace": 71,
+      "stamina": 73,
+      "passing": 75,
+      "vision": 71,
+      "dribbling": 60,
+      "finishing": 60,
+      "defending": 64,
+      "aggression": 67,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-10",
+     "club": "NOR",
+     "number": 10,
+     "name": "Ivan Greyado",
+     "pos": "AM",
+     "age": 31,
+     "attrs": {
+      "pace": 66,
+      "stamina": 71,
+      "passing": 75,
+      "vision": 74,
+      "dribbling": 70,
+      "finishing": 64,
+      "defending": 44,
+      "aggression": 46,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-21",
+     "club": "NOR",
+     "number": 21,
+     "name": "Kofi Ivarham",
+     "pos": "AM",
+     "age": 32,
+     "attrs": {
+      "pace": 70,
+      "stamina": 75,
+      "passing": 80,
+      "vision": 84,
+      "dribbling": 79,
+      "finishing": 62,
+      "defending": 46,
+      "aggression": 58,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-11",
+     "club": "NOR",
+     "number": 11,
+     "name": "Ben Ulinmont",
+     "pos": "LW",
+     "age": 20,
+     "attrs": {
+      "pace": 72,
+      "stamina": 82,
+      "passing": 69,
+      "vision": 61,
+      "dribbling": 80,
+      "finishing": 60,
+      "defending": 43,
+      "aggression": 47,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-17",
+     "club": "NOR",
+     "number": 17,
+     "name": "Samuel Braado",
+     "pos": "LW",
+     "age": 22,
+     "attrs": {
+      "pace": 88,
+      "stamina": 72,
+      "passing": 60,
+      "vision": 60,
+      "dribbling": 73,
+      "finishing": 71,
+      "defending": 36,
+      "aggression": 43,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-07",
+     "club": "NOR",
+     "number": 7,
+     "name": "Gabriel Loreski",
+     "pos": "RW",
+     "age": 35,
+     "attrs": {
+      "pace": 69,
+      "stamina": 71,
+      "passing": 72,
+      "vision": 77,
+      "dribbling": 67,
+      "finishing": 62,
+      "defending": 35,
+      "aggression": 42,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-19",
+     "club": "NOR",
+     "number": 19,
+     "name": "Ilya Vasado",
+     "pos": "RW",
+     "age": 24,
+     "attrs": {
+      "pace": 78,
+      "stamina": 80,
+      "passing": 64,
+      "vision": 76,
+      "dribbling": 82,
+      "finishing": 66,
+      "defending": 42,
+      "aggression": 48,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-09",
+     "club": "NOR",
+     "number": 9,
+     "name": "Malik Maraski",
+     "pos": "ST",
+     "age": 34,
+     "attrs": {
+      "pace": 70,
+      "stamina": 64,
+      "passing": 56,
+      "vision": 58,
+      "dribbling": 75,
+      "finishing": 75,
+      "defending": 35,
+      "aggression": 59,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "NOR-23",
+     "club": "NOR",
+     "number": 23,
+     "name": "Callum Roweov",
+     "pos": "ST",
+     "age": 35,
+     "attrs": {
+      "pace": 80,
+      "stamina": 68,
+      "passing": 57,
+      "vision": 68,
+      "dribbling": 67,
+      "finishing": 87,
+      "defending": 36,
+      "aggression": 61,
+      "keeping": 10
+     }
+    }
+   ]
+  },
+  {
+   "id": "RED",
+   "name": "Redmoor United",
+   "short": "Redmoor",
+   "colors": {
+    "primary": "#7A1F2B",
+    "secondary": "#E8D9B0"
+   },
+   "strength": 1.0,
+   "style": {
+    "formation": "4-4-2",
+    "press_intensity": 0.5,
+    "press_height": 0.45,
+    "directness": 0.7,
+    "tempo": 0.55,
+    "width": 0.6,
+    "line_height": 0.45,
+    "counter_bias": 0.6
+   },
+   "squad": [
+    {
+     "id": "RED-01",
+     "club": "RED",
+     "number": 1,
+     "name": "Finn Elddal",
+     "pos": "GK",
+     "age": 26,
+     "attrs": {
+      "pace": 49,
+      "stamina": 52,
+      "passing": 54,
+      "vision": 52,
+      "dribbling": 35,
+      "finishing": 35,
+      "defending": 42,
+      "aggression": 43,
+      "keeping": 67
+     }
+    },
+    {
+     "id": "RED-13",
+     "club": "RED",
+     "number": 13,
+     "name": "Mehmet Vasaberg",
+     "pos": "GK",
+     "age": 31,
+     "attrs": {
+      "pace": 53,
+      "stamina": 62,
+      "passing": 50,
+      "vision": 63,
+      "dribbling": 47,
+      "finishing": 35,
+      "defending": 58,
+      "aggression": 51,
+      "keeping": 77
+     }
+    },
+    {
+     "id": "RED-31",
+     "club": "RED",
+     "number": 31,
+     "name": "Alex Yarman",
+     "pos": "GK",
+     "age": 25,
+     "attrs": {
+      "pace": 35,
+      "stamina": 55,
+      "passing": 58,
+      "vision": 55,
+      "dribbling": 44,
+      "finishing": 35,
+      "defending": 41,
+      "aggression": 55,
+      "keeping": 65
+     }
+    },
+    {
+     "id": "RED-04",
+     "club": "RED",
+     "number": 4,
+     "name": "Idris Soladford",
+     "pos": "CB",
+     "age": 26,
+     "attrs": {
+      "pace": 64,
+      "stamina": 75,
+      "passing": 60,
+      "vision": 63,
+      "dribbling": 58,
+      "finishing": 45,
+      "defending": 92,
+      "aggression": 78,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-05",
+     "club": "RED",
+     "number": 5,
+     "name": "Ben Holimont",
+     "pos": "CB",
+     "age": 30,
+     "attrs": {
+      "pace": 57,
+      "stamina": 66,
+      "passing": 55,
+      "vision": 47,
+      "dribbling": 46,
+      "finishing": 35,
+      "defending": 80,
+      "aggression": 72,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-15",
+     "club": "RED",
+     "number": 15,
+     "name": "Yusuf Raversen",
+     "pos": "CB",
+     "age": 28,
+     "attrs": {
+      "pace": 60,
+      "stamina": 67,
+      "passing": 53,
+      "vision": 54,
+      "dribbling": 50,
+      "finishing": 35,
+      "defending": 72,
+      "aggression": 71,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-25",
+     "club": "RED",
+     "number": 25,
+     "name": "Idris Lanaez",
+     "pos": "CB",
+     "age": 26,
+     "attrs": {
+      "pace": 69,
+      "stamina": 74,
+      "passing": 54,
+      "vision": 70,
+      "dribbling": 62,
+      "finishing": 44,
+      "defending": 84,
+      "aggression": 76,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-03",
+     "club": "RED",
+     "number": 3,
+     "name": "Yusuf Pranez",
+     "pos": "LB",
+     "age": 29,
+     "attrs": {
+      "pace": 79,
+      "stamina": 65,
+      "passing": 69,
+      "vision": 73,
+      "dribbling": 60,
+      "finishing": 40,
+      "defending": 63,
+      "aggression": 68,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-18",
+     "club": "RED",
+     "number": 18,
+     "name": "Malik Zanelson",
+     "pos": "LB",
+     "age": 30,
+     "attrs": {
+      "pace": 74,
+      "stamina": 78,
+      "passing": 63,
+      "vision": 70,
+      "dribbling": 63,
+      "finishing": 43,
+      "defending": 60,
+      "aggression": 66,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-02",
+     "club": "RED",
+     "number": 2,
+     "name": "Cem Braarell",
+     "pos": "RB",
+     "age": 32,
+     "attrs": {
+      "pace": 71,
+      "stamina": 76,
+      "passing": 70,
+      "vision": 57,
+      "dribbling": 69,
+      "finishing": 43,
+      "defending": 65,
+      "aggression": 58,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-22",
+     "club": "RED",
+     "number": 22,
+     "name": "Dani Ravman",
+     "pos": "RB",
+     "age": 24,
+     "attrs": {
+      "pace": 69,
+      "stamina": 81,
+      "passing": 63,
+      "vision": 58,
+      "dribbling": 64,
+      "finishing": 35,
+      "defending": 65,
+      "aggression": 49,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-06",
+     "club": "RED",
+     "number": 6,
+     "name": "Felix Beldal",
+     "pos": "DM",
+     "age": 30,
+     "attrs": {
+      "pace": 63,
+      "stamina": 75,
+      "passing": 75,
+      "vision": 76,
+      "dribbling": 71,
+      "finishing": 41,
+      "defending": 75,
+      "aggression": 77,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-14",
+     "club": "RED",
+     "number": 14,
+     "name": "Reuben Olarov",
+     "pos": "DM",
+     "age": 33,
+     "attrs": {
+      "pace": 55,
+      "stamina": 75,
+      "passing": 76,
+      "vision": 71,
+      "dribbling": 60,
+      "finishing": 50,
+      "defending": 70,
+      "aggression": 71,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-08",
+     "club": "RED",
+     "number": 8,
+     "name": "Reuben Garmont",
+     "pos": "CM",
+     "age": 21,
+     "attrs": {
+      "pace": 67,
+      "stamina": 86,
+      "passing": 76,
+      "vision": 69,
+      "dribbling": 66,
+      "finishing": 48,
+      "defending": 63,
+      "aggression": 65,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-16",
+     "club": "RED",
+     "number": 16,
+     "name": "Idris Marard",
+     "pos": "CM",
+     "age": 33,
+     "attrs": {
+      "pace": 58,
+      "stamina": 76,
+      "passing": 68,
+      "vision": 71,
+      "dribbling": 64,
+      "finishing": 54,
+      "defending": 63,
+      "aggression": 52,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-20",
+     "club": "RED",
+     "number": 20,
+     "name": "Kai Holsen",
+     "pos": "CM",
+     "age": 23,
+     "attrs": {
+      "pace": 60,
+      "stamina": 63,
+      "passing": 63,
+      "vision": 77,
+      "dribbling": 59,
+      "finishing": 45,
+      "defending": 50,
+      "aggression": 54,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-28",
+     "club": "RED",
+     "number": 28,
+     "name": "Viktor Ivarell",
+     "pos": "CM",
+     "age": 20,
+     "attrs": {
+      "pace": 73,
+      "stamina": 75,
+      "passing": 78,
+      "vision": 63,
+      "dribbling": 69,
+      "finishing": 53,
+      "defending": 59,
+      "aggression": 56,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-10",
+     "club": "RED",
+     "number": 10,
+     "name": "Felix Norardal",
+     "pos": "AM",
+     "age": 20,
+     "attrs": {
+      "pace": 65,
+      "stamina": 73,
+      "passing": 68,
+      "vision": 81,
+      "dribbling": 75,
+      "finishing": 68,
+      "defending": 36,
+      "aggression": 57,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-21",
+     "club": "RED",
+     "number": 21,
+     "name": "Zane Roweov",
+     "pos": "AM",
+     "age": 20,
+     "attrs": {
+      "pace": 69,
+      "stamina": 75,
+      "passing": 80,
+      "vision": 80,
+      "dribbling": 78,
+      "finishing": 68,
+      "defending": 47,
+      "aggression": 50,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-11",
+     "club": "RED",
+     "number": 11,
+     "name": "Dario Norarov",
+     "pos": "LW",
+     "age": 19,
+     "attrs": {
+      "pace": 64,
+      "stamina": 71,
+      "passing": 59,
+      "vision": 56,
+      "dribbling": 78,
+      "finishing": 64,
+      "defending": 36,
+      "aggression": 48,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-17",
+     "club": "RED",
+     "number": 17,
+     "name": "Alex Eldadard",
+     "pos": "LW",
+     "age": 24,
+     "attrs": {
+      "pace": 81,
+      "stamina": 70,
+      "passing": 65,
+      "vision": 75,
+      "dribbling": 71,
+      "finishing": 70,
+      "defending": 40,
+      "aggression": 48,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-07",
+     "club": "RED",
+     "number": 7,
+     "name": "Declan Ravenford",
+     "pos": "RW",
+     "age": 32,
+     "attrs": {
+      "pace": 80,
+      "stamina": 69,
+      "passing": 69,
+      "vision": 64,
+      "dribbling": 68,
+      "finishing": 69,
+      "defending": 35,
+      "aggression": 53,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-19",
+     "club": "RED",
+     "number": 19,
+     "name": "Omar Roweini",
+     "pos": "RW",
+     "age": 22,
+     "attrs": {
+      "pace": 67,
+      "stamina": 65,
+      "passing": 58,
+      "vision": 63,
+      "dribbling": 66,
+      "finishing": 69,
+      "defending": 35,
+      "aggression": 36,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-09",
+     "club": "RED",
+     "number": 9,
+     "name": "Pablo Pelarski",
+     "pos": "ST",
+     "age": 34,
+     "attrs": {
+      "pace": 70,
+      "stamina": 68,
+      "passing": 61,
+      "vision": 58,
+      "dribbling": 73,
+      "finishing": 80,
+      "defending": 45,
+      "aggression": 64,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "RED-23",
+     "club": "RED",
+     "number": 23,
+     "name": "Theo Ivarford",
+     "pos": "ST",
+     "age": 31,
+     "attrs": {
+      "pace": 71,
+      "stamina": 75,
+      "passing": 56,
+      "vision": 68,
+      "dribbling": 63,
+      "finishing": 75,
+      "defending": 35,
+      "aggression": 69,
+      "keeping": 10
+     }
+    }
+   ]
+  },
+  {
+   "id": "KES",
+   "name": "Kestrel Vale",
+   "short": "Kestrel",
+   "colors": {
+    "primary": "#1F7A4D",
+    "secondary": "#F2C94C"
+   },
+   "strength": 0.97,
+   "style": {
+    "formation": "3-5-2",
+    "press_intensity": 0.6,
+    "press_height": 0.55,
+    "directness": 0.45,
+    "tempo": 0.6,
+    "width": 0.9,
+    "line_height": 0.55,
+    "counter_bias": 0.5
+   },
+   "squad": [
+    {
+     "id": "KES-01",
+     "club": "KES",
+     "number": 1,
+     "name": "Cem Mareldal",
+     "pos": "GK",
+     "age": 35,
+     "attrs": {
+      "pace": 44,
+      "stamina": 58,
+      "passing": 58,
+      "vision": 60,
+      "dribbling": 45,
+      "finishing": 35,
+      "defending": 44,
+      "aggression": 51,
+      "keeping": 78
+     }
+    },
+    {
+     "id": "KES-13",
+     "club": "KES",
+     "number": 13,
+     "name": "Kai Vasoford",
+     "pos": "GK",
+     "age": 27,
+     "attrs": {
+      "pace": 53,
+      "stamina": 51,
+      "passing": 45,
+      "vision": 56,
+      "dribbling": 35,
+      "finishing": 35,
+      "defending": 42,
+      "aggression": 44,
+      "keeping": 63
+     }
+    },
+    {
+     "id": "KES-31",
+     "club": "KES",
+     "number": 31,
+     "name": "Ayo Wexadard",
+     "pos": "GK",
+     "age": 28,
+     "attrs": {
+      "pace": 54,
+      "stamina": 51,
+      "passing": 57,
+      "vision": 53,
+      "dribbling": 35,
+      "finishing": 35,
+      "defending": 47,
+      "aggression": 42,
+      "keeping": 68
+     }
+    },
+    {
+     "id": "KES-04",
+     "club": "KES",
+     "number": 4,
+     "name": "Mehmet Halez",
+     "pos": "CB",
+     "age": 24,
+     "attrs": {
+      "pace": 53,
+      "stamina": 61,
+      "passing": 66,
+      "vision": 57,
+      "dribbling": 49,
+      "finishing": 45,
+      "defending": 73,
+      "aggression": 68,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-05",
+     "club": "KES",
+     "number": 5,
+     "name": "Gabriel Vorersen",
+     "pos": "CB",
+     "age": 35,
+     "attrs": {
+      "pace": 66,
+      "stamina": 62,
+      "passing": 54,
+      "vision": 49,
+      "dribbling": 40,
+      "finishing": 35,
+      "defending": 72,
+      "aggression": 73,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-15",
+     "club": "KES",
+     "number": 15,
+     "name": "Dario Greyinez",
+     "pos": "CB",
+     "age": 19,
+     "attrs": {
+      "pace": 65,
+      "stamina": 64,
+      "passing": 52,
+      "vision": 49,
+      "dribbling": 48,
+      "finishing": 35,
+      "defending": 68,
+      "aggression": 72,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-25",
+     "club": "KES",
+     "number": 25,
+     "name": "Mateo Ivararberg",
+     "pos": "CB",
+     "age": 35,
+     "attrs": {
+      "pace": 47,
+      "stamina": 58,
+      "passing": 66,
+      "vision": 46,
+      "dribbling": 44,
+      "finishing": 35,
+      "defending": 63,
+      "aggression": 52,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-03",
+     "club": "KES",
+     "number": 3,
+     "name": "Marco Oladski",
+     "pos": "LB",
+     "age": 34,
+     "attrs": {
+      "pace": 69,
+      "stamina": 86,
+      "passing": 65,
+      "vision": 62,
+      "dribbling": 57,
+      "finishing": 52,
+      "defending": 76,
+      "aggression": 64,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-18",
+     "club": "KES",
+     "number": 18,
+     "name": "Stefan Marado",
+     "pos": "LB",
+     "age": 21,
+     "attrs": {
+      "pace": 61,
+      "stamina": 76,
+      "passing": 51,
+      "vision": 49,
+      "dribbling": 57,
+      "finishing": 35,
+      "defending": 58,
+      "aggression": 58,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-02",
+     "club": "KES",
+     "number": 2,
+     "name": "Omar Loresen",
+     "pos": "RB",
+     "age": 23,
+     "attrs": {
+      "pace": 74,
+      "stamina": 71,
+      "passing": 70,
+      "vision": 58,
+      "dribbling": 62,
+      "finishing": 35,
+      "defending": 63,
+      "aggression": 65,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-22",
+     "club": "KES",
+     "number": 22,
+     "name": "Rafael Falenham",
+     "pos": "RB",
+     "age": 25,
+     "attrs": {
+      "pace": 79,
+      "stamina": 80,
+      "passing": 64,
+      "vision": 59,
+      "dribbling": 65,
+      "finishing": 49,
+      "defending": 70,
+      "aggression": 63,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-06",
+     "club": "KES",
+     "number": 6,
+     "name": "Hassan Ashski",
+     "pos": "DM",
+     "age": 22,
+     "attrs": {
+      "pace": 69,
+      "stamina": 72,
+      "passing": 70,
+      "vision": 55,
+      "dribbling": 60,
+      "finishing": 42,
+      "defending": 89,
+      "aggression": 79,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-14",
+     "club": "KES",
+     "number": 14,
+     "name": "Idris Dorado",
+     "pos": "DM",
+     "age": 25,
+     "attrs": {
+      "pace": 72,
+      "stamina": 84,
+      "passing": 68,
+      "vision": 62,
+      "dribbling": 65,
+      "finishing": 48,
+      "defending": 65,
+      "aggression": 70,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-08",
+     "club": "KES",
+     "number": 8,
+     "name": "Dario Zanton",
+     "pos": "CM",
+     "age": 29,
+     "attrs": {
+      "pace": 61,
+      "stamina": 80,
+      "passing": 80,
+      "vision": 71,
+      "dribbling": 67,
+      "finishing": 53,
+      "defending": 61,
+      "aggression": 57,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-16",
+     "club": "KES",
+     "number": 16,
+     "name": "Luca Doranman",
+     "pos": "CM",
+     "age": 31,
+     "attrs": {
+      "pace": 67,
+      "stamina": 75,
+      "passing": 72,
+      "vision": 73,
+      "dribbling": 57,
+      "finishing": 57,
+      "defending": 62,
+      "aggression": 67,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-20",
+     "club": "KES",
+     "number": 20,
+     "name": "Joel Halini",
+     "pos": "CM",
+     "age": 32,
+     "attrs": {
+      "pace": 67,
+      "stamina": 72,
+      "passing": 69,
+      "vision": 71,
+      "dribbling": 64,
+      "finishing": 47,
+      "defending": 52,
+      "aggression": 57,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-28",
+     "club": "KES",
+     "number": 28,
+     "name": "Gabriel Wexell",
+     "pos": "CM",
+     "age": 19,
+     "attrs": {
+      "pace": 61,
+      "stamina": 81,
+      "passing": 68,
+      "vision": 69,
+      "dribbling": 70,
+      "finishing": 58,
+      "defending": 59,
+      "aggression": 62,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-10",
+     "club": "KES",
+     "number": 10,
+     "name": "Ivan Lanini",
+     "pos": "AM",
+     "age": 22,
+     "attrs": {
+      "pace": 64,
+      "stamina": 74,
+      "passing": 83,
+      "vision": 81,
+      "dribbling": 84,
+      "finishing": 74,
+      "defending": 39,
+      "aggression": 49,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-21",
+     "club": "KES",
+     "number": 21,
+     "name": "Hugo Braanell",
+     "pos": "AM",
+     "age": 23,
+     "attrs": {
+      "pace": 64,
+      "stamina": 81,
+      "passing": 73,
+      "vision": 82,
+      "dribbling": 80,
+      "finishing": 67,
+      "defending": 40,
+      "aggression": 52,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-11",
+     "club": "KES",
+     "number": 11,
+     "name": "Mateo Ashelberg",
+     "pos": "LW",
+     "age": 25,
+     "attrs": {
+      "pace": 75,
+      "stamina": 72,
+      "passing": 69,
+      "vision": 72,
+      "dribbling": 81,
+      "finishing": 62,
+      "defending": 35,
+      "aggression": 46,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-17",
+     "club": "KES",
+     "number": 17,
+     "name": "Noah Lorell",
+     "pos": "LW",
+     "age": 25,
+     "attrs": {
+      "pace": 82,
+      "stamina": 72,
+      "passing": 73,
+      "vision": 73,
+      "dribbling": 91,
+      "finishing": 75,
+      "defending": 40,
+      "aggression": 46,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-07",
+     "club": "KES",
+     "number": 7,
+     "name": "Cem Beliton",
+     "pos": "RW",
+     "age": 30,
+     "attrs": {
+      "pace": 75,
+      "stamina": 77,
+      "passing": 72,
+      "vision": 64,
+      "dribbling": 84,
+      "finishing": 73,
+      "defending": 37,
+      "aggression": 38,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-19",
+     "club": "KES",
+     "number": 19,
+     "name": "Hugo Ravman",
+     "pos": "RW",
+     "age": 22,
+     "attrs": {
+      "pace": 82,
+      "stamina": 86,
+      "passing": 78,
+      "vision": 63,
+      "dribbling": 83,
+      "finishing": 74,
+      "defending": 45,
+      "aggression": 54,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-09",
+     "club": "KES",
+     "number": 9,
+     "name": "Andre Holard",
+     "pos": "ST",
+     "age": 20,
+     "attrs": {
+      "pace": 72,
+      "stamina": 69,
+      "passing": 59,
+      "vision": 51,
+      "dribbling": 59,
+      "finishing": 75,
+      "defending": 35,
+      "aggression": 46,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "KES-23",
+     "club": "KES",
+     "number": 23,
+     "name": "Hugo Norinado",
+     "pos": "ST",
+     "age": 20,
+     "attrs": {
+      "pace": 66,
+      "stamina": 65,
+      "passing": 50,
+      "vision": 63,
+      "dribbling": 55,
+      "finishing": 84,
+      "defending": 35,
+      "aggression": 55,
+      "keeping": 10
+     }
+    }
+   ]
+  },
+  {
+   "id": "ALD",
+   "name": "Aldergate Rovers",
+   "short": "Aldergate",
+   "colors": {
+    "primary": "#2B2D6E",
+    "secondary": "#C9CCE8"
+   },
+   "strength": 0.94,
+   "style": {
+    "formation": "4-1-4-1",
+    "press_intensity": 0.4,
+    "press_height": 0.2,
+    "directness": 0.7,
+    "tempo": 0.5,
+    "width": 0.5,
+    "line_height": 0.25,
+    "counter_bias": 0.85
+   },
+   "squad": [
+    {
+     "id": "ALD-01",
+     "club": "ALD",
+     "number": 1,
+     "name": "Rafael Koviman",
+     "pos": "GK",
+     "age": 25,
+     "attrs": {
+      "pace": 51,
+      "stamina": 60,
+      "passing": 52,
+      "vision": 45,
+      "dribbling": 36,
+      "finishing": 35,
+      "defending": 51,
+      "aggression": 50,
+      "keeping": 73
+     }
+    },
+    {
+     "id": "ALD-13",
+     "club": "ALD",
+     "number": 13,
+     "name": "Alex Dorley",
+     "pos": "GK",
+     "age": 32,
+     "attrs": {
+      "pace": 43,
+      "stamina": 49,
+      "passing": 44,
+      "vision": 55,
+      "dribbling": 35,
+      "finishing": 35,
+      "defending": 53,
+      "aggression": 42,
+      "keeping": 67
+     }
+    },
+    {
+     "id": "ALD-31",
+     "club": "ALD",
+     "number": 31,
+     "name": "Gustav Treanstein",
+     "pos": "GK",
+     "age": 29,
+     "attrs": {
+      "pace": 43,
+      "stamina": 58,
+      "passing": 52,
+      "vision": 65,
+      "dribbling": 51,
+      "finishing": 35,
+      "defending": 42,
+      "aggression": 56,
+      "keeping": 72
+     }
+    },
+    {
+     "id": "ALD-04",
+     "club": "ALD",
+     "number": 4,
+     "name": "Zane Marawick",
+     "pos": "CB",
+     "age": 32,
+     "attrs": {
+      "pace": 69,
+      "stamina": 78,
+      "passing": 67,
+      "vision": 67,
+      "dribbling": 56,
+      "finishing": 37,
+      "defending": 77,
+      "aggression": 78,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-05",
+     "club": "ALD",
+     "number": 5,
+     "name": "Kai Devstein",
+     "pos": "CB",
+     "age": 25,
+     "attrs": {
+      "pace": 61,
+      "stamina": 75,
+      "passing": 56,
+      "vision": 55,
+      "dribbling": 47,
+      "finishing": 35,
+      "defending": 72,
+      "aggression": 74,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-15",
+     "club": "ALD",
+     "number": 15,
+     "name": "Rafael Ivarorman",
+     "pos": "CB",
+     "age": 35,
+     "attrs": {
+      "pace": 57,
+      "stamina": 71,
+      "passing": 61,
+      "vision": 52,
+      "dribbling": 48,
+      "finishing": 35,
+      "defending": 72,
+      "aggression": 69,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-25",
+     "club": "ALD",
+     "number": 25,
+     "name": "Adrian Kovini",
+     "pos": "CB",
+     "age": 34,
+     "attrs": {
+      "pace": 67,
+      "stamina": 71,
+      "passing": 67,
+      "vision": 56,
+      "dribbling": 53,
+      "finishing": 35,
+      "defending": 70,
+      "aggression": 79,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-03",
+     "club": "ALD",
+     "number": 3,
+     "name": "Kai Garton",
+     "pos": "LB",
+     "age": 28,
+     "attrs": {
+      "pace": 73,
+      "stamina": 73,
+      "passing": 54,
+      "vision": 65,
+      "dribbling": 53,
+      "finishing": 36,
+      "defending": 61,
+      "aggression": 65,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-18",
+     "club": "ALD",
+     "number": 18,
+     "name": "Oscar Norison",
+     "pos": "LB",
+     "age": 29,
+     "attrs": {
+      "pace": 71,
+      "stamina": 73,
+      "passing": 56,
+      "vision": 55,
+      "dribbling": 62,
+      "finishing": 40,
+      "defending": 67,
+      "aggression": 59,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-02",
+     "club": "ALD",
+     "number": 2,
+     "name": "Mehmet Morard",
+     "pos": "RB",
+     "age": 23,
+     "attrs": {
+      "pace": 69,
+      "stamina": 79,
+      "passing": 68,
+      "vision": 62,
+      "dribbling": 67,
+      "finishing": 35,
+      "defending": 61,
+      "aggression": 63,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-22",
+     "club": "ALD",
+     "number": 22,
+     "name": "Ayo Keladski",
+     "pos": "RB",
+     "age": 35,
+     "attrs": {
+      "pace": 77,
+      "stamina": 83,
+      "passing": 71,
+      "vision": 53,
+      "dribbling": 62,
+      "finishing": 38,
+      "defending": 68,
+      "aggression": 62,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-06",
+     "club": "ALD",
+     "number": 6,
+     "name": "Hassan Olelsen",
+     "pos": "DM",
+     "age": 22,
+     "attrs": {
+      "pace": 64,
+      "stamina": 82,
+      "passing": 73,
+      "vision": 77,
+      "dribbling": 64,
+      "finishing": 39,
+      "defending": 70,
+      "aggression": 67,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-14",
+     "club": "ALD",
+     "number": 14,
+     "name": "Zane Feninwick",
+     "pos": "DM",
+     "age": 35,
+     "attrs": {
+      "pace": 71,
+      "stamina": 85,
+      "passing": 72,
+      "vision": 65,
+      "dribbling": 66,
+      "finishing": 45,
+      "defending": 73,
+      "aggression": 82,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-08",
+     "club": "ALD",
+     "number": 8,
+     "name": "Pablo Zanard",
+     "pos": "CM",
+     "age": 21,
+     "attrs": {
+      "pace": 60,
+      "stamina": 67,
+      "passing": 63,
+      "vision": 55,
+      "dribbling": 68,
+      "finishing": 42,
+      "defending": 53,
+      "aggression": 58,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-16",
+     "club": "ALD",
+     "number": 16,
+     "name": "Mehmet Treman",
+     "pos": "CM",
+     "age": 23,
+     "attrs": {
+      "pace": 74,
+      "stamina": 94,
+      "passing": 76,
+      "vision": 89,
+      "dribbling": 71,
+      "finishing": 65,
+      "defending": 60,
+      "aggression": 63,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-20",
+     "club": "ALD",
+     "number": 20,
+     "name": "Marco Holorado",
+     "pos": "CM",
+     "age": 32,
+     "attrs": {
+      "pace": 57,
+      "stamina": 87,
+      "passing": 75,
+      "vision": 71,
+      "dribbling": 64,
+      "finishing": 49,
+      "defending": 56,
+      "aggression": 63,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-28",
+     "club": "ALD",
+     "number": 28,
+     "name": "Emil Kovdal",
+     "pos": "CM",
+     "age": 30,
+     "attrs": {
+      "pace": 65,
+      "stamina": 80,
+      "passing": 68,
+      "vision": 52,
+      "dribbling": 54,
+      "finishing": 56,
+      "defending": 57,
+      "aggression": 61,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-10",
+     "club": "ALD",
+     "number": 10,
+     "name": "Nico Ossberg",
+     "pos": "AM",
+     "age": 25,
+     "attrs": {
+      "pace": 68,
+      "stamina": 70,
+      "passing": 76,
+      "vision": 87,
+      "dribbling": 75,
+      "finishing": 66,
+      "defending": 45,
+      "aggression": 56,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-21",
+     "club": "ALD",
+     "number": 21,
+     "name": "Gustav Yardal",
+     "pos": "AM",
+     "age": 35,
+     "attrs": {
+      "pace": 85,
+      "stamina": 72,
+      "passing": 80,
+      "vision": 94,
+      "dribbling": 78,
+      "finishing": 64,
+      "defending": 48,
+      "aggression": 50,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-11",
+     "club": "ALD",
+     "number": 11,
+     "name": "Marco Holestein",
+     "pos": "LW",
+     "age": 25,
+     "attrs": {
+      "pace": 84,
+      "stamina": 74,
+      "passing": 78,
+      "vision": 67,
+      "dribbling": 83,
+      "finishing": 72,
+      "defending": 42,
+      "aggression": 53,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-17",
+     "club": "ALD",
+     "number": 17,
+     "name": "Stefan Falez",
+     "pos": "LW",
+     "age": 21,
+     "attrs": {
+      "pace": 73,
+      "stamina": 62,
+      "passing": 54,
+      "vision": 61,
+      "dribbling": 78,
+      "finishing": 66,
+      "defending": 35,
+      "aggression": 47,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-07",
+     "club": "ALD",
+     "number": 7,
+     "name": "Callum Brainini",
+     "pos": "RW",
+     "age": 32,
+     "attrs": {
+      "pace": 83,
+      "stamina": 72,
+      "passing": 65,
+      "vision": 76,
+      "dribbling": 83,
+      "finishing": 74,
+      "defending": 43,
+      "aggression": 52,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-19",
+     "club": "ALD",
+     "number": 19,
+     "name": "Tariq Wexarham",
+     "pos": "RW",
+     "age": 23,
+     "attrs": {
+      "pace": 76,
+      "stamina": 72,
+      "passing": 65,
+      "vision": 67,
+      "dribbling": 77,
+      "finishing": 70,
+      "defending": 35,
+      "aggression": 47,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-09",
+     "club": "ALD",
+     "number": 9,
+     "name": "Reuben Ashensen",
+     "pos": "ST",
+     "age": 24,
+     "attrs": {
+      "pace": 64,
+      "stamina": 65,
+      "passing": 56,
+      "vision": 50,
+      "dribbling": 56,
+      "finishing": 66,
+      "defending": 35,
+      "aggression": 51,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "ALD-23",
+     "club": "ALD",
+     "number": 23,
+     "name": "Dario Vasanman",
+     "pos": "ST",
+     "age": 27,
+     "attrs": {
+      "pace": 76,
+      "stamina": 68,
+      "passing": 53,
+      "vision": 60,
+      "dribbling": 64,
+      "finishing": 71,
+      "defending": 35,
+      "aggression": 59,
+      "keeping": 10
+     }
+    }
+   ]
+  },
+  {
+   "id": "SAL",
+   "name": "Saltmarsh Town",
+   "short": "Saltmarsh",
+   "colors": {
+    "primary": "#E58A1F",
+    "secondary": "#1B1B1B"
+   },
+   "strength": 0.92,
+   "style": {
+    "formation": "4-4-2",
+    "press_intensity": 0.55,
+    "press_height": 0.5,
+    "directness": 0.5,
+    "tempo": 0.55,
+    "width": 0.65,
+    "line_height": 0.5,
+    "counter_bias": 0.55
+   },
+   "squad": [
+    {
+     "id": "SAL-01",
+     "club": "SAL",
+     "number": 1,
+     "name": "Marco Braerski",
+     "pos": "GK",
+     "age": 29,
+     "attrs": {
+      "pace": 45,
+      "stamina": 55,
+      "passing": 58,
+      "vision": 61,
+      "dribbling": 36,
+      "finishing": 35,
+      "defending": 35,
+      "aggression": 45,
+      "keeping": 71
+     }
+    },
+    {
+     "id": "SAL-13",
+     "club": "SAL",
+     "number": 13,
+     "name": "Kai Braberg",
+     "pos": "GK",
+     "age": 22,
+     "attrs": {
+      "pace": 45,
+      "stamina": 66,
+      "passing": 44,
+      "vision": 65,
+      "dribbling": 38,
+      "finishing": 35,
+      "defending": 47,
+      "aggression": 45,
+      "keeping": 70
+     }
+    },
+    {
+     "id": "SAL-31",
+     "club": "SAL",
+     "number": 31,
+     "name": "Callum Belenini",
+     "pos": "GK",
+     "age": 27,
+     "attrs": {
+      "pace": 49,
+      "stamina": 59,
+      "passing": 55,
+      "vision": 60,
+      "dribbling": 36,
+      "finishing": 35,
+      "defending": 44,
+      "aggression": 51,
+      "keeping": 66
+     }
+    },
+    {
+     "id": "SAL-04",
+     "club": "SAL",
+     "number": 4,
+     "name": "Zane Ossenwick",
+     "pos": "CB",
+     "age": 34,
+     "attrs": {
+      "pace": 58,
+      "stamina": 61,
+      "passing": 53,
+      "vision": 66,
+      "dribbling": 43,
+      "finishing": 35,
+      "defending": 84,
+      "aggression": 75,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-05",
+     "club": "SAL",
+     "number": 5,
+     "name": "Ben Prandal",
+     "pos": "CB",
+     "age": 32,
+     "attrs": {
+      "pace": 51,
+      "stamina": 69,
+      "passing": 65,
+      "vision": 56,
+      "dribbling": 53,
+      "finishing": 41,
+      "defending": 77,
+      "aggression": 77,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-15",
+     "club": "SAL",
+     "number": 15,
+     "name": "Theo Quinarwick",
+     "pos": "CB",
+     "age": 29,
+     "attrs": {
+      "pace": 48,
+      "stamina": 64,
+      "passing": 55,
+      "vision": 50,
+      "dribbling": 36,
+      "finishing": 35,
+      "defending": 71,
+      "aggression": 63,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-25",
+     "club": "SAL",
+     "number": 25,
+     "name": "Idris Talenham",
+     "pos": "CB",
+     "age": 23,
+     "attrs": {
+      "pace": 52,
+      "stamina": 68,
+      "passing": 63,
+      "vision": 54,
+      "dribbling": 57,
+      "finishing": 44,
+      "defending": 76,
+      "aggression": 76,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-03",
+     "club": "SAL",
+     "number": 3,
+     "name": "Andre Dorerini",
+     "pos": "LB",
+     "age": 34,
+     "attrs": {
+      "pace": 66,
+      "stamina": 84,
+      "passing": 55,
+      "vision": 62,
+      "dribbling": 60,
+      "finishing": 44,
+      "defending": 64,
+      "aggression": 65,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-18",
+     "club": "SAL",
+     "number": 18,
+     "name": "Noah Pelarski",
+     "pos": "LB",
+     "age": 24,
+     "attrs": {
+      "pace": 60,
+      "stamina": 71,
+      "passing": 64,
+      "vision": 56,
+      "dribbling": 58,
+      "finishing": 35,
+      "defending": 62,
+      "aggression": 51,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-02",
+     "club": "SAL",
+     "number": 2,
+     "name": "Mehmet Morarado",
+     "pos": "RB",
+     "age": 33,
+     "attrs": {
+      "pace": 70,
+      "stamina": 78,
+      "passing": 71,
+      "vision": 59,
+      "dribbling": 66,
+      "finishing": 39,
+      "defending": 60,
+      "aggression": 59,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-22",
+     "club": "SAL",
+     "number": 22,
+     "name": "Pablo Ossandal",
+     "pos": "RB",
+     "age": 29,
+     "attrs": {
+      "pace": 72,
+      "stamina": 79,
+      "passing": 60,
+      "vision": 59,
+      "dribbling": 58,
+      "finishing": 47,
+      "defending": 68,
+      "aggression": 59,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-06",
+     "club": "SAL",
+     "number": 6,
+     "name": "Emil Ravarstein",
+     "pos": "DM",
+     "age": 31,
+     "attrs": {
+      "pace": 57,
+      "stamina": 74,
+      "passing": 62,
+      "vision": 72,
+      "dribbling": 57,
+      "finishing": 41,
+      "defending": 62,
+      "aggression": 63,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-14",
+     "club": "SAL",
+     "number": 14,
+     "name": "Leon Lorski",
+     "pos": "DM",
+     "age": 29,
+     "attrs": {
+      "pace": 64,
+      "stamina": 67,
+      "passing": 61,
+      "vision": 61,
+      "dribbling": 54,
+      "finishing": 37,
+      "defending": 75,
+      "aggression": 66,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-08",
+     "club": "SAL",
+     "number": 8,
+     "name": "Joel Pelandal",
+     "pos": "CM",
+     "age": 27,
+     "attrs": {
+      "pace": 65,
+      "stamina": 80,
+      "passing": 73,
+      "vision": 78,
+      "dribbling": 66,
+      "finishing": 56,
+      "defending": 61,
+      "aggression": 66,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-16",
+     "club": "SAL",
+     "number": 16,
+     "name": "Noah Belton",
+     "pos": "CM",
+     "age": 21,
+     "attrs": {
+      "pace": 56,
+      "stamina": 75,
+      "passing": 73,
+      "vision": 64,
+      "dribbling": 63,
+      "finishing": 47,
+      "defending": 57,
+      "aggression": 60,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-20",
+     "club": "SAL",
+     "number": 20,
+     "name": "Emil Ulerberg",
+     "pos": "CM",
+     "age": 24,
+     "attrs": {
+      "pace": 51,
+      "stamina": 73,
+      "passing": 74,
+      "vision": 66,
+      "dribbling": 64,
+      "finishing": 48,
+      "defending": 58,
+      "aggression": 54,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-28",
+     "club": "SAL",
+     "number": 28,
+     "name": "Tomas Pranton",
+     "pos": "CM",
+     "age": 30,
+     "attrs": {
+      "pace": 58,
+      "stamina": 76,
+      "passing": 79,
+      "vision": 67,
+      "dribbling": 76,
+      "finishing": 51,
+      "defending": 62,
+      "aggression": 62,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-10",
+     "club": "SAL",
+     "number": 10,
+     "name": "Viktor Belwick",
+     "pos": "AM",
+     "age": 27,
+     "attrs": {
+      "pace": 63,
+      "stamina": 75,
+      "passing": 74,
+      "vision": 76,
+      "dribbling": 70,
+      "finishing": 58,
+      "defending": 35,
+      "aggression": 40,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-21",
+     "club": "SAL",
+     "number": 21,
+     "name": "Joel Mordal",
+     "pos": "AM",
+     "age": 27,
+     "attrs": {
+      "pace": 59,
+      "stamina": 65,
+      "passing": 79,
+      "vision": 74,
+      "dribbling": 71,
+      "finishing": 64,
+      "defending": 42,
+      "aggression": 50,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-11",
+     "club": "SAL",
+     "number": 11,
+     "name": "Andre Halelman",
+     "pos": "LW",
+     "age": 26,
+     "attrs": {
+      "pace": 72,
+      "stamina": 79,
+      "passing": 67,
+      "vision": 57,
+      "dribbling": 68,
+      "finishing": 63,
+      "defending": 35,
+      "aggression": 56,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-17",
+     "club": "SAL",
+     "number": 17,
+     "name": "Dario Quinski",
+     "pos": "LW",
+     "age": 19,
+     "attrs": {
+      "pace": 76,
+      "stamina": 81,
+      "passing": 69,
+      "vision": 64,
+      "dribbling": 81,
+      "finishing": 74,
+      "defending": 46,
+      "aggression": 57,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-07",
+     "club": "SAL",
+     "number": 7,
+     "name": "Ben Greyaell",
+     "pos": "RW",
+     "age": 26,
+     "attrs": {
+      "pace": 75,
+      "stamina": 66,
+      "passing": 71,
+      "vision": 69,
+      "dribbling": 68,
+      "finishing": 58,
+      "defending": 35,
+      "aggression": 42,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-19",
+     "club": "SAL",
+     "number": 19,
+     "name": "Felix Morworth",
+     "pos": "RW",
+     "age": 35,
+     "attrs": {
+      "pace": 75,
+      "stamina": 69,
+      "passing": 75,
+      "vision": 71,
+      "dribbling": 72,
+      "finishing": 75,
+      "defending": 35,
+      "aggression": 51,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-09",
+     "club": "SAL",
+     "number": 9,
+     "name": "Oscar Garorford",
+     "pos": "ST",
+     "age": 33,
+     "attrs": {
+      "pace": 79,
+      "stamina": 69,
+      "passing": 58,
+      "vision": 62,
+      "dribbling": 61,
+      "finishing": 81,
+      "defending": 35,
+      "aggression": 61,
+      "keeping": 10
+     }
+    },
+    {
+     "id": "SAL-23",
+     "club": "SAL",
+     "number": 23,
+     "name": "Ivan Pelberg",
+     "pos": "ST",
+     "age": 33,
+     "attrs": {
+      "pace": 68,
+      "stamina": 58,
+      "passing": 55,
+      "vision": 44,
+      "dribbling": 53,
+      "finishing": 81,
+      "defending": 35,
+      "aggression": 50,
+      "keeping": 10
+     }
+    }
+   ]
+  }
+ ]
+}

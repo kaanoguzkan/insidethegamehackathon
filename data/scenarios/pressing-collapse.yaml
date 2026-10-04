@@ -1,0 +1,16 @@
+id: pressing-collapse
+description: >-
+  Northbridge press hard and win the ball high in the first hour. Around 55 minutes the front
+  line tires and they stop pressing; Harbour City, who sit on 1-1 or better, start to play through
+  midfield at will. The pipeline is never told this: it has to notice the change in PPDA,
+  pressing and sprint counts, then explain what it means for the match.
+home: HAR
+away: NOR
+seed: 42
+script:
+  - at: "55:00"
+    team: NOR
+    change: { press_intensity: -0.80, press_height: -0.70, line_height: -0.40 }
+  - at: "70:00"
+    team: HAR
+    event: substitution

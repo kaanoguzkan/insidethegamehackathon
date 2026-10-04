@@ -160,7 +160,13 @@ class ShapeMixin:
             if slot in self.over:
                 continue
             used.add(slot)
-            tgt[slot] = focus + away * (2.3 + 1.8 * r)
+            # Stand-off distance: a team that presses closes the carrier down to ~3 m; a passive
+            # block (or tired legs) holds off at 6-10 m and only contains.
+            eff = st.press_intensity * (0.55 + 0.45 * S[1 + j])
+            standoff = 2.2 + 6.0 * (1.0 - eff) + (0.0 if (engaged or counterpress) else 3.5) + 1.8 * r
+            if counterpress:
+                standoff = min(standoff, 2.6 + 1.8 * r)
+            tgt[slot] = focus + away * standoff
             if engaged or counterpress:
                 u_p = 0.18 + 0.55 * st.press_intensity
                 if counterpress:

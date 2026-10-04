@@ -59,7 +59,7 @@ class MatchResult:
     meta: dict
     events: list[dict]
     frames: np.ndarray  # (n, 22, 2) float32, absolute metres, NaN while a player is off
-    ball: np.ndarray  # (n, 3) float32: x, y, height
+    ball: np.ndarray  # (n, 4) float32: x, y, height, in-play flag (0 while the ball is dead)
     chunk_slots: list[list[str]]  # player ids per tracking slot, one list per 5 s chunk
     stats: dict = field(default_factory=dict)
 
@@ -167,7 +167,7 @@ class MatchSim(ShapeMixin, ActionsMixin):
         self.events: list[dict] = []
         max_ticks = int((self.p1_len + self.p2_len + 120.0) / DT) + 10
         self.frames = np.full((max_ticks, 22, 2), np.nan, dtype=np.float32)
-        self.ball_track = np.zeros((max_ticks, 3), dtype=np.float32)
+        self.ball_track = np.zeros((max_ticks, 4), dtype=np.float32)
         self.chunk_slots: list[list[str]] = []
         self.period_marks: list[dict] = []
 
@@ -406,7 +406,8 @@ class MatchSim(ShapeMixin, ActionsMixin):
         fr = self.pos.astype(np.float32)
         fr[~self.active] = np.nan
         self.frames[i] = fr
-        self.ball_track[i] = (self.ball[0], self.ball[1], self.ball_z)
+        alive = 0.0 if self.mode == "dead" else 1.0
+        self.ball_track[i] = (self.ball[0], self.ball[1], self.ball_z, alive)
 
     def tick(self) -> None:
         self._time_events()

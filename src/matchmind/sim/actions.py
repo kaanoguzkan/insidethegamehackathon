@@ -29,12 +29,14 @@ TUNE: dict[str, float] = {
     "pass_w": 1.00,
     "carry_w": 0.45,
     "dribble_w": 0.10,
-    "shot_w": 0.085,
+    "shot_w": 0.072,
     "shot_k": 3.2,
     "first_time_boost": 3.0,
-    "clear_w": 2.0,
-    "duel_rate": 0.095,
-    "foul_share": 0.36,
+    "clear_w": 3.8,
+    "duel_rate": 0.13,
+    "pressure_base": 0.17,
+    "pressure_gain": 0.72,
+    "foul_share": 0.56,
     "tackle_win": 0.40,
     "yellow_p": 0.14,
     "red_p": 0.003,
@@ -49,7 +51,7 @@ DEAD_RANGE = {
     "free_kick": (7.0, 14.0),
 }
 
-PRESSURE_RANGE = 1.9
+PRESSURE_RANGE = 3.2
 DUEL_RANGE = 1.9
 
 
@@ -179,8 +181,19 @@ class ActionsMixin:
         self.carry = None
 
     def _emit_pressure(self, h: int, o: int, hp) -> None:
+        """A defender closing the carrier down. Frequency is a direct readout of how hard the
+        defending team is pressing (intensity, how high it is willing to press) and how tired
+        the defender is, which is what pressure events measure in real data."""
         (d, c), = self.nearest_opps(hp, o)
-        if d <= PRESSURE_RANGE and self.t - self.last_pressure.get(c, -9.0) > 2.5 and self.rng.random() < 0.7:
+        if d > PRESSURE_RANGE or self.t - self.last_pressure.get(c, -9.0) <= 2.5:
+            return
+        st = self.style[o]
+        bx_def, _ = self.att(o, hp)
+        engaged = bx_def <= max(50.0, 45.0 + 55.0 * st.press_height)
+        stamina = float(self.stamina[c])
+        p = (TUNE["pressure_base"] + TUNE["pressure_gain"] * st.press_intensity * (0.4 + 0.6 * stamina))
+        p *= (1.0 if engaged else 0.4) * (1.0 - 0.25 * d / PRESSURE_RANGE)
+        if self.rng.random() < p:
             self.last_pressure[c] = self.t
             self.emit(
                 "pressure", team=o, player=c, loc=self.pos[c], outcome=None,
@@ -330,9 +343,13 @@ class ActionsMixin:
         r = self.rng.random()
         pl, dfn = self.players[h], self.players[c]
         skill = (dfn.attrs["defending"] - pl.attrs["dribbling"]) * 0.004
-        if r < TUNE["foul_share"] + 0.1 * (dfn.attrs["aggression"] - 60) / 100.0:
+        hax, hay = self.att(t_, hp)
+        foul_p = TUNE["foul_share"] + 0.1 * (dfn.attrs["aggression"] - 60) / 100.0
+        if G.in_box(hax, hay):
+            foul_p *= 0.12  # defenders know better than to foul in their own box
+        if r < foul_p:
             self._foul(c, h, hp)
-        elif r < TUNE["foul_share"] + TUNE["tackle_win"] + skill:
+        elif r < foul_p + TUNE["tackle_win"] + skill:
             self._tackle_won(h, c, hp)
         else:
             self.emit(
@@ -598,7 +615,7 @@ class ActionsMixin:
                 outcome, interceptor = "intercepted", k
             else:
                 edge = min(end[0], G.PITCH_L - end[0], end[1], G.PITCH_W - end[1])
-                p_out = 0.22 + 0.55 * math.exp(-edge / 8.0) + (0.08 if lofted else 0.0)
+                p_out = 0.27 + 0.55 * math.exp(-edge / 8.0) + (0.08 if lofted else 0.0)
                 if self.rng.random() < p_out:
                     end = self._nearest_exit(end)
                     outcome = "out"
