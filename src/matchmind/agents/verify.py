@@ -121,7 +121,7 @@ _MINUTE_LABEL = re.compile(r"(?<![\w.])(\d{1,3})(?:\+(\d{1,2}))?'")
 _ORDINAL = re.compile(r"(?<![\w.])(\d+)(?:st|nd|rd|th)\b")
 _NUMBER = re.compile(r"(?<![\w.,])(\d+(?:[.,]\d+)?)(?![\w]*\d)")
 _PERCENT_METRICS = {"possession_share", "field_tilt", "pass_acc", "xg_share"}
-_UNIT_FIVE = re.compile(r"\b5\s*(?:min|dk|minutes|minutos|dakika)\b")
+_UNIT_FIVE = re.compile(r"\b5\s*(?:min|dk|minutes|minutos|dakika)\w*")
 
 _WORDS = {
     "en": {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12},
@@ -144,6 +144,25 @@ def _decimals(tok: str) -> int:
     return len(m.group(1)) if m else 0
 
 
+def context_numbers(pack: dict) -> set[float]:
+    """Numbers that describe *when* and *what the score was*, not a metric: no citation needed."""
+    out: set[float] = set()
+    clock = pack["detectedAt"]["clock"]
+    out |= {float(clock["minute"]), float(clock["second"])}
+    texts = [pack["detectedAt"].get("label", "")]
+    for w in pack.get("windows", {}).values():
+        texts.append(w.get("label", ""))
+        r = w.get("range")
+        if r:
+            out.add(round((r[1] - r[0]) / 60000.0))
+    for t in texts:
+        out |= {float(x) for x in re.findall(r"\d+", t)}
+    out |= {float(x) for x in re.findall(r"\d+", str(pack["facts"].get("score", "")))}
+    if pack["type"] == "red_card":
+        out |= {10.0, 11.0}  # a red card leaves ten men
+    return out
+
+
 def allowed_numbers(pack: dict) -> set[float]:
     """Every figure the pack licenses: metrics, facts, clock, labels, window lengths, percentages."""
     out: set[float] = set()
@@ -160,28 +179,20 @@ def allowed_numbers(pack: dict) -> set[float]:
         out.add(abs(v))
         if 0 < abs(v) <= 1:
             out.add(abs(v) * 100)
-    clock = pack["detectedAt"]["clock"]
-    out |= {float(clock["minute"]), float(clock["second"])}
-    texts = [pack["detectedAt"].get("label", "")]
-    for w in pack.get("windows", {}).values():
-        texts.append(w.get("label", ""))
-        r = w.get("range")
-        if r:
-            out.add(round((r[1] - r[0]) / 60000.0))
-    for t in texts:
-        out |= {float(x) for x in re.findall(r"\d+", t)}
-    # Score values and the sum of the score are fair game for "it's 2-1".
-    out |= {float(x) for x in re.findall(r"\d+", str(pack["facts"].get("score", "")))}
-    return out
+    return out | context_numbers(pack)
 
 
 def _matches(token: str, allowed: Iterable[float]) -> bool:
+    """A token is supported if some licensed value rounds to it at the token's own precision.
+
+    Whole-number tokens must match a whole-number value: "3" is not supported by 2.9.
+    """
     t = _to_float(token)
     d = _decimals(token)
     for a in allowed:
-        if round(a, d) == round(t, d):
-            return True
-        if d == 0 and abs(a) >= 1 and round(abs(a)) == round(t):
+        if round(a, d) != round(t, d):
+            continue
+        if d > 0 or abs(a - round(a)) < 1e-6:
             return True
     return False
 
@@ -353,7 +364,9 @@ def check_claims(claims: list[Claim], pack: dict, lang: str, registry: Registry 
         where = f"claim[{i}]"
         out += check_numbers(c.text, pack, lang, where)
         out += check_names(c.text, pack, registry, where)
-        has_number = bool(_NUMBER.search(_MINUTE_LABEL.sub(" ", c.text)))
+        ctx = context_numbers(pack)
+        stripped = _UNIT_FIVE.sub(" ", _MINUTE_LABEL.sub(" ", c.text))
+        has_number = any(_to_float(n) not in ctx for n in _NUMBER.findall(stripped))
         if has_number and not c.refs:
             out.append(Issue("reference", "a claim with numbers must cite the evidence it rests on", where=where))
         for r in c.refs:
