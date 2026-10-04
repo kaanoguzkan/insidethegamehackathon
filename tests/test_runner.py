@@ -82,7 +82,7 @@ def test_package_files_are_complete_and_loadable(built, tmp_path):
         assert (out / name).stat().st_size > 2
     assert (out / "tracking.bin.gz").stat().st_size == manifest["trackingBytes"]
     meta = json.loads((out / "meta.json").read_text())
-    assert meta["package"]["version"] == "1" and meta["matchId"] == "rt"
+    assert meta["package"]["version"] == "2" and meta["matchId"] == "rt"
     events = json.loads((out / "events.json").read_text())
     ev_ids = {e["id"] for e in events}
     for m in replay.moments:
