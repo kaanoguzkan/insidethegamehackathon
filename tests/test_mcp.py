@@ -1,0 +1,120 @@
+import asyncio
+import json
+
+import pytest
+from mcp.shared.memory import create_connected_server_and_client_session as connect
+
+from matchmind.intel.pipeline import interpret_match
+from matchmind.mcp_server.registry import MatchRegistry, UnknownMatch
+from matchmind.mcp_server.server import build_server, ms_at
+
+
+@pytest.fixture(scope="module")
+def registry(match):
+    ip, _ = interpret_match(match)
+    reg = MatchRegistry()
+    reg.register("t0001", ip)
+    return reg
+
+
+def call(registry, tool, args=None):
+    async def go():
+        server = build_server(registry)
+        async with connect(server._mcp_server) as client:
+            res = await client.call_tool(tool, args or {})
+            return res
+
+    return asyncio.run(go())
+
+
+def data(res):
+    assert not res.isError, res.content
+    if res.structuredContent is not None:
+        return res.structuredContent.get("result", res.structuredContent)
+    return json.loads(res.content[0].text)
+
+
+def test_server_advertises_the_planned_tools(registry):
+    async def go():
+        async with connect(build_server(registry)._mcp_server) as client:
+            return {t.name for t in (await client.list_tools()).tools}
+
+    names = asyncio.run(go())
+    assert {"get_match_state", "get_window_stats", "compare_windows", "get_event_chain", "get_player_window", "get_season_context", "list_moments", "explain_metric", "list_matches"} <= names
+
+
+def test_match_state_has_score_and_indices(registry, match):
+    d = data(call(registry, "get_match_state", {"match_id": "t0001"}))
+    assert d["score"] == match.meta["score"]
+    assert 0 <= d["chaosIndex"] <= 100 and set(d["momentum"]) == {"HAR", "NOR"}
+
+
+def test_state_at_an_earlier_minute_shows_the_score_then(registry):
+    d = data(call(registry, "get_match_state", {"match_id": "t0001", "minute": 1}))
+    assert sum(d["score"].values()) == 0
+
+
+def test_window_stats_are_windowed(registry):
+    a = data(call(registry, "get_window_stats", {"match_id": "t0001", "team": "HAR", "from_minute": 10, "to_minute": 20}))
+    b = data(call(registry, "get_window_stats", {"match_id": "t0001", "team": "HAR", "from_minute": 10, "to_minute": 40}))
+    assert a["stats"]["passes"] < b["stats"]["passes"] and a["minutes"] == 10.0
+
+
+def test_compare_windows_precomputes_the_delta(registry):
+    d = data(call(registry, "compare_windows", {"match_id": "t0001", "team": "HAR", "metric": "passes", "before_from": 5, "before_to": 15, "after_from": 20, "after_to": 30}))
+    assert d["delta"] == pytest.approx(d["after"] - d["before"])
+
+
+def test_event_chain_returns_ordered_neighbours(registry, match):
+    shot = next(e for e in match.events if e["type"] == "shot")
+    chain = data(call(registry, "get_event_chain", {"match_id": "t0001", "event_id": shot["id"], "before": 2, "after": 2}))
+    assert shot["id"] in [e["id"] for e in chain] and 3 <= len(chain) <= 5
+
+
+def test_player_window_counts_actions(registry, match):
+    pid = match.meta["home"]["lineup"][5]
+    d = data(call(registry, "get_player_window", {"match_id": "t0001", "player_id": pid, "from_minute": 0, "to_minute": 90}))
+    assert d["player"] == pid and d["actions"]["pass"] > 0
+
+
+def test_moments_and_glossary(registry):
+    ms = data(call(registry, "list_moments", {"match_id": "t0001", "min_salience": 0.5}))
+    assert all(m["salience"] >= 0.5 for m in ms)
+    d = data(call(registry, "explain_metric", {"name": "NOR.ppda"}))
+    assert "pressing" in d["definition"]
+
+
+def test_season_context_is_honest_that_it_is_missing(registry):
+    assert data(call(registry, "get_season_context", {"entity_id": "HAR-09"}))["available"] is False
+
+
+@pytest.mark.parametrize(
+    "tool,args",
+    [
+        ("get_match_state", {"match_id": "nope"}),
+        ("get_window_stats", {"match_id": "t0001", "team": "XXX", "from_minute": 0, "to_minute": 5}),
+        ("get_window_stats", {"match_id": "t0001", "team": "HAR", "from_minute": 20, "to_minute": 10}),
+        ("get_window_stats", {"match_id": "t0001", "team": "HAR", "from_minute": -5, "to_minute": 10}),
+        ("compare_windows", {"match_id": "t0001", "team": "HAR", "metric": "bogus", "before_from": 0, "before_to": 5, "after_from": 5, "after_to": 10}),
+        ("get_event_chain", {"match_id": "t0001", "event_id": "nope"}),
+        ("get_player_window", {"match_id": "t0001", "player_id": "ZZZ-99", "from_minute": 0, "to_minute": 5}),
+        ("explain_metric", {"name": "made_up"}),
+    ],
+)
+def test_bad_input_is_a_tool_error_not_a_crash(registry, tool, args):
+    assert call(registry, tool, args).isError
+
+
+def test_second_half_minutes_map_past_the_first_halfs_stoppage(registry):
+    ip = registry.get("t0001")
+    assert ms_at(ip, 30) == 30 * 60000
+    assert ms_at(ip, 60) == ip.p2_start_ms + 15 * 60000
+
+
+def test_registry_loads_a_committed_replay_by_re_simulating_its_scenario():
+    reg = MatchRegistry()
+    assert "pressing-collapse" in reg.ids()
+    ip = reg.get("pressing-collapse")
+    assert sum(1 for e in ip.events if e["type"] == "goal") == 4
+    with pytest.raises(UnknownMatch):
+        reg.get("does-not-exist")
