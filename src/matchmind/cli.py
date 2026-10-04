@@ -83,6 +83,41 @@ def cmd_simulate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export_schemas(args: argparse.Namespace) -> int:
+    from .core.contracts import schema_models
+
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    for name, model in schema_models().items():
+        path = out / f"{name}.schema.json"
+        path.write_text(json.dumps(model.model_json_schema(), indent=2, sort_keys=True) + "\n")
+        print(f"wrote {path}")
+    return 0
+
+
+def cmd_build_replay(args: argparse.Namespace) -> int:
+    """Simulate a scenario and build the full replay package (agents included)."""
+    from .core.paths import replays_dir
+    from .runner import build_replay, write_replay
+    from .sim.engine import simulate
+    from .sim.scenarios import load_scenario
+
+    clubs = _load_clubs()
+    path = Path(args.scenario)
+    if not path.exists():
+        path = scenarios_dir() / f"{args.scenario}.yaml"
+    sc = load_scenario(path)
+    seed = args.seed if args.seed is not None else sc.seed
+    match_id = args.match_id or sc.id
+    result = simulate(match_id, clubs[sc.home], clubs[sc.away], seed=seed, scenario=sc)
+    replay = build_replay(result, llm=args.llm)
+    out = write_replay(replay, result, Path(args.out) if args.out else replays_dir() / match_id)
+    i = replay.info
+    print(f"{sc.id}: {result.meta['score']} | {i['moments']} moments, {i['overlays']} overlays, "
+          f"levels {i['levels']} -> {out}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="matchmind", description="MatchMind: explainable football match intelligence")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -106,6 +141,18 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--scenario", default=None, help="scenario name in data/scenarios or a YAML path")
     s.add_argument("--out", default="out")
     s.set_defaults(fn=cmd_simulate)
+
+    e = sub.add_parser("export-schemas", help="write JSON Schemas for the public contracts to schemas/")
+    e.add_argument("--out", default=str(Path(__file__).resolve().parents[2] / "schemas"))
+    e.set_defaults(fn=cmd_export_schemas)
+
+    r2 = sub.add_parser("build-replay", aliases=["run-local"], help="simulate a scenario and write a replay package")
+    r2.add_argument("scenario", help="scenario name in data/scenarios or a YAML path")
+    r2.add_argument("--seed", type=int, default=None)
+    r2.add_argument("--match-id", default=None)
+    r2.add_argument("--llm", default=None, help="offline (default), openai or foundry")
+    r2.add_argument("--out", default=None)
+    r2.set_defaults(fn=cmd_build_replay)
 
     args = p.parse_args(argv)
     return args.fn(args)

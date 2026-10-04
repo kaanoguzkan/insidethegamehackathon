@@ -1,0 +1,82 @@
+{
+  "$defs": {
+    "Claim": {
+      "description": "One checkable statement an agent makes, with the evidence keys it rests on.",
+      "properties": {
+        "refs": {
+          "description": "evidence keys, e.g. NOR.pressures_per_min",
+          "items": {
+            "type": "string"
+          },
+          "title": "Refs",
+          "type": "array"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "Claim",
+      "type": "object"
+    }
+  },
+  "description": "The Explainer's output: why a moment matters, grounded in evidence.",
+  "properties": {
+    "caveats": {
+      "description": "mixed or contradicting evidence worth admitting",
+      "items": {
+        "type": "string"
+      },
+      "title": "Caveats",
+      "type": "array"
+    },
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/Claim"
+      },
+      "title": "Claims",
+      "type": "array"
+    },
+    "confidence": {
+      "default": "medium",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "so_what": {
+      "description": "what it means for the match",
+      "title": "So What",
+      "type": "string"
+    },
+    "tactical_tag": {
+      "title": "Tactical Tag",
+      "type": "string"
+    },
+    "what": {
+      "description": "one sentence: what changed or happened",
+      "title": "What",
+      "type": "string"
+    },
+    "why": {
+      "description": "the mechanism: what caused it, citing evidence",
+      "title": "Why",
+      "type": "string"
+    }
+  },
+  "required": [
+    "what",
+    "why",
+    "so_what",
+    "claims",
+    "tactical_tag"
+  ],
+  "title": "Explanation",
+  "type": "object"
+}

@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 SCHEMA_VERSION = "1.0"
 
 Mode = Literal["analyst", "casual"]
+OverlayMode = Literal["analyst", "casual", "any"]  # "any": stat graphics shown to every mode
 Language = Literal["en", "es", "tr"]
 OverlayKind = Literal[
     "lower_third", "stat_card", "player_tag", "speed_badge", "pass_card", "shot_card",
@@ -34,11 +35,16 @@ class Chip(BaseModel):
 
 
 class Cohort(BaseModel):
-    """What a group of viewers has in common. Text is generated once per cohort."""
+    """What a group of viewers has in common. Text is generated once per cohort.
+
+    Narrative overlays are written for one cohort. Stat graphics (cards, badges, meters) have no
+    narrative, so they are produced once per language with ``mode='any'`` and match every viewer
+    who reads that language.
+    """
 
     model_config = ConfigDict(frozen=True)
 
-    mode: Mode = "casual"
+    mode: OverlayMode = "casual"
     language: Language = "en"
     perspective: str = Field("neutral", description="'neutral' or a club id: tone changes, facts never do")
     focusPlayer: str | None = Field(None, description="player id to follow through the match")
@@ -46,6 +52,15 @@ class Cohort(BaseModel):
     @property
     def key(self) -> str:
         return f"{self.mode}/{self.language}/{self.perspective}/{self.focusPlayer or '-'}"
+
+    def covers(self, viewer: Cohort) -> bool:
+        """Should an overlay written for this cohort be shown to ``viewer``?"""
+        return (
+            self.language == viewer.language
+            and self.mode in ("any", viewer.mode)
+            and self.perspective in ("neutral", viewer.perspective)
+            and self.focusPlayer in (None, viewer.focusPlayer)
+        )
 
 
 class Accessibility(BaseModel):

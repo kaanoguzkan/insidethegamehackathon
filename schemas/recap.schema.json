@@ -1,0 +1,133 @@
+{
+  "$defs": {
+    "Chip": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "title": "Chip",
+      "type": "object"
+    },
+    "Provenance": {
+      "properties": {
+        "agents": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Agents",
+          "type": "array"
+        },
+        "evidenceRef": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidenceref"
+        },
+        "fallbackLevel": {
+          "default": 0,
+          "description": "0 full narrative, 1 retry, 2 template, 3 stat-only",
+          "title": "Fallbacklevel",
+          "type": "integer"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "verified": {
+          "default": false,
+          "title": "Verified",
+          "type": "boolean"
+        }
+      },
+      "title": "Provenance",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "cohort": {
+      "title": "Cohort",
+      "type": "string"
+    },
+    "headline": {
+      "title": "Headline",
+      "type": "string"
+    },
+    "key_moments": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Key Moments",
+      "type": "array"
+    },
+    "kind": {
+      "enum": [
+        "preview",
+        "story_so_far",
+        "half_time",
+        "full_time"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "player_of_the_match": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Player Of The Match"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    },
+    "stats": {
+      "items": {
+        "$ref": "#/$defs/Chip"
+      },
+      "title": "Stats",
+      "type": "array"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "cohort",
+    "kind",
+    "headline",
+    "summary"
+  ],
+  "title": "Recap",
+  "type": "object"
+}

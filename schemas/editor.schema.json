@@ -1,0 +1,67 @@
+{
+  "$defs": {
+    "BeatChoice": {
+      "properties": {
+        "keep": {
+          "title": "Keep",
+          "type": "boolean"
+        },
+        "mergeWith": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mergewith",
+          "type": "array"
+        },
+        "momentId": {
+          "title": "Momentid",
+          "type": "string"
+        },
+        "priority": {
+          "default": 3,
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        },
+        "storyline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Storyline"
+        }
+      },
+      "required": [
+        "momentId",
+        "keep"
+      ],
+      "title": "BeatChoice",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "beats": {
+      "items": {
+        "$ref": "#/$defs/BeatChoice"
+      },
+      "title": "Beats",
+      "type": "array"
+    }
+  },
+  "required": [
+    "beats"
+  ],
+  "title": "EditorOut",
+  "type": "object"
+}

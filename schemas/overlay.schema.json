@@ -1,0 +1,292 @@
+{
+  "$defs": {
+    "Anchor": {
+      "properties": {
+        "player": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "player id to follow when type is 'player'",
+          "title": "Player"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "e.g. bottom_left, top_right",
+          "title": "Region"
+        },
+        "type": {
+          "default": "screen",
+          "enum": [
+            "screen",
+            "player"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "Anchor",
+      "type": "object"
+    },
+    "Chip": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "title": "Chip",
+      "type": "object"
+    },
+    "Cohort": {
+      "description": "What a group of viewers has in common. Text is generated once per cohort.\n\nNarrative overlays are written for one cohort. Stat graphics (cards, badges, meters) have no\nnarrative, so they are produced once per language with ``mode='any'`` and match every viewer\nwho reads that language.",
+      "properties": {
+        "focusPlayer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "player id to follow through the match",
+          "title": "Focusplayer"
+        },
+        "language": {
+          "default": "en",
+          "enum": [
+            "en",
+            "es",
+            "tr"
+          ],
+          "title": "Language",
+          "type": "string"
+        },
+        "mode": {
+          "default": "casual",
+          "enum": [
+            "analyst",
+            "casual",
+            "any"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "perspective": {
+          "default": "neutral",
+          "description": "'neutral' or a club id: tone changes, facts never do",
+          "title": "Perspective",
+          "type": "string"
+        }
+      },
+      "title": "Cohort",
+      "type": "object"
+    },
+    "DisplayAt": {
+      "properties": {
+        "matchMs": {
+          "description": "match clock (ms since kick-off) at which to show the overlay",
+          "title": "Matchms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "matchMs"
+      ],
+      "title": "DisplayAt",
+      "type": "object"
+    },
+    "OverlayContent": {
+      "properties": {
+        "body": {
+          "default": "",
+          "title": "Body",
+          "type": "string"
+        },
+        "chips": {
+          "items": {
+            "$ref": "#/$defs/Chip"
+          },
+          "title": "Chips",
+          "type": "array"
+        },
+        "headline": {
+          "title": "Headline",
+          "type": "string"
+        }
+      },
+      "required": [
+        "headline"
+      ],
+      "title": "OverlayContent",
+      "type": "object"
+    },
+    "Provenance": {
+      "properties": {
+        "agents": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Agents",
+          "type": "array"
+        },
+        "evidenceRef": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidenceref"
+        },
+        "fallbackLevel": {
+          "default": 0,
+          "description": "0 full narrative, 1 retry, 2 template, 3 stat-only",
+          "title": "Fallbacklevel",
+          "type": "integer"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "verified": {
+          "default": false,
+          "title": "Verified",
+          "type": "boolean"
+        }
+      },
+      "title": "Provenance",
+      "type": "object"
+    }
+  },
+  "description": "One timed, machine-readable graphic. Renderer-agnostic.",
+  "properties": {
+    "anchor": {
+      "$ref": "#/$defs/Anchor"
+    },
+    "cohort": {
+      "$ref": "#/$defs/Cohort"
+    },
+    "content": {
+      "$ref": "#/$defs/OverlayContent"
+    },
+    "displayAt": {
+      "$ref": "#/$defs/DisplayAt"
+    },
+    "durationMs": {
+      "default": 8000,
+      "title": "Durationms",
+      "type": "integer"
+    },
+    "factId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Factid"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "lower_third",
+        "stat_card",
+        "player_tag",
+        "speed_badge",
+        "pass_card",
+        "shot_card",
+        "goal_card",
+        "card_badge",
+        "momentum_bar",
+        "control_meter",
+        "recap_card",
+        "ticker"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "matchId": {
+      "title": "Matchid",
+      "type": "string"
+    },
+    "momentId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Momentid"
+    },
+    "priority": {
+      "default": 3,
+      "description": "1 must show ... 5 optional",
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Priority",
+      "type": "integer"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    },
+    "schemaVersion": {
+      "default": "1.0",
+      "title": "Schemaversion",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "matchId",
+    "kind",
+    "displayAt",
+    "cohort",
+    "content"
+  ],
+  "title": "Overlay",
+  "type": "object"
+}

@@ -1,0 +1,96 @@
+{
+  "$defs": {
+    "Chip": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "title": "Chip",
+      "type": "object"
+    },
+    "Claim": {
+      "description": "One checkable statement an agent makes, with the evidence keys it rests on.",
+      "properties": {
+        "refs": {
+          "description": "evidence keys, e.g. NOR.pressures_per_min",
+          "items": {
+            "type": "string"
+          },
+          "title": "Refs",
+          "type": "array"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "Claim",
+      "type": "object"
+    },
+    "StoryVariant": {
+      "properties": {
+        "body": {
+          "title": "Body",
+          "type": "string"
+        },
+        "chips": {
+          "items": {
+            "$ref": "#/$defs/Chip"
+          },
+          "title": "Chips",
+          "type": "array"
+        },
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/Claim"
+          },
+          "title": "Claims",
+          "type": "array"
+        },
+        "cohort": {
+          "description": "cohort key this text is for",
+          "title": "Cohort",
+          "type": "string"
+        },
+        "headline": {
+          "title": "Headline",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cohort",
+        "headline",
+        "body"
+      ],
+      "title": "StoryVariant",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "variants": {
+      "items": {
+        "$ref": "#/$defs/StoryVariant"
+      },
+      "title": "Variants",
+      "type": "array"
+    }
+  },
+  "required": [
+    "variants"
+  ],
+  "title": "StoryOut",
+  "type": "object"
+}

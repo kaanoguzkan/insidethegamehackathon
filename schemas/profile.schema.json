@@ -1,0 +1,105 @@
+{
+  "$defs": {
+    "Accessibility": {
+      "properties": {
+        "audioDescribed": {
+          "default": false,
+          "title": "Audiodescribed",
+          "type": "boolean"
+        },
+        "highContrast": {
+          "default": false,
+          "title": "Highcontrast",
+          "type": "boolean"
+        },
+        "reducedMotion": {
+          "default": false,
+          "title": "Reducedmotion",
+          "type": "boolean"
+        }
+      },
+      "title": "Accessibility",
+      "type": "object"
+    }
+  },
+  "description": "An anonymous viewer profile. Contains no personal data.",
+  "properties": {
+    "accessibility": {
+      "$ref": "#/$defs/Accessibility"
+    },
+    "density": {
+      "default": "medium",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Density",
+      "type": "string"
+    },
+    "favoriteClub": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Favoriteclub"
+    },
+    "focusPlayer": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Focusplayer"
+    },
+    "language": {
+      "default": "en",
+      "enum": [
+        "en",
+        "es",
+        "tr"
+      ],
+      "title": "Language",
+      "type": "string"
+    },
+    "metricFocus": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Metricfocus",
+      "type": "array"
+    },
+    "mode": {
+      "default": "casual",
+      "enum": [
+        "analyst",
+        "casual"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "perspective": {
+      "default": "neutral",
+      "title": "Perspective",
+      "type": "string"
+    },
+    "profileId": {
+      "title": "Profileid",
+      "type": "string"
+    }
+  },
+  "required": [
+    "profileId"
+  ],
+  "title": "Profile",
+  "type": "object"
+}

@@ -466,7 +466,7 @@ def _en_shift(s, analyst):
         parts.append(f"width {s['w_before']} m to {s['w_after']} m")
     if analyst:
         return f"{s['minute']} {s['team']} change shape", "; ".join(parts).capitalize() + "."
-    return (f"{s['team']} rejig their shape", f"{s['team']} are now defending {'higher up' if s['higher'] else 'deeper'} the pitch.") if s["line_shifted"] else (f"{s['team']} change shape", f"{s['team']} are playing {'wider' if s['wider'] else 'narrower'} than before.")
+    return (f"{s['team']} rejig their shape", f"{s['team']} are now defending {'higher up the pitch' if s['higher'] else 'deeper'}.") if s["line_shifted"] else (f"{s['team']} change shape", f"{s['team']} are playing {'wider' if s['wider'] else 'narrower'} than before.")
 
 
 def _es_shift(s, analyst):
