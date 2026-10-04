@@ -1,14 +1,111 @@
 # MatchMind: Solution Plan
 
-*Working name. Entry plan for the Microsoft × Premier League "Inside the Game" Developer Hackathon. Written Sunday 4 October 2026.*
+*Working name. Entry plan for the Microsoft × Premier League "Inside the Game" Developer Hackathon. Written Sunday 4 October 2026; status section updated the same night.*
 
 > **How to read this**
+> - **Status:** what is built, measured and still open (start here).
 > - Sections 0–4: assumptions, dates, product and architecture.
 > - Sections 5–10: the five pipeline stages the rules ask for (ingest, interpret, explain, render, personalize).
 > - Sections 11–15: data, cost, latency, enterprise readiness and the Microsoft stack.
 > - Sections 16–23: scoring, repo layout, schedule, scope, demo video, checklist, risks and open questions.
 >
 > Numbers marked **\*** come from general knowledge of Azure and GitHub pricing and were not checked today. Verify them on the official pricing pages before relying on them.
+
+---
+
+## Status: where the build stands
+
+*Updated Sunday 4 October 2026, 03:30 (UTC+3). This is day 0 of the build window; the Submission Period opens on Tuesday 6 October.*
+
+**In one paragraph.** The data side of the pipeline (stages 1 and 2) is built, tested and committed. The simulator produces football-realistic matches and tracking, the physical analyzer and the interpreter turn them into evidence-backed moments, and the scripted demo story (Northbridge stop pressing at 55:00) is detected without the pipeline being told about it. The agent layer (stages 3 to 5), the Azure adapters, the web app and the infrastructure are not built yet. The work this plan scheduled for 5 to 12 October (simulator, auto-eventing, realism report, interpreter) is done, about a week early.
+
+### Build status
+
+| Part | Status | Notes |
+|---|---|---|
+| Fictional league: 6 clubs, 150 players | Done | Deterministic; names checked against a denylist of real surnames |
+| Match simulator (5 Hz, 22 players, ball) | Done | Events plus tracking; about 3 s per match |
+| Realism report | Done | 19 league averages checked against target bands; a test fails if one leaves its band |
+| Scenario system and `pressing-collapse` | Done | YAML script; the pipeline is never told about it |
+| Tracking feed | Done | 5 s gzip chunks, 0.1 m integers, ball-in-play flag |
+| Physical analyzer | Done | Sprints, top speed, distance milestones, team shape, pressing distance, ball and shot speed, pass pressure and lane context. Streaming and batch give identical output (tested). |
+| Interpreter | Done | Window metrics, three indices, 12 moment types, evidence packs, template-overlay facts, per-minute snapshots |
+| Fitted xT grid and index baselines | Done | `matchmind build-league-data` writes `data/league/` |
+| CLI | Partly | `simulate`, `report-realism`, `build-league-data` work. `run-local` and `build-replay` arrive with the agent layer. |
+| Public data contracts (pydantic) | Written | JSON Schema export and the sync test are still to do |
+| Template engine (English, Spanish, Turkish) | Drafted | Renders every moment type in both modes; three defects found, fixing next (below) |
+| Season history, milestones, published dataset | Not started | §5.6 and §5.8 |
+| Verifier | Not started | Next |
+| Agent Framework workflow, offline model, Overlay Producer | Not started | Next |
+| MCP server and Brain API | Not started | |
+| Azure adapters (Functions, Container Apps, Cosmos DB) | Not started | Cannot be deployed or tested from this machine: no `az` or `azd` |
+| Web app | Not started | |
+| Foundry hosted recap agent, evals, tracing | Not started | |
+| Bicep, `azd`, GitHub Actions | Not started | |
+| README, docs, demo video | Not started | The README is a stub |
+
+39 tests pass, including the realism-band test. There are about 6,400 lines of Python in `src/` and `tests/`, in three commits.
+
+**Template defects found by rendering every moment type:** (1) in the club-perspective variant a team name was lower-cased mid-sentence ("northbridge"); (2) Turkish suffixes after numbers ("1,3'den", "0,6'e") are only correct for some numbers; (3) a leftover hack in `explain()`. All three are small and are the first thing fixed.
+
+### Measured results
+
+**Synthetic data realism.** 100 simulated matches, every metric inside its band:
+
+| Metric (per match, both teams unless noted) | Mean | Band |
+|---|---|---|
+| Goals | 2.88 | 2.4–3.2 |
+| Shots | 25.1 | 20–30 |
+| Shots on target | 7.6 | 6.5–11.5 |
+| Passes | 1,096 | 850–1,150 |
+| Pass completion | 80% | 78–86% |
+| Possession share of the larger side | 55% | 35–65% |
+| Distance per outfield starter | 11.5 km | 9.5–12 |
+| Fastest player speed | 34.4 km/h | 31–36.5 |
+| Sprints per team (25 km/h for 1 s) | 77 | 35–120 |
+| Tackles | 34.5 | 28–55 |
+| Interceptions | 31.7 | 14–40 |
+| Fouls | 20.3 | 18–30 |
+| Corners | 8.1 | 7–14 |
+| Throw-ins | 64.6 | 60–110 |
+| Goal kicks | 21.9 | 12–28 |
+| Clearances | 28.8 | 28–70 |
+| Offsides | 5.6 | 3–11 |
+| Yellow cards | 3.1 | 1.5–5.5 |
+| Pressure events | 222 | 200–520 |
+
+**Pressing-collapse detection.** The script changes Northbridge's style at 55:00; the interpreter is not told. Over 16 seeds:
+- The collapse is detected in **15 of 16**, a median **6 minutes** after the change.
+- It never fires as a Northbridge collapse in 16 unscripted control matches.
+- A spurious pressing moment appears before 55:00 in 2 of 16 matches, in both the scripted and the control group.
+- The operating point comes from a 24-seed study of detection power against false alarms (see §6.3).
+
+**The other detectors are noisier.** In unscripted matches the interpreter produces roughly 2.5 chaos flips, 2.5 tactical shifts, 1.8 momentum swings and 1 fatigue drop per match. They carry lower salience and the Editor will rank them, but tightening them is on the list.
+
+### Where the build differs from this plan, and why
+
+1. **Pressing is detected from tracking, not from PPDA.** Over five minutes a team makes 0 to 3 defensive actions in the build-up zone, so PPDA flip-flopped between "collapse" and "surge" on noise. The trigger is now the distance from the ball to the nearest defender (measured every frame, in the half the team attacks), which must be corroborated by the pressure-event rate and hold for two consecutive evaluations. PPDA, shrunk toward the league mean, is reported as supporting evidence only.
+2. **Evidence packs say when a metric disagrees.** Each metric carries `consistent: true/false` against the detected story, and deltas are computed from the rounded numbers shown. In the demo moment PPDA and Harbour's threat moved the "wrong" way; the pack keeps them, flagged, so a narrator has to be honest about mixed evidence.
+3. **Pass difficulty and shot context come from tracking.** The analyzer measures ball speed, passer and receiver pressure and lane blockage from positions and publishes them as "physics" documents about 1.4 s after the event. The interpreter then applies the xPass and xG models. This keeps simulator internals hidden and mirrors a real provider.
+4. **The tracking feed carries a ball-in-play flag.** Without it, the ball being reset for a restart looked like a 900 km/h shot.
+5. **The simulator was changed to make the dials measurable.** Pressure events now depend on the pressing dial and fatigue, passive defenders stand off the ball, and defenders rarely foul in their own box (penalties dropped from about 3 to about 0.3 a match). The realism bands were re-checked after each change.
+6. **Detector thresholds were set from data, not guesses.** Tactical shifts need 14 m (line) or 10 m (width) held for two evaluations because line height has a standard deviation of about 6 m on its own. Chaos flips use a smoothed index. Fatigue uses 10-minute windows and a 60% drop. Moment types have their own cooldowns. §6.3 has the current values.
+7. **Tooling.** Python 3.12 through `uv`. Microsoft Agent Framework is at **1.20**; its API (`Agent`, `@tool`, `WorkflowBuilder`, executors, `OpenAIChatCompletionClient`, `FoundryChatClient`, `MCPStreamableHTTPTool`) was read from the installed package, not from older documentation. The `agent-framework` meta-package installs about 30 provider packages, so the project will depend on `agent-framework-core` and the specific sub-packages instead. The MCP Python SDK is 1.30.
+
+### Not yet verified
+
+- **Anything that needs a real language model.** The machine has Ollama but no model pulled and no API keys, so prompts and structured-output behaviour will be exercised only through the deterministic offline model and mocked responses. Model quality, latency and token cost are unmeasured.
+- **Any Azure deployment.** The machine has no `az` or `azd`. Bicep and adapters can be written and unit-tested against local fakes, but a first real `azd up` has to be run by you.
+- **Free-tier limits and prices marked with \* elsewhere in this plan.**
+- **The web app and the demo video**, which do not exist yet.
+
+### Next
+
+1. Fix the three template defects; add tests that render every moment type in all three languages.
+2. Verifier (numbers, names, references, policy, language, format) with tests that try to slip an invented number past it.
+3. Offline model and the Agent Framework workflow: Editor, Explainer, Storyteller, Localizer and the degradation ladder, running the real framework.
+4. Overlay Producer, JSON Schema export, `run-local`, replay packages.
+5. MCP server and Brain API, then the web app, then Azure infrastructure and the evals.
 
 ---
 
@@ -302,19 +399,11 @@ Before the demo, simulate rounds 1–9 of the season. This is code only and take
 
 ### 5.7 Realism calibration
 
-Simulate 200 matches and compare them with target bands. The targets below are approximate averages for top-flight football; tune them.
+`matchmind report-realism` simulates many matches in parallel and compares 19 league averages with target bands for typical top-flight football (goals, shots, shots on target, passes, completion, possession, distance, sprints, top speed, tackles, interceptions, fouls, corners, throw-ins, goal kicks, clearances, offsides, yellow cards, pressure events). The bands are wide on purpose: they describe a plausible league, not any real one.
 
-| Stat (per match, both teams combined unless noted) | Target band |
-|---|---|
-| Goals | 2.4–3.2 |
-| Shots | 20–30 |
-| Passes | 850–1,150 |
-| Pass completion | 78–86% |
-| Possession | 35–65% per team |
-| Distance per outfield player (full match) | 9.5–12 km |
-| Top sprint speeds | 31–36 km/h |
+A test runs it on 48 matches and fails if a metric leaves its band, so a code change that makes matches unrealistic fails loudly. The measured means over 100 matches are in the status section; all 19 sit inside their bands. This is direct evidence for the judging question about "creativity and optimized synthetic data creation".
 
-A `realism_report` script plots histograms against these bands. CI fails if a code change pushes an average out of band. This is direct evidence for the judging question about "creativity and optimized synthetic data creation".
+Calibration was iterative and some fixes were structural rather than numeric: attackers in the box were unmarked (so shots came from the six-yard box and conversion was too high), pressure events ignored the pressing dial, and teleporting set-piece takers produced 250 km/h "sprints".
 
 ### 5.8 Published dataset
 
@@ -340,7 +429,8 @@ A `realism_report` script plots histograms against these bands. CI fails if a co
 | xT-lite | Value of moving the ball between pitch zones, on a 12×8 grid learned from the simulated season | Feeds momentum |
 | Momentum | Rolling 5-minute sum of xT gained per team, and the gap between the teams | Everyone (momentum bar) |
 | Field tilt | Each team's share of final-third passes | Analyst |
-| PPDA | Opponent passes allowed per defensive action in the opponent's build-up zone. Lower means more pressing. | Analyst |
+| PPDA | Opponent passes allowed per defensive action in the opponent's build-up zone. Lower means more pressing. Over a few minutes it rests on 0 to 3 actions, so it is shrunk toward the league mean and shown as supporting evidence, never as a trigger (§6.3). | Analyst |
+| Nearest-defender distance | From tracking: distance from the ball to the nearest outfield defender, in frames where the opponent has the ball in the half this team attacks. Measured every frame, so it is stable over a few minutes. | Pressing detection |
 | Fatigue proxy | Sprints and high-intensity distance per 5 minutes, compared with the player's first-half baseline | Narratives |
 | Line height and width | Average defensive-line position and team width, from tracking | Tactical shift detection |
 | Milestones | Counters compared against match and season history (goals, passes, distance, fastest shot) | Narratives |
@@ -350,12 +440,12 @@ A `realism_report` script plots histograms against these bands. CI fails if a co
 **Control vs Chaos (0–100, per 5-minute window, whole match).**
 - High chaos means many turnovers and possession changes per minute, short possessions, many duels and long contested balls.
 - Low chaos means long, stable possessions.
-- It is a weighted sum of z-scores against the simulated-season baseline, scaled to 0–100.
+- It is the mean of four z-scores (turnovers per minute, duels per minute, long-ball share, inverse possession length) against baselines measured over simulated five-minute windows, passed through a logistic to give 0–100.
 - A companion figure says *who* is in control, using possession share and field tilt in that window.
 
 **Pressure index (per team).**
-- Built from PPDA, pressures per minute, high regains (ball won in the final third) and pressure success rate.
-- A "pressure shift" is a change of 40% or more between consecutive windows.
+- Built from PPDA, pressures per minute and high regains (ball won in the final third), each z-scored against the league baseline.
+- A pressing *shift* is detected from tracking and corroborated by pressure events (§6.3), not from this index or from PPDA alone.
 
 **Rhythm.**
 - Tempo (passes per minute in possession), event rate and stoppage frequency.
@@ -366,18 +456,30 @@ All weights and thresholds live in one config file, documented in `docs/metrics.
 
 ### 6.3 Moment detection
 
-| Moment type | Trigger (starting values; tune with data) |
+Window detectors compare the last few minutes with the longer stretch before them. The values below are the ones in `intel/config.py`.
+
+| Moment type | Trigger |
 |---|---|
 | Goal, red card, penalty | The event itself |
 | Big chance | A shot with xG of 0.30 or more |
-| Momentum swing | The momentum leader changes and the gap stays above threshold for 2+ minutes |
-| Pressure collapse or surge | PPDA or pressures per minute change by 40% or more between windows |
-| Control → chaos flip | The chaos index crosses 50 with a change of 20+ points |
-| Rhythm break | Tempo changes by 30% or more versus the previous 10 minutes |
-| Tactical shift | Defensive line moves 8 m or more, or width changes 6 m or more, between windows |
-| Fatigue drop | Team sprint rate falls 40% or more below its first-half baseline |
-| Physical highlight | A sprint of 33 km/h or more, the fastest shot of the match, a distance milestone |
-| Milestone | Season or match counters (for example, a 5th goal of the season) |
+| Momentum swing | The new leader of the five-minute xT+xG gap is ahead by 0.16 or more, and the other side led by 0.06 or more in the previous ten minutes. At most once per 20 minutes. |
+| Pressure collapse or surge | Over the last 8 minutes against the 15 before: the nearest-defender distance moves by **2.0 m or more**, the pressure-event rate moves the same way by **25% or more**, and both hold at two consecutive minute evaluations. |
+| Control → chaos flip (or back) | The chaos index (3-minute mean) differs from the previous 10-minute mean by 22 points or more and crosses 50. At most once per 15 minutes. |
+| Rhythm break | A team's tempo (passes per minute of possession) changes by 30% or more against the previous 10 minutes |
+| Tactical shift | The defensive line moves 14 m or more, or the width 10 m or more, comparing 3-minute and 10-minute means, at two consecutive evaluations |
+| Fatigue drop | After 55', the 10-minute sprint rate is 60% or more below the team's first-half rate |
+| Physical highlight | A sprint of 33 km/h or more or a shot of 100 km/h or more, and a new best for the match |
+| Milestone | Season or match counters (for example, a 5th goal of the season). Not built yet: needs season history. |
+
+**Why the pressing trigger is not PPDA.** A five-minute window holds 0 to 3 defensive actions in the build-up zone, so PPDA jumps by a factor of two on one tackle. A study over 24 seeds measured, for each candidate rule, how often it fired by chance in the first hour of unscripted matches against how often it caught the scripted collapse:
+
+| Rule (8/15-minute windows) | False alarms per team-match | Scripted collapse caught |
+|---|---|---|
+| Nearest-defender gap of 2.0 m alone | 15% | 92% |
+| Gap of 2.0 m **plus** pressure rate down 25%, held two minutes (chosen) | 4% | 88% |
+| Gap of 3.0 m alone | 2% | 71% |
+
+On the full pipeline over 16 seeds the chosen rule caught 15, a median 6 minutes after the change. Line height is similarly noisy (standard deviation about 6 m between a 3-minute and a 10-minute mean), which is why tactical shifts need 14 m.
 
 ### 6.4 Salience and the LLM budget
 
@@ -834,8 +936,8 @@ Replays cost nothing at viewing time, because their text is generated once when 
 | Product | Where it's used | Helps with |
 |---|---|---|
 | Microsoft Foundry | Model deployments, hosted preview and recap agent, tracing, evaluations, content safety | Technology implementation; Foundry prize |
-| Microsoft Agent Framework | The live multi-agent workflow: steps, handoffs, fan-out, checkpointing, human approval | Agentic design; Multi-Agent prize |
-| Model Context Protocol (MCP) | The Match Data MCP server, used by Agent Framework agents, the Foundry agent and Copilot | Agentic design |
+| Microsoft Agent Framework (1.20) | The live multi-agent workflow: `Agent`, `WorkflowBuilder`, executors, conditional edges, checkpointing. The project depends on `agent-framework-core` and the OpenAI/Foundry sub-packages, not the meta-package (about 30 provider packages). | Agentic design; Multi-Agent prize |
+| Model Context Protocol (MCP) | The Match Data MCP server (Python MCP SDK 1.30), used by Agent Framework agents through `MCPStreamableHTTPTool`, the Foundry agent and Copilot | Agentic design |
 | Azure MCP Server | Used through Copilot agent mode during development to inspect Cosmos DB, logs and resources | Hero technology use |
 | GitHub Copilot | Agent mode for building, the coding agent for chores (if your plan includes it), custom instructions | Technology implementation |
 | GitHub Actions, Container Registry, Pages, CLI | CI/CD, container images, fallback mirror, issue and release automation with `gh` | Software quality |
@@ -884,15 +986,16 @@ matchmind/
 ├── README.md                  # pitch, demo links, architecture, Microsoft tech, run + test instructions
 ├── azure.yaml                 # azd service map
 ├── infra/                     # Bicep: main.bicep + modules/
-├── schemas/                   # JSON Schemas: event, evidence, overlay, profile, scenario
+├── schemas/                   # JSON Schemas: event, evidence, overlay, profile, scenario  [next: generated from core/contracts.py]
 ├── src/matchmind/             # one Python package shared by every service
-│   ├── sim/                   # simulator: league, outcome models, movement, scenarios
-│   ├── tracking/              # physical auto-eventing from frames
-│   ├── intel/                 # metrics, indices, detectors, evidence packs
-│   ├── agents/                # workflow, agents, prompts, verifier, templates, producer
-│   ├── mcp_server/            # Match Data MCP server
-│   ├── adapters/              # memory and azure: events, frames, queue, publisher, models
-│   └── cli.py                 # simulate, report, run-local, build-replay
+│   ├── core/                  # geometry, xG/xPass models, clock, contracts, paths  [built]
+│   ├── sim/                   # simulator: league, outcome models, movement, scenarios, realism  [built]
+│   ├── tracking/              # chunk format + physical auto-eventing from frames  [built]
+│   ├── intel/                 # metrics, indices, detectors, evidence packs, xT, baselines  [built]
+│   ├── agents/                # workflow, agents, prompts, verifier, templates, producer  [templates drafted; rest next]
+│   ├── mcp_server/            # Match Data MCP server  [not started]
+│   ├── adapters/              # memory and azure: events, frames, queue, publisher, models  [not started]
+│   └── cli.py                 # simulate, report-realism, build-league-data  [built]; run-local, build-replay [next]
 ├── apps/
 │   ├── brain/                 # FastAPI: REST + /mcp + agent worker (Container App)
 │   ├── simulator_job/         # Container Apps Job entry point
@@ -904,7 +1007,7 @@ matchmind/
 │   └── replays/               # pre-generated replay packages
 ├── evals/                     # golden set, custom evaluators, run script
 ├── docs/                      # architecture, metrics, agents, overlay contract, data card, responsible AI
-├── tests/
+├── tests/                     # 39 tests  [built]
 └── .github/
     ├── workflows/             # ci.yml, deploy.yml, evals.yml, pages.yml
     └── copilot-instructions.md
@@ -926,13 +1029,15 @@ matchmind/
 
 This schedule is aggressive for one person. §19 says what to drop first.
 
+**Progress (4 Oct, 03:30):** the rows for 5 to 11 October are done except the JSON Schemas, season history and the published dataset. The first open item is the agent layer (the 12 and 14 October rows), so the project is roughly a week ahead on the data side and exactly on schedule for everything else, which is not started. ✅ done, ◐ partly done.
+
 | Date | Focus | Done when |
 |---|---|---|
-| Sun 4 Oct | Register at aka.ms/insidethegame, confirm eligibility, create the public repo, read the Agent Framework and Foundry quickstarts | Registration confirmed; repo has a README skeleton |
-| Mon 5 Oct | Local setup (Python, `uv`, Foundry Local or Ollama with Phi-4-mini, GitHub Models token); league bible; JSON Schemas | `schemas/` committed; 6 clubs × 25 players generated |
-| Tue 6 – Thu 8 Oct | Simulator v1: phases, pass, shot and movement models, 5 Hz frames, set pieces, stamina, substitutions | `simulate --seed 42` produces a full match (JSONL + frames) |
-| Fri 9 Oct | Physical auto-eventing; realism report over 200 matches; tuning | Stats inside target bands; tests pass |
-| Sat 10 – Sun 11 Oct | Interpreter: metrics, indices, detectors, evidence packs, season history | **M1:** `report --seed 42` prints believable key moments with evidence |
+| Sun 4 Oct ◐ | Register at aka.ms/insidethegame, confirm eligibility, create the public repo, read the Agent Framework and Foundry quickstarts | Registration confirmed; repo has a README skeleton |
+| Mon 5 Oct ◐ | Local setup (Python, `uv`, Foundry Local or Ollama with Phi-4-mini, GitHub Models token); league bible; JSON Schemas | `schemas/` committed; 6 clubs × 25 players generated |
+| Tue 6 – Thu 8 Oct ✅ | Simulator v1: phases, pass, shot and movement models, 5 Hz frames, set pieces, stamina, substitutions | `simulate --seed 42` produces a full match (JSONL + frames) |
+| Fri 9 Oct ✅ | Physical auto-eventing; realism report over 200 matches; tuning | Stats inside target bands; tests pass |
+| Sat 10 – Sun 11 Oct ◐ | Interpreter: metrics, indices, detectors, evidence packs, season history | **M1:** `report --seed 42` prints believable key moments with evidence |
 | Mon 12 Oct | MCP server; Explainer + Verifier + template fallback on a local model | Grounded explanations for the M1 moments |
 | Tue 13 Oct | **Open the Azure free account.** Create a Foundry project and small model deployment. Run `azd up` for the skeleton: Cosmos DB free tier, Storage, Functions, Container Apps environment, SignalR, Static Web Apps, App Insights, Key Vault. Set budget alerts. | Empty infrastructure deployed; model quota confirmed |
 | Wed 14 Oct | Editor, Storyteller, Localizer + Overlay Producer; end-to-end workflow locally; first model comparison eval | **M2:** a local run produces overlay JSON for 3 cohorts × 2 languages |
@@ -1039,7 +1144,7 @@ This schedule is aggressive for one person. §19 says what to drop first.
 | Risk | Impact | Mitigation |
 |---|---|---|
 | Scope too big for one person | Missed deadline | Build locally first, follow the cut line (§19), freeze features on 23 Oct |
-| Agent Framework API changes | Rework | Pin versions; keep a thin wrapper; start from official samples |
+| Agent Framework API drift | Rework | Happened already: the installed 1.20 API differs from older docs. Read the installed package, pin versions, keep a thin wrapper, depend on sub-packages not the meta-package |
 | Model quota or availability on a free subscription | No cloud LLM | Check on day one of Azure (13 Oct); try another small model or region; GitHub Models at low volume |
 | LLM latency exceeds the delay | Late overlays | Small models, parallel fan-out, deadlines that fall back to templates |
 | Invented numbers or names | Loss of trust; judges notice | Evidence-only prompts, code verifier, fallbacks, evals |
@@ -1049,6 +1154,9 @@ This schedule is aggressive for one person. §19 says what to drop first.
 | Trademark or IP issues | Disqualification risk | Fictional league, our own crests, no real names, logos or music |
 | Abuse of the public demo | Unexpected bills | Access code for live mode, rate limits, budgets, token cap per match |
 | Changes after submission | Judging problems | Tag the submission; freeze `main`; only operational fixes |
+| No Azure CLI on the build machine | Infrastructure untested until you run it | Write Bicep and adapters against local fakes; you run the first `azd up` on 13 October; keep `azd down` one command away |
+| No language model available while building | Prompts and quality unmeasured | Real framework with a deterministic offline model; a GitHub Models token or a pulled Ollama model lets the same code run for real |
+| Detector false alarms | Wrong or repetitive stories | Thresholds chosen from measured detection power; corroboration and persistence; the Editor ranks by salience and the Verifier checks every claim |
 
 ---
 
@@ -1061,6 +1169,8 @@ This schedule is aggressive for one person. §19 says what to drop first.
 5. **Category selection.** Find out how categories are chosen on the submission form.
 6. **Rule clarifications.** If any rule is unclear (for example, whether GitHub Models is acceptable in the judged demo, or whether Fabric use is expected), send a written clarification request (rule 11.6).
 7. **"GitHub SDK".** The hero technology list mentions a "GitHub SDK". Find out which SDK that means and whether it fits naturally, for example in the Q&A agent.
+8. **A model to evaluate prompts against.** The machine has Ollama with no model pulled and no API keys. A GitHub Models token, a Foundry key or `ollama pull` of a small model would let prompts be tested for real. Until then they run against the offline model.
+9. **Who runs the first `azd up`.** It needs `az login` on a machine with the Azure CLI and the free account (planned for 13 October).
 
 ---
 
