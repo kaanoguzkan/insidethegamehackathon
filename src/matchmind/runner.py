@@ -31,7 +31,18 @@ from .tracking.analyzer import analyze_match
 
 BATCH_WINDOW_MS = 60_000
 STORY_BUDGET_PER_10_MIN = 3
-REPLAY_VERSION = "1"
+REPLAY_VERSION = "2"
+
+
+def health_variants() -> dict[str, Faults]:
+    """Recorded model-health scenarios shipped with every package (the healthy run is the main one)."""
+    return {
+        # Every other model call returns text with an invented number: the Verifier catches it and the
+        # team retries with feedback, so beats land at level 1 or fall to templates.
+        "unreliable": Faults(mode="hallucinate", every=2, tasks=frozenset({"explain", "story", "localize"})),
+        # The model endpoint is down for the whole match.
+        "outage": Faults(mode="error"),
+    }
 
 
 def default_cohorts(meta: dict) -> tuple[Cohort, ...]:
@@ -52,6 +63,7 @@ class Replay:
     overlays: list[Overlay]
     events: list[dict]
     recaps: list[dict] = field(default_factory=list)
+    variants: dict[str, dict] = field(default_factory=dict)  # model-health variants: narrative overlays + traces
     info: dict = field(default_factory=dict)
 
 
@@ -66,11 +78,16 @@ def _explanations(pack: dict, agent_made: dict | None) -> dict:
 async def _write_recaps(team, ip, cohorts, moments: dict[str, dict], registry, meta: dict) -> list[dict]:
     packs = {"preview": build_preview_pack(meta), "half_time": build_pack(ip, "half_time"), "full_time": build_pack(ip, "full_time")}
     out = []
-    for kind, pack in packs.items():
+    for pack in packs.values():
         for c in cohorts:
             r = await recap_writer.write_recap(team, pack, c, moments, registry)
             out.append(r.model_dump(mode="json"))
     return out
+
+
+def _overlay_levels(overlays: list[Overlay]) -> dict[str, int]:
+    """How the narrative overlays were made: 0 first-time agent text, 1 after a retry, 2 template."""
+    return {str(k): sum(1 for o in overlays if o.provenance.fallbackLevel == k and o.kind in ("lower_third", "ticker")) for k in (0, 1, 2)}
 
 
 def _batches(moments: list[dict]) -> list[list[dict]]:
@@ -127,6 +144,25 @@ def build_replay(
         client.context["moments"] = by_id
     recaps = asyncio.run(_write_recaps(deps.team, ip, cohorts, by_id, registry, meta))
 
+    variants: dict[str, dict] = {}
+    if llm in (None, "offline"):
+        for name, vf in health_variants().items():
+            vstore = InMemoryMomentStore()
+            vclient = make_chat_client(llm, faults=vf)
+            vdeps = WorkflowDeps(team=AgentTeam(vclient, settings), registry=registry, store=vstore)
+            vbeats = asyncio.run(_run_agents(out.moments, cohorts, vdeps, budget_s))
+            variants[name] = {
+                "overlays": producer.resolve_collisions([o for b in vbeats for o in b.overlays]),
+                "moments": {
+                    m["id"]: {
+                        "level": vstore.get(m["id"]).get("level"),
+                        "trace": [{k: v for k, v in step.items() if k in ("agent", "outcome", "issues")} for step in vstore.get(m["id"]).get("trace", [])],
+                    }
+                    for m in out.moments
+                },
+                "levels": _overlay_levels([o for b in vbeats for o in b.overlays]),
+            }
+
     names = {pid: p["name"] for side in ("home", "away") for pid, p in meta[side]["players"].items()}
     short = {meta[s]["id"]: meta[s]["short"] for s in ("home", "away")}
     overlays: list[Overlay] = [o for b in beats for o in b.overlays]
@@ -150,6 +186,7 @@ def build_replay(
                 "level": doc.get("level"),
                 "explanation": doc.get("explanation"),
                 "explanations": _explanations(m, doc.get("explanation")),
+                "variants": {n: v["moments"][m["id"]] for n, v in variants.items()},
                 "trace": [{k: v for k, v in step.items() if k in ("agent", "outcome", "issues")} for step in doc.get("trace", [])],
             }
         )
@@ -161,10 +198,11 @@ def build_replay(
         "moments": len(moments),
         "overlays": len(overlays),
         "recaps": len(recaps),
-        "levels": {str(k): sum(1 for b in beats if b.level == k) for k in (0, 1, 2, 3)},
+        "variants": {n: v["levels"] for n, v in variants.items()},
+        "levels": _overlay_levels([o for b in beats for o in b.overlays]),
     }
     events = sorted([*result.events, *analysis.events], key=lambda e: (e["clock"]["matchMs"], e["seq"]))
-    return Replay(meta=meta, cohorts=cohorts, moments=moments, snapshots=out.snapshots, facts=out.facts, overlays=overlays, events=events, recaps=recaps, info=info)
+    return Replay(meta=meta, cohorts=cohorts, moments=moments, snapshots=out.snapshots, facts=out.facts, overlays=overlays, events=events, recaps=recaps, variants=variants, info=info)
 
 
 def write_replay(replay: Replay, result, outdir: Path) -> Path:
@@ -179,10 +217,12 @@ def write_replay(replay: Replay, result, outdir: Path) -> Path:
     dump("snapshots.json", replay.snapshots)
     dump("facts.json", replay.facts)
     dump("recaps.json", replay.recaps)
+    for name, v in replay.variants.items():
+        dump(f"overlays.{name}.json", [o.model_dump(mode="json") for o in v["overlays"]])
     dump("overlays.json", [o.model_dump(mode="json") for o in replay.overlays])
     dump("events.json", [_slim_event(e) for e in replay.events])
     size = bundle.write(result, outdir)
-    dump("manifest.json", {**replay.info, "matchId": replay.meta["matchId"], "trackingBytes": size, "files": ["meta.json", "moments.json", "snapshots.json", "facts.json", "overlays.json", "recaps.json", "events.json", "slots.json", "tracking.bin.gz"]})
+    dump("manifest.json", {**replay.info, "matchId": replay.meta["matchId"], "trackingBytes": size, "files": [*(f"overlays.{n}.json" for n in replay.variants), "meta.json", "moments.json", "snapshots.json", "facts.json", "overlays.json", "recaps.json", "events.json", "slots.json", "tracking.bin.gz"]})
     return outdir
 
 

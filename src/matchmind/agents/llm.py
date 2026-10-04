@@ -58,11 +58,20 @@ class Faults:
     delay_s: float = 5.0  # for slow
     remaining: int | None = None  # how many calls the fault affects (None = until cleared)
     tasks: frozenset[str] | None = None  # limit the fault to these tasks (None = every task)
+    every: int = 1  # affect every Nth matching call (2 = alternate calls), for a flaky rather than dead model
+    _seen: int = 0
 
     def active(self, task: str | None = None) -> bool:
         if self.mode == "none" or (self.remaining is not None and self.remaining <= 0):
             return False
         return self.tasks is None or task is None or task in self.tasks
+
+    def hit(self, task: str | None = None) -> bool:
+        """Does the fault apply to *this* call? Counts matching calls so ``every`` can alternate."""
+        if not self.active(task):
+            return False
+        self._seen += 1
+        return self._seen % max(1, self.every) == 0
 
     def consume(self) -> None:
         if self.remaining is not None and self.remaining > 0:
@@ -169,7 +178,7 @@ class OfflineChatClient(BaseChatClient):
         task, payload = parse_task(user)
         self.calls.append(task)
         answer = offline_answer(task, payload, self.context)
-        if self.faults.active(task):
+        if self.faults.hit(task):
             mode = self.faults.mode
             self.faults.consume()
             if mode == "error":

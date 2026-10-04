@@ -10,6 +10,7 @@ interface Props {
   onSeek: (ms: number) => void
   showOnPitch: boolean
   setShowOnPitch: (v: boolean) => void
+  health?: string
 }
 
 const AGENT_ICON: Record<string, string> = { editor: 'E', explainer: 'X', verifier: '✓', storyteller: 'S', localizer: 'L', producer: 'P', template: 'T', interpreter: 'I' }
@@ -18,13 +19,15 @@ function fmt(v: number | null | undefined): string {
   return v === null || v === undefined ? '–' : String(v)
 }
 
-export function EvidenceDrawer({ moment, replay, lang, onClose, onSeek, showOnPitch, setShowOnPitch }: Props) {
+export function EvidenceDrawer({ moment, replay, lang, onClose, onSeek, showOnPitch, setShowOnPitch, health = 'healthy' }: Props) {
   if (!moment) return null
   const short = (id: string) => (id === replay.meta.home.id ? replay.meta.home.short : id === replay.meta.away.id ? replay.meta.away.short : id)
   const rows = Object.entries(moment.metrics).filter(([, m]) => m.before !== undefined || m.value !== undefined)
   const ex = moment.explanations?.[lang] ?? moment.explanation
   const events = moment.eventIds.map((id) => replay.eventsById.get(id)).filter((e): e is NonNullable<typeof e> => !!e)
-  const level = moment.level ?? 0
+  const run = health !== 'healthy' ? moment.variants?.[health] : undefined
+  const level = run?.level ?? moment.level ?? 0
+  const trace = run?.trace ?? moment.trace
   return (
     <aside className="drawer" role="dialog" aria-modal="false" aria-label={t(lang, 'evidence')}>
       <header>
@@ -72,7 +75,7 @@ export function EvidenceDrawer({ moment, replay, lang, onClose, onSeek, showOnPi
           <h3>{t(lang, 'trace')}</h3>
           <p className={`level level-${level}`}>{t(lang, `level${Math.min(level, 3)}`)}</p>
           <ol className="trace">
-            {moment.trace.map((s, i) => (
+            {trace.map((s, i) => (
               <li key={i}>
                 <span className="agent" title={s.agent}>{AGENT_ICON[s.agent] ?? '•'}</span>
                 <b>{s.agent}</b> <span>{s.outcome}</span>

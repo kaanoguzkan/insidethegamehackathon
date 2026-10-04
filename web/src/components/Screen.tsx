@@ -2,7 +2,7 @@ import { useMemo, type MutableRefObject } from 'react'
 import { cohortOf } from '../lib/cohort'
 import type { Replay } from '../lib/data'
 import { visibleOverlays } from '../lib/overlays'
-import type { Profile } from '../lib/types'
+import type { Overlay, Profile } from '../lib/types'
 import { OverlayLayer } from './OverlayLayer'
 import { Pitch, type PitchBadge } from './Pitch'
 import { Scoreboard } from './Scoreboard'
@@ -15,13 +15,14 @@ interface Props {
   evidenceMoment: string | null
   onWhy: (momentId: string) => void
   title?: string
+  overlays?: Overlay[] // defaults to the package's own (healthy) overlays
   overlayOnly?: boolean // the broadcast page: graphics only, transparent background
 }
 
 /** One viewer's view of the match: scoreboard, pitch and the overlays written for their cohort. */
-export function Screen({ replay, ms, msRef, profile, evidenceMoment, onWhy, title, overlayOnly }: Props) {
+export function Screen({ replay, ms, msRef, profile, evidenceMoment, onWhy, title, overlayOnly, overlays }: Props) {
   const viewer = cohortOf(profile)
-  const visible = useMemo(() => visibleOverlays(replay.overlays, ms, profile, viewer), [replay, ms, profile, viewer.mode, viewer.language, viewer.perspective, viewer.focusPlayer]) // eslint-disable-line react-hooks/exhaustive-deps
+  const visible = useMemo(() => visibleOverlays(overlays ?? replay.overlays, ms, profile, viewer), [replay, overlays, ms, profile, viewer.mode, viewer.language, viewer.perspective, viewer.focusPlayer]) // eslint-disable-line react-hooks/exhaustive-deps
   const badges: PitchBadge[] = visible
     .filter((o) => o.anchor.type === 'player' && o.anchor.player && o.content.chips[0])
     .map((o) => ({ playerId: o.anchor.player!, text: o.content.chips[0].value }))

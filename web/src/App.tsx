@@ -10,8 +10,8 @@ import { useClock } from './hooks/useClock'
 import { buildHash, useRoute } from './hooks/useHash'
 import { t } from './i18n'
 import { totalMs } from './lib/clock'
-import { loadIndex, loadReplay, type Replay } from './lib/data'
-import { DEFAULT_PROFILE, type Profile, type ReplayIndexEntry } from './lib/types'
+import { type Health, loadIndex, loadReplay, loadVariant, overlaysFor, type Replay } from './lib/data'
+import { DEFAULT_PROFILE, type Overlay, type Profile, type ReplayIndexEntry } from './lib/types'
 
 function useReplay(id: string | null) {
   const [replay, setReplay] = useState<Replay | null>(null)
@@ -73,6 +73,14 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
   const lang = profile.language
   const [selected, setSelected] = useState<string | null>(null)
   const [showOnPitch, setShowOnPitch] = useState(true)
+  const [health, setHealth] = useState<Health>('healthy')
+  const [variants, setVariants] = useState<Partial<Record<Health, Overlay[]>>>({})
+  useEffect(() => {
+    if (health === 'healthy' || variants[health]) return
+    loadVariant(replay.id, health).then((o) => setVariants((v) => ({ ...v, [health]: o }))).catch(() => setHealth('healthy'))
+  }, [health, replay.id, variants])
+  const overlays = useMemo(() => overlaysFor(replay, health, variants), [replay, health, variants])
+  const hasVariants = Object.keys(replay.meta.package.variants ?? {}).length > 0
   const [profileB, setProfileB] = useState<Profile>({ ...DEFAULT_PROFILE, mode: profile.mode === 'analyst' ? 'casual' : 'analyst', language: profile.language === 'es' ? 'en' : 'es' })
 
   // Jump to the start time from the URL once, and autoplay the overlay-only page.
@@ -136,6 +144,16 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
             ))}
           </select>
         </label>
+        {hasVariants && (
+          <div className="health" role="radiogroup" aria-label={t(lang, 'health')} title={t(lang, 'healthNote')}>
+            <span>{t(lang, 'health')}</span>
+            {(['healthy', 'unreliable', 'outage'] as const).map((h) => (
+              <button key={h} type="button" role="radio" aria-checked={health === h} className={`${health === h ? 'on' : ''} h-${h}`} onClick={() => setHealth(h)}>
+                {t(lang, h === 'healthy' ? 'healthHealthy' : h === 'unreliable' ? 'healthUnreliable' : 'healthOutage')}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="actions">
           <button type="button" className={`btn${route.split ? ' on' : ''}`} aria-pressed={route.split} onClick={() => setRoute({ split: !route.split })}>
             {route.split ? t(lang, 'singleView') : t(lang, 'splitView')}
@@ -148,11 +166,11 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
         <div className="main-col">
           {route.split ? (
             <div className="split">
-              <Screen replay={replay} ms={ms} msRef={msRef} profile={profile} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} title={`${t(lang, profile.mode)} · ${profile.language.toUpperCase()}`} />
-              <Screen replay={replay} ms={ms} msRef={msRef} profile={profileB} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} title={`${t(profileB.language, profileB.mode)} · ${profileB.language.toUpperCase()}`} />
+              <Screen replay={replay} ms={ms} msRef={msRef} profile={profile} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} title={`${t(lang, profile.mode)} · ${profile.language.toUpperCase()}`} />
+              <Screen replay={replay} ms={ms} msRef={msRef} profile={profileB} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} title={`${t(profileB.language, profileB.mode)} · ${profileB.language.toUpperCase()}`} />
             </div>
           ) : (
-            <Screen replay={replay} ms={ms} msRef={msRef} profile={profile} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} />
+            <Screen replay={replay} ms={ms} msRef={msRef} profile={profile} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} />
           )}
           <Transport replay={replay} ms={ms} playing={playing} speed={speed} lang={lang} toggle={toggle} setSpeed={setSpeed} seek={seek} onPick={pick} />
           <Timeline replay={replay} ms={ms} lang={lang} seek={seek} onPick={pick} selected={selected} />
@@ -168,7 +186,7 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
         </aside>
       </main>
 
-      <EvidenceDrawer moment={moment} replay={replay} lang={lang} onClose={() => setSelected(null)} onSeek={seek} showOnPitch={showOnPitch} setShowOnPitch={setShowOnPitch} />
+      <EvidenceDrawer moment={moment} replay={replay} lang={lang} onClose={() => setSelected(null)} onSeek={seek} showOnPitch={showOnPitch} setShowOnPitch={setShowOnPitch} health={health} />
       <footer className="foot">
         <span>{t(lang, 'synthetic')}</span>
         <span>{t(lang, 'poweredBy')}</span>

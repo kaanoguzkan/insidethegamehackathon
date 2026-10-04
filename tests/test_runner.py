@@ -102,3 +102,19 @@ def test_package_includes_a_verified_recap_for_every_cohort_and_kind(built):
     kinds = {(r["kind"], r["cohort"]) for r in replay.recaps}
     assert {k for k, _ in kinds} == {"preview", "half_time", "full_time"}
     assert all(r["provenance"]["fallbackLevel"] == 0 and r["provenance"]["verified"] for r in replay.recaps)
+
+
+def test_model_health_variants_degrade_gracefully_and_lose_nothing(built, tmp_path):
+    res, replay = built
+    assert set(replay.variants) == {"unreliable", "outage"}
+    healthy = {o.id for o in replay.overlays if o.kind in ("lower_third", "ticker")}
+    for name, v in replay.variants.items():
+        ids = {o.id for o in v["overlays"]}
+        assert ids == healthy | (ids - healthy) and len(ids) >= len(healthy) * 0.9, name
+        assert all(o.provenance.verified for o in v["overlays"])
+    out = replay.variants["outage"]["overlays"]
+    assert all(o.provenance.fallbackLevel == 2 for o in out), "an outage means template text everywhere"
+    mixed = {o.provenance.fallbackLevel for o in replay.variants["unreliable"]["overlays"]}
+    assert 1 in mixed, "a flaky model should show retries recovering some beats"
+    pkg = write_replay(replay, res, tmp_path / "p")
+    assert (pkg / "overlays.outage.json").exists() and (pkg / "overlays.unreliable.json").exists()

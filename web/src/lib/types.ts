@@ -69,6 +69,7 @@ export interface Moment {
   level?: number | null
   explanation?: Explanation | null
   explanations?: Partial<Record<Lang, Explanation>>
+  variants?: Record<string, { level?: number | null; trace: { agent: string; outcome: string; issues?: string[] }[] }>
   trace: { agent: string; outcome: string; issues?: string[] }[]
 }
 
@@ -103,7 +104,7 @@ export interface Meta {
   away: TeamMeta
   periods: { period: number; startMs: number; endMs: number; startFrame: number; attackDirection: Record<string, number> }[]
   score: Record<string, number>
-  package: { llm: string; cohorts: string[]; levels: Record<string, number>; moments: number; overlays: number }
+  package: { llm: string; cohorts: string[]; levels: Record<string, number>; moments: number; overlays: number; variants?: Record<string, Record<string, number>> }
 }
 
 export interface MatchEvent {

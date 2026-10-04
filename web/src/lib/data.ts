@@ -54,3 +54,21 @@ export async function loadReplay(id: string, root = base()): Promise<Replay> {
     tracking: new Tracking(bin, slots),
   }
 }
+
+export type Health = 'healthy' | 'unreliable' | 'outage'
+
+/** Narrative overlays (the model-written ones) are the only ones that differ between health variants. */
+export const isNarrative = (o: Overlay) => o.kind === 'lower_third' || o.kind === 'ticker'
+
+export async function loadVariant(id: string, health: Exclude<Health, 'healthy'>, root = base()): Promise<Overlay[]> {
+  if (!SAFE_ID.test(id)) throw new Error(`invalid match id: ${id}`)
+  const list = await json<Overlay[]>(`${root}${id}/overlays.${health}.json`)
+  return list.sort((a, b) => a.displayAt.matchMs - b.displayAt.matchMs || a.priority - b.priority)
+}
+
+/** The overlay set for a model-health setting: shared graphics plus that run's narrative overlays. */
+export function overlaysFor(replay: Replay, health: Health, variants: Partial<Record<Health, Overlay[]>>): Overlay[] {
+  const v = health === 'healthy' ? undefined : variants[health]
+  if (!v) return replay.overlays
+  return [...replay.overlays.filter((o) => !isNarrative(o)), ...v].sort((a, b) => a.displayAt.matchMs - b.displayAt.matchMs || a.priority - b.priority)
+}

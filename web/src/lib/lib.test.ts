@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { clockAt, totalMs } from './clock'
 import { covers } from './cohort'
 import { activeAt, isShown, visibleOverlays } from './overlays'
-import { SAFE_ID } from './data'
+import { isNarrative, overlaysFor, SAFE_ID, type Replay } from './data'
 import { recapFor, recapReady } from './recap'
 import { maybeGunzip, Tracking } from './tracking'
 import { DEFAULT_PROFILE, type Cohort, type Meta, type Overlay, type Profile } from './types'
@@ -157,5 +157,25 @@ describe('recaps', () => {
     expect(recapReady('half_time', 999, 1000, 5000)).toBe(false)
     expect(recapReady('half_time', 1000, 1000, 5000)).toBe(true)
     expect(recapReady('full_time', 4999, 1000, 5000)).toBe(false)
+  })
+})
+
+describe('model-health variants', () => {
+  const fake = { overlays } as unknown as Replay
+  const outage = overlays.filter(isNarrative).map((o) => ({ ...o, provenance: { ...o.provenance, fallbackLevel: 2 } }))
+  it('healthy uses the package overlays untouched', () => {
+    expect(overlaysFor(fake, 'healthy', {})).toBe(overlays)
+  })
+  it('swaps only the narrative overlays and keeps every shared graphic', () => {
+    const merged = overlaysFor(fake, 'outage', { outage })
+    expect(merged.filter((o) => !isNarrative(o)).length).toBe(overlays.filter((o) => !isNarrative(o)).length)
+    expect(merged.filter(isNarrative).every((o) => o.provenance.fallbackLevel === 2)).toBe(true)
+  })
+  it('stays sorted by display time', () => {
+    const m = overlaysFor(fake, 'outage', { outage })
+    for (let i = 1; i < m.length; i++) expect(m[i].displayAt.matchMs).toBeGreaterThanOrEqual(m[i - 1].displayAt.matchMs)
+  })
+  it('falls back to the healthy set until a variant has loaded', () => {
+    expect(overlaysFor(fake, 'unreliable', {})).toBe(overlays)
   })
 })
