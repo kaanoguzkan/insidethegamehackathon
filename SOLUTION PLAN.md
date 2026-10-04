@@ -15,9 +15,9 @@
 
 ## Status: where the build stands
 
-*Updated Sunday 4 October 2026, 03:30 (UTC+3). This is day 0 of the build window; the Submission Period opens on Tuesday 6 October.*
+*Updated Sunday 4 October 2026, 03:40 (UTC+3). This is day 0 of the build window; the Submission Period opens on Tuesday 6 October. Development is paused here at your request; everything below is committed.*
 
-**In one paragraph.** The data side of the pipeline (stages 1 and 2) is built, tested and committed. The simulator produces football-realistic matches and tracking, the physical analyzer and the interpreter turn them into evidence-backed moments, and the scripted demo story (Northbridge stop pressing at 55:00) is detected without the pipeline being told about it. The agent layer (stages 3 to 5), the Azure adapters, the web app and the infrastructure are not built yet. The work this plan scheduled for 5 to 12 October (simulator, auto-eventing, realism report, interpreter) is done, about a week early.
+**In one paragraph.** The data side of the pipeline (stages 1 and 2) is built, tested and committed. The simulator produces football-realistic matches and tracking, the physical analyzer and the interpreter turn them into evidence-backed moments, and the scripted demo story (Northbridge stop pressing at 55:00) is detected without the pipeline being told about it. The localized template engine is done and tested, and a first draft of the Verifier is written but untested. The rest of the agent layer (stages 3 to 5), the Azure adapters, the web app and the infrastructure are not built yet. The work this plan scheduled for 5 to 12 October (simulator, auto-eventing, realism report, interpreter) is done, about a week early.
 
 ### Build status
 
@@ -33,9 +33,9 @@
 | Fitted xT grid and index baselines | Done | `matchmind build-league-data` writes `data/league/` |
 | CLI | Partly | `simulate`, `report-realism`, `build-league-data` work. `run-local` and `build-replay` arrive with the agent layer. |
 | Public data contracts (pydantic) | Written | JSON Schema export and the sync test are still to do |
-| Template engine (English, Spanish, Turkish) | Drafted | Renders every moment type in both modes; three defects found, fixing next (below) |
+| Template engine (English, Spanish, Turkish) | Done | Every moment type and fact card, analyst and casual, club-side tone; 120 tests. The three defects found on first render are fixed. |
 | Season history, milestones, published dataset | Not started | §5.6 and §5.8 |
-| Verifier | Not started | Next |
+| Verifier | Drafted, untested | `agents/verify.py` imports but has no tests yet and is not wired into anything. It checks numbers, names, citations, honesty about contradicting metrics, policy, language and format. Treat it as a draft until the adversarial tests exist. |
 | Agent Framework workflow, offline model, Overlay Producer | Not started | Next |
 | MCP server and Brain API | Not started | |
 | Azure adapters (Functions, Container Apps, Cosmos DB) | Not started | Cannot be deployed or tested from this machine: no `az` or `azd` |
@@ -44,9 +44,11 @@
 | Bicep, `azd`, GitHub Actions | Not started | |
 | README, docs, demo video | Not started | The README is a stub |
 
-39 tests pass, including the realism-band test. There are about 6,400 lines of Python in `src/` and `tests/`, in three commits.
+160 tests are collected. The fast suite passed at the last commit; the slow realism test last ran at the interpreter commit, and the simulator has not changed since. There are about 7,000 lines of Python in `src/` and `tests/`, in five commits plus the one that saves this update.
 
-**Template defects found by rendering every moment type:** (1) in the club-perspective variant a team name was lower-cased mid-sentence ("northbridge"); (2) Turkish suffixes after numbers ("1,3'den", "0,6'e") are only correct for some numbers; (3) a leftover hack in `explain()`. All three are small and are the first thing fixed.
+**Template defects, now fixed and covered by tests.** Rendering every moment type found three: a team name lower-cased mid-sentence in the club-perspective variant, Turkish case suffixes after numbers that are only right for some numbers (now phrased "X iken Y oldu"), and a leftover hack in `explain()`.
+
+**Known gaps in what exists.** The Verifier is untested. The `Moment` shape is checked only through hand-built packs. The interpreter's other detectors (chaos flip, tactical shift, momentum swing) are noisier than the pressing detector.
 
 ### Measured results
 
@@ -101,8 +103,7 @@
 
 ### Next
 
-1. Fix the three template defects; add tests that render every moment type in all three languages.
-2. Verifier (numbers, names, references, policy, language, format) with tests that try to slip an invented number past it.
+1. Test the Verifier properly: adversarial cases that try to slip an invented number, an invented or wrong player, a wrong club, a hallucinated minute, a banned word, the wrong language, a written-out count or a cherry-picked metric past it. Fix what the tests find, then check that it accepts every template output.
 3. Offline model and the Agent Framework workflow: Editor, Explainer, Storyteller, Localizer and the degradation ladder, running the real framework.
 4. Overlay Producer, JSON Schema export, `run-local`, replay packages.
 5. MCP server and Brain API, then the web app, then Azure infrastructure and the evals.
@@ -992,7 +993,7 @@ matchmind/
 │   ├── sim/                   # simulator: league, outcome models, movement, scenarios, realism  [built]
 │   ├── tracking/              # chunk format + physical auto-eventing from frames  [built]
 │   ├── intel/                 # metrics, indices, detectors, evidence packs, xT, baselines  [built]
-│   ├── agents/                # workflow, agents, prompts, verifier, templates, producer  [templates drafted; rest next]
+│   ├── agents/                # workflow, agents, prompts, verifier, templates, producer  [templates done; verifier drafted, untested; rest next]
 │   ├── mcp_server/            # Match Data MCP server  [not started]
 │   ├── adapters/              # memory and azure: events, frames, queue, publisher, models  [not started]
 │   └── cli.py                 # simulate, report-realism, build-league-data  [built]; run-local, build-replay [next]
@@ -1007,7 +1008,7 @@ matchmind/
 │   └── replays/               # pre-generated replay packages
 ├── evals/                     # golden set, custom evaluators, run script
 ├── docs/                      # architecture, metrics, agents, overlay contract, data card, responsible AI
-├── tests/                     # 39 tests  [built]
+├── tests/                     # 160 tests  [built]
 └── .github/
     ├── workflows/             # ci.yml, deploy.yml, evals.yml, pages.yml
     └── copilot-instructions.md
@@ -1029,7 +1030,7 @@ matchmind/
 
 This schedule is aggressive for one person. §19 says what to drop first.
 
-**Progress (4 Oct, 03:30):** the rows for 5 to 11 October are done except the JSON Schemas, season history and the published dataset. The first open item is the agent layer (the 12 and 14 October rows), so the project is roughly a week ahead on the data side and exactly on schedule for everything else, which is not started. ✅ done, ◐ partly done.
+**Progress (4 Oct, 03:40):** the rows for 5 to 11 October are done except the JSON Schemas, season history and the published dataset. The 12 October row (Verifier, template fallback) is half done: the templates are finished and tested, the Verifier is drafted but untested. The project is roughly a week ahead on the data side and on schedule for everything else, which is not started. ✅ done, ◐ partly done.
 
 | Date | Focus | Done when |
 |---|---|---|

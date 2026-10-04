@@ -1,10 +1,10 @@
 import re
 
 import pytest
-from packs import packs
 
 from matchmind.agents import templates as T
 from matchmind.core.contracts import SUPPORTED_LANGUAGES, Cohort, Explanation
+from packs import packs
 
 PACKS = packs()
 NAMES = {"HAR-09": "Marco Quinski", "NOR-07": "Zane Pelandal", "HAR-08": "Adrian Yararsen"}
