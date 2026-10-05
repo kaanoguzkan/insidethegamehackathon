@@ -624,6 +624,17 @@ _SENTENCE = re.compile(r"(?<=[.!?])\s+")
 _NUMBER = re.compile(r"(?<![\w.])(\d+(?:[.,]\d+)?)")
 
 
+def _cites(nums: set[float], m: dict) -> bool:
+    """Does a sentence's set of numbers cite this metric? Both its before and after values must
+    appear (a single coincidental 0.3 is not a citation); a metric with one value needs that value."""
+    def has(v) -> bool:
+        return isinstance(v, (int, float)) and not isinstance(v, bool) and (v in nums or abs(v) in nums)
+
+    if "before" in m or "after" in m:
+        return has(m.get("before")) and has(m.get("after"))
+    return has(m.get("value"))
+
+
 def claims_from_text(text: str, pack: dict) -> list[Claim]:
     """Split text into sentences and attach, as refs, the evidence keys whose numbers it uses."""
     out = []
@@ -631,9 +642,7 @@ def claims_from_text(text: str, pack: dict) -> list[Claim]:
         nums = {float(n.replace(",", ".")) for n in _NUMBER.findall(sent)}
         refs = []
         for key, m in pack["metrics"].items():
-            vals = {v for v in m.values() if isinstance(v, (int, float)) and not isinstance(v, bool)}
-            vals |= {abs(v) for v in vals}
-            if nums & vals:
+            if _cites(nums, m):
                 refs.append(key)
         out.append(Claim(text=sent, refs=refs))
     return out
@@ -745,4 +754,56 @@ def fact_card(fact: dict, lang: str, names: dict[str, str]) -> tuple[str, str, l
     if t == "substitution":
         off = names.get(v.get("off") or "", "")
         return f"{L['on']}: {player}", f"{L['off']}: {off}", [], "stat_card"
+    if t == "set_piece":
+        return _set_piece_card(v, lang, names.get(fact.get("team") or "", ""), player, L)
+    if t == "formation_change":
+        team = names.get(fact.get("team") or "", "")
+        head = {"en": f"{team} change shape", "es": f"El {team} cambia de sistema", "tr": f"{team} sistem değiştirdi"}[lang]
+        return head, f"{v.get('from')} → {v.get('to')}", [Chip(label=_SP["formation"][lang], value=str(v.get("to")))], "stat_card"
+    return None
+
+
+# Set pieces: the routine a team chose, as a small card. Wording is per language, not translated word by word.
+_SP = {
+    "formation": {"en": "Formation", "es": "Sistema", "tr": "Dizilim"},
+    "routine": {"en": "Routine", "es": "Jugada", "tr": "Kurgu"},
+    "wall": {"en": "Wall", "es": "Barrera", "tr": "Duvar"},
+    "corner": {"en": "Corner", "es": "Córner", "tr": "Korner"},
+    "free_kick": {"en": "Free kick", "es": "Falta", "tr": "Serbest vuruş"},
+    "long_throw": {"en": "Long throw", "es": "Saque de banda largo", "tr": "Uzun taç"},
+    "corner_routine": {
+        "en": {"near": ("Near post", "Delivered to the near post."), "far": ("Far post", "Aimed at the far post."),
+               "short": ("Short corner", "Played short to a team-mate."), "edge": ("Edge of the box", "Drilled to the edge of the box.")},
+        "es": {"near": ("Primer palo", "Al primer palo."), "far": ("Segundo palo", "Al segundo palo."),
+               "short": ("Córner corto", "Sacado en corto a un compañero."), "edge": ("Borde del área", "Raso al borde del área.")},
+        "tr": {"near": ("Yakın direk", "Yakın direğe ortalandı."), "far": ("Uzak direk", "Uzak direğe ortalandı."),
+               "short": ("Kısa korner", "Kısa oynandı."), "edge": ("Ceza sahası kenarı", "Ceza sahası kenarına çekildi.")},
+    },  # fmt: skip
+}
+
+
+def _set_piece_card(v: dict, lang: str, team: str, player: str, L: dict) -> tuple[str, str, list[Chip], str] | None:
+    kind = v.get("kind")
+    if kind == "corner":
+        routine = _SP["corner_routine"][lang].get(v.get("routine"))
+        if routine is None:
+            return None
+        return f"{_SP['corner'][lang]}: {team}", routine[1], [Chip(label=_SP["routine"][lang], value=routine[0])], "stat_card"
+    if kind == "free_kick":
+        d, wall = v.get("distanceM"), v.get("wall")
+        if v.get("routine") == "direct" and d:
+            body = {
+                "en": f"Direct, from {num(d, lang)} m.", "es": f"Directa, a {num(d, lang)} m.", "tr": f"Direkt vuruş, {num(d, lang)} m.",
+            }[lang]
+            chips = [Chip(label=L["dist"], value=f"{num(d, lang)} {L['m']}")]
+            if wall:
+                chips.append(Chip(label=_SP["wall"][lang], value=str(wall)))
+            return f"{_SP['free_kick'][lang]}: {player}", body, chips, "stat_card"
+        if v.get("routine") == "cross":
+            body = {"en": "Floated into the box.", "es": "Colgada al área.", "tr": "Ceza alanına ortalandı."}[lang]
+            return f"{_SP['free_kick'][lang]}: {player}", body, [], "stat_card"
+        return None
+    if kind == "long_throw":
+        body = {"en": "Hurled into the box.", "es": "Lanzado al área.", "tr": "Ceza alanına fırlatıldı."}[lang]
+        return f"{_SP['long_throw'][lang]}: {player}", body, [], "stat_card"
     return None

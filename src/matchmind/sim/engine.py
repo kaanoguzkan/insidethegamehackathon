@@ -16,7 +16,9 @@ import numpy as np
 from ..core import geometry as G
 from .actions import ActionsMixin
 from .scenarios import Scenario, ScriptItem
+from .setpieces import SetPieceMixin
 from .shape import ShapeMixin
+from .tactics import assign, describe_shapes, layout, roles
 from .teams import GROUP, ROLE_COMPAT, Club, Player, Style, formation_slots
 
 DT = 0.2
@@ -64,7 +66,7 @@ class MatchResult:
     stats: dict = field(default_factory=dict)
 
 
-class MatchSim(ShapeMixin, ActionsMixin):
+class MatchSim(ShapeMixin, SetPieceMixin, ActionsMixin):
     DT = DT
 
     def __init__(
@@ -86,7 +88,6 @@ class MatchSim(ShapeMixin, ActionsMixin):
         self.club_id = [home.id, away.id]
 
         self.style: list[Style] = []
-        self.slots: list[list[tuple[str, float, float]]] = []
         self.formation_name: list[str] = []
         self.players: list[Player] = []
         self.bench: list[list[Player]] = []
@@ -98,7 +99,6 @@ class MatchSim(ShapeMixin, ActionsMixin):
             lineup, bench = pick_lineup(club, style.formation)
             self.style.append(style)
             self.formation_name.append(style.formation)
-            self.slots.append(formation_slots(style.formation))
             self.players.extend(lineup)
             self.bench.append(bench)
             self.lineups.append([p.id for p in lineup])
@@ -115,9 +115,15 @@ class MatchSim(ShapeMixin, ActionsMixin):
         for i, p in enumerate(self.players):
             self._set_physique(i, p)
 
-        # Formation geometry (normalised depth u and width fy for the 10 outfield slots).
-        self.u = [np.zeros(10), np.zeros(10)]
-        self.fy = [np.zeros(10), np.zeros(10)]
+        # Formation geometry for the 10 outfield players: normalised depth u and width fy in three
+        # layouts (nominal base, in possession "att", out of possession "blk"). ``slot_idx`` maps a
+        # player to a slot of the formation, so a mid-match formation change only re-maps it.
+        self.slot_idx = [list(range(10)), list(range(10))]
+        self.slot_role: list[list[str]] = [[], []]
+        self.phase = [0.5, 0.5]  # 0 = fully in the block, 1 = fully in the attacking shape
+        self.u, self.fy = [np.zeros(10), np.zeros(10)], [np.zeros(10), np.zeros(10)]
+        self.u_att, self.fy_att = [np.zeros(10), np.zeros(10)], [np.zeros(10), np.zeros(10)]
+        self.u_blk, self.fy_blk = [np.zeros(10), np.zeros(10)], [np.zeros(10), np.zeros(10)]
         for t in (0, 1):
             self._reindex_shape(t)
 
@@ -141,6 +147,7 @@ class MatchSim(ShapeMixin, ActionsMixin):
         self.carry: dict | None = None
         self.flight: dict | None = None
         self.restart: dict | None = None
+        self.routine: dict | None = None  # the routine of the restart being played
         self.loose_until = 0.0
         self.loose_t0 = 0.0
         self.loose_from = self.ball.copy()
@@ -332,6 +339,12 @@ class MatchSim(ShapeMixin, ActionsMixin):
             setattr(st, k, min(1.0, max(0.0, getattr(st, k) + dv)))
         for k, v in item.set.items():
             setattr(st, k, min(1.0, max(0.0, v)))
+        if item.tags:
+            for k, v in item.tags.items():
+                setattr(st, k, v)
+            self._reindex_shape(team)
+        if item.formation and item.formation != self.formation_name[team]:
+            self._change_formation(team, item.formation)
         if item.event == "substitution":
             self.subs_due[team].insert(0, self.t)
         elif item.event == "red_card":
@@ -341,6 +354,37 @@ class MatchSim(ShapeMixin, ActionsMixin):
             if slot is None:
                 slot = next(i for i in range(team * 11 + 1, team * 11 + 11) if self.active[i] and GROUP[self.players[i].pos] == "DEF")
             self._send_off(slot, team)
+
+    def _change_formation(self, team: int, name: str) -> None:
+        """Switch shape mid-match: each player takes the slot of the new formation that suits them."""
+        old = self.formation_name[team]
+        cur_lay = layout(old, "base")
+        new_roles = roles(name)
+        new_lay = layout(name, "base")
+        cost = []
+        for i in range(10):
+            pl = self.players[team * 11 + 1 + i]
+            ci = self.slot_idx[team][i]
+            row = []
+            if not self.active[team * 11 + 1 + i]:
+                # A sent-off player's slot goes to the most advanced role: ten men give up a forward.
+                cost.append([6.0 * (1.0 - new_lay[k][0]) for k in range(10)])
+                continue
+            for k in range(10):
+                compat = ROLE_COMPAT[new_roles[k]]
+                miss = compat.index(pl.pos) if pl.pos in compat else 6
+                same = 0.0 if GROUP[pl.pos] == GROUP[new_roles[k]] else 2.0
+                row.append(2.0 * miss + same + 6.0 * abs(cur_lay[ci][0] - new_lay[k][0]) + 3.0 * abs(cur_lay[ci][1] - new_lay[k][1]))
+            cost.append(row)
+        self.slot_idx[team] = assign(cost)
+        self.formation_name[team] = name
+        self.style[team].formation = name
+        self._reindex_shape(team)
+        shapes = describe_shapes(name, self.style[team].tags)
+        self.emit(
+            "formation_change", team=team, formation=name, previous=old,
+            attack=shapes["attack"], block=shapes["block"], outcome=None,
+        )  # fmt: skip
 
     def _substitute(self, team: int) -> None:
         base = team * 11
@@ -469,6 +513,8 @@ class MatchSim(ShapeMixin, ActionsMixin):
             "short": club.short,
             "colors": club.colors,
             "formation": self.formation_name[t],
+            "startFormation": self.clubs[t].style.formation,
+            "shapes": describe_shapes(self.clubs[t].style.formation, self.clubs[t].style.tags),
             "style": self.clubs[t].style.to_dict(),
             "lineup": self.lineups[t],
             "players": {

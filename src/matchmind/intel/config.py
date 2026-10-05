@@ -61,8 +61,9 @@ class InterpreterConfig:
     # --- tactical shape (from tracking) ------------------------------------------------------------
     # Line height varies a lot on its own (sigma about 6 m between a 3-minute and a 10-minute mean),
     # so a tactical shift must be large and must hold at two consecutive evaluations.
-    shift_line_m: float = 14.0  # defensive-line height change
+    shift_line_m: float = 7.0  # defensive-line height change (defending, ball in the middle zone)
     shift_width_m: float = 10.0  # team width change
+    shift_min_frames: int = 100  # defending tracking frames a window needs (20 s at 5 Hz)
     shift_after_ms: int = 3 * MINUTE
     shift_before_ms: int = 10 * MINUTE
 

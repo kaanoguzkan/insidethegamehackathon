@@ -20,33 +20,46 @@ LEAGUE_SEED = 2026
 _CLUBS: list[tuple[str, str, str, str, str, float, Style]] = [
     (
         "HAR", "Harbour City", "Harbour", "#5BA8E0", "#FFFFFF", 1.08,
+        # Positional play: fullbacks step inside, a false nine, short goal kicks and short corners.
         Style("4-3-3", press_intensity=0.80, press_height=0.80, directness=0.25, tempo=0.65,
-              width=0.70, line_height=0.80, counter_bias=0.30),
+              width=0.70, line_height=0.80, counter_bias=0.30,
+              fullbacks="inverted", pivot="stay", striker="false9", build_up="short",
+              corners="short", corner_defence="zonal"),
     ),
     (
         "NOR", "Northbridge Athletic", "Northbridge", "#C8102E", "#FFFFFF", 1.04,
+        # Gegenpress and fast breaks: overlapping fullbacks, a dropping pivot, man-marked corners.
         Style("4-2-3-1", press_intensity=0.85, press_height=0.70, directness=0.60, tempo=0.75,
-              width=0.55, line_height=0.60, counter_bias=0.80),
+              width=0.55, line_height=0.60, counter_bias=0.80,
+              fullbacks="overlap", pivot="drop", build_up="mixed", corners="near", corner_defence="man"),
     ),
     (
         "RED", "Redmoor United", "Redmoor", "#7A1F2B", "#E8D9B0", 1.00,
+        # Direct and physical: flat banks of four, long goal kicks, far-post corners, a long throw.
         Style("4-4-2", press_intensity=0.50, press_height=0.45, directness=0.70, tempo=0.55,
-              width=0.60, line_height=0.45, counter_bias=0.60),
+              width=0.60, line_height=0.45, counter_bias=0.60,
+              fullbacks="overlap", build_up="long", corners="far", corner_defence="man", long_throws=True),
     ),
     (
         "KES", "Kestrel Vale", "Kestrel", "#1F7A4D", "#F2C94C", 0.97,
-        Style("3-5-2", press_intensity=0.60, press_height=0.55, directness=0.45, tempo=0.60,
-              width=0.90, line_height=0.55, counter_bias=0.50),
+        # A back three with wing-backs as the width: 5-4-1 out of possession, 3-2-5 in it.
+        Style("3-4-3", press_intensity=0.60, press_height=0.55, directness=0.45, tempo=0.60,
+              width=0.90, line_height=0.55, counter_bias=0.50,
+              build_up="mixed", corners="mixed", corner_defence="zonal"),
     ),
     (
         "ALD", "Aldergate Rovers", "Aldergate", "#2B2D6E", "#C9CCE8", 0.94,
-        Style("4-1-4-1", press_intensity=0.40, press_height=0.20, directness=0.70, tempo=0.50,
-              width=0.50, line_height=0.25, counter_bias=0.85),
+        # A low block with a back five and a counter-attacking pair: long goal kicks, man-marked corners.
+        Style("5-3-2", press_intensity=0.40, press_height=0.20, directness=0.70, tempo=0.50,
+              width=0.50, line_height=0.25, counter_bias=0.85,
+              build_up="long", corners="far", corner_defence="man"),
     ),
     (
         "SAL", "Saltmarsh Town", "Saltmarsh", "#E58A1F", "#1B1B1B", 0.92,
-        Style("4-4-2", press_intensity=0.55, press_height=0.50, directness=0.50, tempo=0.55,
-              width=0.65, line_height=0.50, counter_bias=0.55),
+        # A lone pivot who drops into a back three to build, overlapping fullbacks, edge-of-box corners.
+        Style("4-1-4-1", press_intensity=0.55, press_height=0.50, directness=0.50, tempo=0.55,
+              width=0.65, line_height=0.50, counter_bias=0.55,
+              fullbacks="overlap", pivot="drop", build_up="short", corners="edge", corner_defence="mixed"),
     ),
 ]  # fmt: skip
 

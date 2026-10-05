@@ -18,7 +18,14 @@
     "tempo": 0.65,
     "width": 0.7,
     "line_height": 0.8,
-    "counter_bias": 0.3
+    "counter_bias": 0.3,
+    "fullbacks": "inverted",
+    "pivot": "stay",
+    "striker": "false9",
+    "build_up": "short",
+    "corners": "short",
+    "corner_defence": "zonal",
+    "long_throws": false
    },
    "squad": [
     {
@@ -515,7 +522,14 @@
     "tempo": 0.75,
     "width": 0.55,
     "line_height": 0.6,
-    "counter_bias": 0.8
+    "counter_bias": 0.8,
+    "fullbacks": "overlap",
+    "pivot": "drop",
+    "striker": "target",
+    "build_up": "mixed",
+    "corners": "near",
+    "corner_defence": "man",
+    "long_throws": false
    },
    "squad": [
     {
@@ -1012,7 +1026,14 @@
     "tempo": 0.55,
     "width": 0.6,
     "line_height": 0.45,
-    "counter_bias": 0.6
+    "counter_bias": 0.6,
+    "fullbacks": "overlap",
+    "pivot": "stay",
+    "striker": "target",
+    "build_up": "long",
+    "corners": "far",
+    "corner_defence": "man",
+    "long_throws": true
    },
    "squad": [
     {
@@ -1502,14 +1523,21 @@
    },
    "strength": 0.97,
    "style": {
-    "formation": "3-5-2",
+    "formation": "3-4-3",
     "press_intensity": 0.6,
     "press_height": 0.55,
     "directness": 0.45,
     "tempo": 0.6,
     "width": 0.9,
     "line_height": 0.55,
-    "counter_bias": 0.5
+    "counter_bias": 0.5,
+    "fullbacks": "hold",
+    "pivot": "stay",
+    "striker": "target",
+    "build_up": "mixed",
+    "corners": "mixed",
+    "corner_defence": "zonal",
+    "long_throws": false
    },
    "squad": [
     {
@@ -1999,14 +2027,21 @@
    },
    "strength": 0.94,
    "style": {
-    "formation": "4-1-4-1",
+    "formation": "5-3-2",
     "press_intensity": 0.4,
     "press_height": 0.2,
     "directness": 0.7,
     "tempo": 0.5,
     "width": 0.5,
     "line_height": 0.25,
-    "counter_bias": 0.85
+    "counter_bias": 0.85,
+    "fullbacks": "hold",
+    "pivot": "stay",
+    "striker": "target",
+    "build_up": "long",
+    "corners": "far",
+    "corner_defence": "man",
+    "long_throws": false
    },
    "squad": [
     {
@@ -2496,14 +2531,21 @@
    },
    "strength": 0.92,
    "style": {
-    "formation": "4-4-2",
+    "formation": "4-1-4-1",
     "press_intensity": 0.55,
     "press_height": 0.5,
     "directness": 0.5,
     "tempo": 0.55,
     "width": 0.65,
     "line_height": 0.5,
-    "counter_bias": 0.55
+    "counter_bias": 0.55,
+    "fullbacks": "overlap",
+    "pivot": "drop",
+    "striker": "target",
+    "build_up": "short",
+    "corners": "edge",
+    "corner_defence": "mixed",
+    "long_throws": false
    },
    "squad": [
     {

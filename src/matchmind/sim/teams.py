@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 
+from .tactics import FORMATIONS_FULL, TAGS, formation_names
+
 ATTRS = (
     "pace",
     "stamina",
@@ -84,12 +86,29 @@ class Style:
     line_height: float = 0.5  # how high the defensive line sits
     counter_bias: float = 0.5  # how hard the team breaks after winning the ball
 
+    # Tags (see tactics.py): how the shape is played and how set pieces are taken and defended.
+    fullbacks: str = "hold"  # overlap | inverted | hold
+    pivot: str = "stay"  # stay | drop (the holding midfielder drops between the centre-backs)
+    striker: str = "target"  # target | false9
+    build_up: str = "mixed"  # short | mixed | long (goal kicks and restarts)
+    corners: str = "mixed"  # near | far | short | edge | mixed
+    corner_defence: str = "zonal"  # zonal | man | mixed
+    long_throws: bool = False  # a throw-in specialist hurls it into the box
+
     def to_dict(self) -> dict:
         return asdict(self)
 
+    @property
+    def tags(self) -> dict[str, str]:
+        return {k: getattr(self, k) for k in TAGS}
+
     @classmethod
     def from_dict(cls, d: dict) -> Style:
-        return cls(**d)
+        s = cls(**d)
+        for k, allowed in TAGS.items():
+            if getattr(s, k) not in allowed:
+                raise ValueError(f"style tag {k}={getattr(s, k)!r} is not one of {allowed}")
+        return s
 
 
 @dataclass
@@ -132,47 +151,13 @@ class Club:
         raise KeyError(player_id)
 
 
-# Formation slots, goalkeeper first: (role, depth, width). Depth is only an ordering used
-# to stretch the team between its back and front lines; width is a 0..1 position across
-# the pitch measured from the team's own left.
-FORMATIONS: dict[str, list[tuple[str, float, float]]] = {
-    "4-3-3": [
-        ("GK", 0.03, 0.50),
-        ("LB", 0.25, 0.10), ("CB", 0.22, 0.36), ("CB", 0.22, 0.64), ("RB", 0.25, 0.90),
-        ("DM", 0.42, 0.50), ("CM", 0.54, 0.30), ("CM", 0.54, 0.70),
-        ("LW", 0.80, 0.12), ("ST", 0.88, 0.50), ("RW", 0.80, 0.88),
-    ],
-    "4-2-3-1": [
-        ("GK", 0.03, 0.50),
-        ("LB", 0.25, 0.10), ("CB", 0.22, 0.36), ("CB", 0.22, 0.64), ("RB", 0.25, 0.90),
-        ("DM", 0.42, 0.38), ("DM", 0.42, 0.62),
-        ("LM", 0.66, 0.15), ("AM", 0.70, 0.50), ("RM", 0.66, 0.85),
-        ("ST", 0.88, 0.50),
-    ],
-    "4-4-2": [
-        ("GK", 0.03, 0.50),
-        ("LB", 0.25, 0.10), ("CB", 0.22, 0.36), ("CB", 0.22, 0.64), ("RB", 0.25, 0.90),
-        ("LM", 0.54, 0.10), ("CM", 0.50, 0.38), ("CM", 0.50, 0.62), ("RM", 0.54, 0.90),
-        ("ST", 0.84, 0.40), ("ST", 0.84, 0.60),
-    ],
-    "3-5-2": [
-        ("GK", 0.03, 0.50),
-        ("CB", 0.22, 0.26), ("CB", 0.20, 0.50), ("CB", 0.22, 0.74),
-        ("LWB", 0.52, 0.05), ("CM", 0.52, 0.34), ("DM", 0.42, 0.50), ("CM", 0.52, 0.66), ("RWB", 0.52, 0.95),
-        ("ST", 0.84, 0.40), ("ST", 0.84, 0.60),
-    ],
-    "4-1-4-1": [
-        ("GK", 0.03, 0.50),
-        ("LB", 0.25, 0.10), ("CB", 0.22, 0.36), ("CB", 0.22, 0.64), ("RB", 0.25, 0.90),
-        ("DM", 0.40, 0.50),
-        ("LM", 0.60, 0.12), ("CM", 0.58, 0.38), ("CM", 0.58, 0.62), ("RM", 0.60, 0.88),
-        ("ST", 0.88, 0.50),
-    ],
-}  # fmt: skip
-
-
 def formation_slots(name: str) -> list[tuple[str, float, float]]:
+    """Base (nominal) slots, goalkeeper first: ``(role, depth, width)``."""
     try:
-        return FORMATIONS[name]
+        return FORMATIONS_FULL[name]["base"]
     except KeyError:
-        raise ValueError(f"unknown formation {name!r}; choose from {sorted(FORMATIONS)}") from None
+        raise ValueError(f"unknown formation {name!r}; choose from {formation_names()}") from None
+
+
+# Kept for callers that only want the nominal formations.
+FORMATIONS = {k: v["base"] for k, v in FORMATIONS_FULL.items()}

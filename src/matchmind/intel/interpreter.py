@@ -188,6 +188,18 @@ class Interpreter:
             )  # fmt: skip
         elif t == "substitution":
             self._fact(out, "substitution", r["_ms"], team, r["player"], {"on": r["player"], "off": attrs.get("off")}, priority=4)
+        elif t == "corner":
+            self._fact(out, "set_piece", r["_ms"], team, r.get("player"), {"kind": "corner", "routine": attrs.get("routine")}, priority=4)
+        elif t == "free_kick" and attrs.get("routine") in ("direct", "cross"):
+            dist = round(G.goal_dist(r["_ax"], r["_ay"]), 1) if "_ax" in r else None
+            self._fact(
+                out, "set_piece", r["_ms"], team, r.get("player"),
+                {"kind": "free_kick", "routine": attrs["routine"], "wall": attrs.get("wall"), "distanceM": dist}, priority=4,
+            )  # fmt: skip
+        elif t == "throw_in" and attrs.get("routine") == "long":
+            self._fact(out, "set_piece", r["_ms"], team, r.get("player"), {"kind": "long_throw", "routine": "long"}, priority=4)
+        elif t == "formation_change":
+            self._fact(out, "formation_change", r["_ms"], team, None, {"to": attrs.get("formation"), "from": attrs.get("previous")}, priority=2)
         elif t == "top_speed":
             self._on_top_speed(r, out)
         elif t == "sprint":

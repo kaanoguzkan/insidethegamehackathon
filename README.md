@@ -16,7 +16,7 @@ All data is synthetic. The league, clubs, crests and players are fictional.
 
 | Stage | What happens | Where |
 |---|---|---|
-| **Ingest** | A 5 Hz simulator plays realistic matches of a fictional league and emits an event feed plus player and ball tracking | `src/matchmind/sim/` |
+| **Ingest** | A 5 Hz simulator plays matches of a fictional league (nine formations that change shape with the ball, choreographed set pieces) and emits an event feed plus player and ball tracking | `src/matchmind/sim/` |
 | **Interpret** | Code derives sprints, speeds, pass difficulty, xG, xT, momentum, a control-vs-chaos index and pressing measures, and detects the moments worth telling | `tracking/`, `intel/` |
 | **Explain** | A team of Microsoft Agent Framework agents explains *why* each moment matters, citing an evidence pack; a Verifier checks every claim | `agents/` |
 | **Render** | Timed, machine-readable overlay JSON, drawn over a live 2D match view (or any renderer) | `core/contracts.py`, `web/` |
@@ -26,6 +26,15 @@ All data is synthetic. The league, clubs, crests and players are fictional.
 <img src="docs/img/two-viewers.png" alt="Two viewers watching the same moment: a Turkish analyst and a Spanish casual fan" width="49%">
 <img src="docs/img/evidence-drawer.png" alt="The evidence drawer: explanation, caveats, before/after metrics flagged as supporting or against the story, and the agent trace" width="49%">
 </p>
+
+## Modern football, not one stretched shape
+
+Clubs play recognisable European archetypes: a 4-3-3 with inverted fullbacks and a false nine, a gegenpressing
+4-2-3-1 with overlapping fullbacks, a direct 4-4-2 with long throws, a 3-4-3 with wing-backs that becomes
+a 5-4-1 without the ball, a 5-3-2 low block. Corners come as near-post, far-post, short and edge-of-box
+routines against zonal or man-marking defences; free kicks get walls; goal kicks are built short or sent long
+against a pressing line; and scripted stories include in-match formation changes. All of it is in the tracking
+and the events, and visible in the **Tactics** panel. See [docs/tactics.md](docs/tactics.md).
 
 ## Why you can trust what it says
 
@@ -47,8 +56,8 @@ All data is synthetic. The league, clubs, crests and players are fictional.
 uv sync
 uv run matchmind build-replay pressing-collapse     # simulate, analyze, interpret, run the agents, write a package
 uv run matchmind evals                              # quality gates over the committed packages
-uv run pytest -m "not slow"                         # 426 tests
-cd web && pnpm install && pnpm dev                  # the match center (24 tests: pnpm test)
+uv run pytest -m "not slow"                         # 465 tests
+cd web && pnpm install && pnpm dev                  # the match center (27 tests: pnpm test)
 ```
 
 No keys, network or GPU needed: the default model client answers from the template engine so the real
@@ -110,17 +119,17 @@ judge link use, and the Brain service runs the same agents on demand. See
 ## Measured results
 
 * **Realistic synthetic data.** 100 simulated matches, all 19 league averages inside target bands (goals
-  2.9, shots 25, passes 1,096, pass completion 80%, distance 11.5 km, top speed 34.4 km/h ...).
+  2.6, shots 26, passes 1,103, pass completion 79%, distance 11.9 km, top speed 34.8 km/h ...).
   `uv run matchmind report-realism`; a test enforces it. See [docs/data-card.md](docs/data-card.md).
 * **Detects a hidden story.** The pressing collapse scripted at 55:00 is found in **15 of 16** seeds, a
-  median 6 minutes later, and never fires as a false collapse in 16 unscripted controls. Pressing is read
+  median 9 minutes later, and never fires as a false collapse in 16 unscripted controls. Pressing is read
   from tracking (PPDA over five minutes rests on 0-3 actions and is too noisy); see
   [docs/metrics.md](docs/metrics.md).
 * **Quality gates.** Over the three replay packages: numeric fidelity 1.0, 100% of narrative text verified,
   24/24 recaps verified, contradicting evidence always admitted, analyst text more than twice as
   number-dense as casual text. `uv run matchmind evals` (CI-gated).
-* **Graceful degradation.** Same match three ways: healthy (128 agent-written overlays), unreliable model
-  (56 recovered by retry, 96 template), outage (all 152 template, none lost).
+* **Graceful degradation.** Same match three ways: healthy (144 agent-written overlays, 32 template), unreliable model
+  (64 recovered by retry, 112 template), outage (all 176 template, none lost).
 
 ## Repository
 
@@ -130,8 +139,8 @@ apps/brain/      FastAPI service: REST + MCP + agent workflow
 web/             React + TypeScript match center (replay player, overlays, evidence drawer, recaps)
 data/            league, scenarios (3 stories), replay packages (3 matches, ~10 MB)
 infra/           Bicep + azure.yaml          schemas/   JSON Schemas of the public contracts
-docs/            architecture, metrics, agents, overlay contract, data card, responsible AI, Azure
-tests/ evals/    426 + 24 tests              SOLUTION PLAN.md   design, schedule, status
+docs/            architecture, tactics, metrics, agents, overlay contract, data card, responsible AI, Azure
+tests/ evals/    465 + 27 tests              SOLUTION PLAN.md   design, schedule, status
 ```
 
 ## Honest limits
@@ -140,7 +149,8 @@ tests/ evals/    426 + 24 tests              SOLUTION PLAN.md   design, schedule
   everything model-facing is exercised through the offline model and fault injection.
 * Not deployed to Azure; the demo video is not recorded.
 * The season history and milestone moments (`get_season_context`) are not built; the tool says so.
-* Other detectors (chaos flip, tactical shift, momentum swing) are noisier than the pressing detector.
+* Other detectors (chaos flip, momentum swing) are noisier than the pressing detector.
+* Shapes are named from the formation layouts; recognising a formation back from the tracking frames is not built.
 
 ## License
 

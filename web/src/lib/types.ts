@@ -85,12 +85,22 @@ export interface Snapshot {
   score: Record<string, number>
 }
 
+export interface Shapes {
+  base: string
+  attack: string
+  block: string
+  blurb?: string
+}
+
 export interface TeamMeta {
   id: string
   name: string
   short: string
   colors: { primary: string; secondary: string }
   formation: string
+  startFormation?: string
+  shapes?: Shapes
+  style?: Record<string, number | string | boolean>
   lineup: string[]
   players: Record<string, { name: string; pos: string; number: number }>
 }
@@ -118,6 +128,7 @@ export interface MatchEvent {
   end?: { x: number; y: number }
   outcome?: string
   kind?: string
+  attributes?: Record<string, unknown>
 }
 
 export interface ReplayIndexEntry {

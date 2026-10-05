@@ -13,6 +13,8 @@ from pathlib import Path
 
 import yaml
 
+from .tactics import TAGS, formation_names
+
 
 @dataclass
 class ScriptItem:
@@ -21,6 +23,8 @@ class ScriptItem:
     change: dict[str, float] = field(default_factory=dict)  # relative style deltas
     set: dict[str, float] = field(default_factory=dict)  # absolute style values
     event: str | None = None  # "substitution" | "red_card"
+    formation: str | None = None  # switch to this formation (players are re-assigned to its slots)
+    tags: dict[str, str] = field(default_factory=dict)  # tactic tag changes, e.g. {"fullbacks": "inverted"}
     player: str | None = None  # for red_card: player id (default: a defender)
 
     @property
@@ -50,6 +54,11 @@ def parse_scenario(d: dict) -> Scenario:
         for k in (*it.change, *it.set):
             if k not in STYLE_FIELDS:
                 raise ValueError(f"scenario {d.get('id')!r}: unknown style field {k!r}")
+        if it.formation is not None and it.formation not in formation_names():
+            raise ValueError(f"scenario {d.get('id')!r}: unknown formation {it.formation!r}")
+        for k, v in it.tags.items():
+            if k not in TAGS or v not in TAGS[k]:
+                raise ValueError(f"scenario {d.get('id')!r}: bad tactic tag {k}={v!r}")
         if it.event not in (None, "substitution", "red_card"):
             raise ValueError(f"scenario {d.get('id')!r}: unknown event {it.event!r}")
     return Scenario(

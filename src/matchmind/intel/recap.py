@@ -166,6 +166,7 @@ def build_preview_pack(meta: dict) -> dict:
         return {"id": best, "name": team["players"][best]["name"], "team": team["id"], "pos": team["players"][best]["pos"]}
 
     stars = [star(home), star(away)]
+    start = {t["id"]: t.get("startFormation", t["formation"]) for t in (home, away)}  # not the post-change shape
     clock = {"period": 1, "minute": 0, "second": 0, "matchMs": 0}
     return {
         "id": f"{meta['matchId']}-recap-preview",
@@ -181,8 +182,8 @@ def build_preview_pack(meta: dict) -> dict:
         "metrics": {},
         "facts": {
             "score": {home["id"]: 0, away["id"]: 0},
-            "formations": {home["id"]: home["formation"], away["id"]: away["formation"]},
-            "formationNumbers": sorted({int(x) for f in (home["formation"], away["formation"]) for x in re.findall(r"\d", f)}),
+            "formations": start,
+            "formationNumbers": sorted({int(x) for f in start.values() for x in re.findall(r"\d", f)}),
             "styles": {home["id"]: style_tags(home.get("style", {}) or _NEUTRAL), away["id"]: style_tags(away.get("style", {}) or _NEUTRAL)},
         },
         "eventIds": [],

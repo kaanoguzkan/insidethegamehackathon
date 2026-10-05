@@ -24,12 +24,13 @@
 | Part | Status | Notes |
 |---|---|---|
 | Fictional league, simulator, tracking feed, scenarios | Done | 19 realism bands enforced by a test; 3 scripted stories (seeds 15, 35, 25) |
+| Formations, phase shapes, tactic tags, set pieces | Done | 9 formations with attacking and defensive shapes, club tags, corner/free-kick/goal-kick/throw-in routines, in-match formation changes (`docs/tactics.md`); recalibrated, detectors re-derived |
 | Physical analyzer, interpreter, evidence packs | Done | Pressing detected from tracking; streaming equals batch |
 | Template engine EN/ES/TR | Done | Every moment type and fact card, analyst and casual |
 | Verifier | Done | Deterministic, adversarially tested, wired into the workflow and the Producer (the `verified` flag is earned, not asserted) |
 | Agent Framework workflow, offline model, fault injector | Done | Editor, Explainer, Storyteller, Localizer, Recap Writer; levels 0 agent, 1 retry, 2 template, 3 stat graphic |
 | Overlay Producer, JSON Schemas, replay packages | Done | Version 2 packages; 3 matches, about 10 MB; recaps 3 kinds x 8 cohorts; healthy, unreliable and outage variants |
-| Web app | Done | Pitch, overlays, profile panel, timeline, evidence drawer, recaps, health switch, EN/ES/TR UI, accessibility options |
+| Web app | Done | Pitch, overlays, profile panel, timeline, evidence drawer, recaps, health switch, Tactics panel, EN/ES/TR UI, accessibility options |
 | MCP server (9 tools) and Brain API | Done | Verified over real HTTP, in tests and in Docker; registry hardened; fault-switch routes now opt-in and key-protected |
 | Evals and CI gates | Done | `matchmind evals`; reproducibility check is informational |
 | Dockerfile, Bicep, `azd`, GitHub Actions | Written | Image builds and runs; Bicep compiles; workflows YAML-valid, third-party actions pinned to commit SHAs; **never run on Azure or GitHub** |
@@ -40,14 +41,15 @@
 | Live streaming mode | Not built | Replay and on-demand only |
 | Demo video | Not recorded | |
 
-428 tests are collected (the fast suite and ruff pass at the last run) plus 24 web tests. About 10,400 lines of Python and 2,600 of web code.
+465 tests are collected (the fast and slow suites and ruff pass at the last run) plus 27 web tests. About 10,400 lines of Python and 2,600 of web code.
 
 ### Measured results
 
-* **Realism.** All 19 league averages inside their bands over 100 matches (table in `docs/data-card.md`).
-* **Pressing-collapse detection.** Found in 15 of 16 seeds, median 6 minutes after the change at 55:00; no false collapse in 16 controls (study in `docs/metrics.md`). The other detectors are noisier and carry lower salience.
+* **Realism.** All 19 league averages inside their bands over 100 matches (table in `docs/data-card.md`), after re-calibrating for phase shapes and set pieces.
+* **Pressing-collapse detection.** Found in 15 of 16 seeds, median 9 minutes after the change at 55:00; no false collapse in 16 controls (study in `docs/metrics.md`). The other detectors are noisier and carry lower salience.
 * **Quality gates over the three replay packages.** Numeric fidelity 1.0, verification 1.0, language 1.0, honesty about contradicting metrics 1.0, recaps 24 of 24 verified, analyst text about 4x as number-dense as casual.
-* **Resilience demo.** Healthy: 128 agent-written overlays. Unreliable model: 56 recovered by retry, 96 template. Outage: all 152 template, none lost.
+* **Resilience demo.** Healthy: 144 agent-written overlays. Unreliable model: 64 recovered by retry, 112 template. Outage: all 176 template, none lost.
+* **Tactical shifts.** Defensive shape is compared like with like (opponent in possession, ball in the middle zone); thresholds re-derived at 7 m line / 10 m width: about 0.7 false alarms a match, the scripted shift found in 17 of 20 seeds.
 
 ### Where the build differs from this plan
 

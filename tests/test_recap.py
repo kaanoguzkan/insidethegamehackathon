@@ -115,3 +115,14 @@ def test_a_hallucinating_recap_writer_falls_back_to_the_template(world):
 def test_a_model_outage_still_produces_a_recap(world):
     rc, _ = _write(Faults(mode="error"), world_=world)
     assert rc.provenance.fallbackLevel == 2 and rc.summary
+
+
+def test_the_preview_names_the_starting_formations_not_the_post_change_ones(clubs):
+    from matchmind.intel.recap import build_preview_pack
+    from matchmind.sim.engine import MatchSim
+
+    m = MatchSim("fx", clubs["RED"], clubs["SAL"], seed=3)
+    m._change_formation(0, "5-3-2")  # a tactical switch before the final whistle must not rewrite the preview
+    meta = m._result().meta
+    pack = build_preview_pack(meta)
+    assert pack["facts"]["formations"] == {"RED": "4-4-2", "SAL": "4-1-4-1"}

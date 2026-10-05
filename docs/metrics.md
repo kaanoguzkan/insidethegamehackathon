@@ -32,7 +32,7 @@ possession changes and duels per minute, long-ball share, average possession len
 | momentum swing | new leader of the 5-minute xT+xG gap ahead by 0.16, old leader ahead by 0.06 in the previous 10 minutes; once per 20 minutes |
 | control / chaos flip | 3-minute mean chaos differs from the previous 10-minute mean by 22 points and crosses 50 |
 | rhythm break | tempo changes by 30% against the previous 10 minutes |
-| tactical shift | defensive line moves 14 m or width 10 m (3-minute vs 10-minute means), at two consecutive evaluations |
+| tactical shift | defensive line moves 7 m or width 10 m (3-minute vs 10-minute means of the defensive shape, sampled only while the opponent has the ball in the middle of the pitch), at two consecutive evaluations |
 | fatigue drop | after 55', 10-minute sprint rate 60% below the first-half rate |
 | physical highlight | a new match-best sprint of 33 km/h or a shot of 100 km/h |
 
@@ -48,10 +48,28 @@ rules against how often they fired by chance in the first hour of unscripted mat
 | gap of 2.0 m plus pressure rate down 25%, held two minutes (chosen) | 4% | 88% |
 | gap of 3.0 m alone | 2% | 71% |
 
-On the full pipeline over 16 seeds the chosen rule caught 15, a median 6 minutes after the change, and
-never fired as a false collapse in 16 unscripted controls. Line height has a standard deviation of about
-6 m on its own, which is why tactical shifts need 14 m. The other detectors are noisier (roughly 2.5 chaos
-flips, 2.5 tactical shifts and 1.8 momentum swings per match); they carry lower salience.
+On the full pipeline over 16 seeds, after teams learned to change shape with the ball (see
+[tactics.md](tactics.md)), the chosen rule caught 15, a median 9 minutes after the change, and never fired as
+a false collapse in 16 unscripted controls.
+
+### Tactical shifts and shape that breathes with the ball
+
+When teams change shape with possession, a defensive line legitimately sits higher or deeper depending on
+who has the ball and where, and a naive detector fired 5.9 times a match. Defensive shape is now sampled
+only while the opponent has the ball in the middle zone (35-75 m from the defending team's own goal), which
+brought the noise down to a 99th percentile of 8.4 m for the change in line height and 10.0 m for width
+(3-minute against 10-minute means, 30 matches). Operating points, with false alarms per match and how
+often the scripted high-line change by Aldergate at 60:00 was found in 20 seeds:
+
+| Line / width threshold | False alarms per match | Scripted shift found |
+|---|---|---|
+| 6.5 m / 10 m | 1.0 | 17/20 |
+| **7 m / 10 m (chosen)** | **0.7** | **17/20** |
+| 7.5 m / 10 m | 0.6 | 16/20 |
+| 8 m / 10 m | 0.4 | 14/20 |
+
+The other detectors are noisier than the pressing detector (roughly 3.4 chaos flips and 2.7 momentum swings
+per match, 1.0 tactical shifts); they carry lower salience.
 
 ## Evidence packs
 

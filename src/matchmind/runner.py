@@ -165,6 +165,7 @@ def build_replay(
 
     names = {pid: p["name"] for side in ("home", "away") for pid, p in meta[side]["players"].items()}
     short = {meta[s]["id"]: meta[s]["short"] for s in ("home", "away")}
+    names = {**names, **short}  # fact cards name clubs as well as players (club ids never collide with player ids)
     overlays: list[Overlay] = [o for b in beats for o in b.overlays]
     for lang in SUPPORTED_LANGUAGES:
         shared = Cohort(mode="any", language=lang)
@@ -229,9 +230,17 @@ def write_replay(replay: Replay, result, outdir: Path) -> Path:
 _KEEP = ("id", "type", "clock", "team", "player", "receiver", "location", "end", "outcome")
 
 
+_TACTICAL_EVENTS = {"corner", "free_kick", "goal_kick", "throw_in", "formation_change"}
+_TACTICAL_ATTRS = {"routine", "wall", "formation", "previous", "attack", "block"}
+
+
 def _slim_event(e: dict) -> dict:
     """Events as the web app needs them: enough to draw an evidence chain on the pitch."""
     slim = {k: e[k] for k in _KEEP if k in e}
     if e["type"] in ("pass", "shot"):
         slim["kind"] = e["attributes"].get("passType") or e["attributes"].get("bodyPart")
+    if e["type"] in _TACTICAL_EVENTS:  # the routine and shape labels the Tactics panel reads
+        keep = {k: v for k, v in e.get("attributes", {}).items() if k in _TACTICAL_ATTRS}
+        if keep:
+            slim["attributes"] = keep
     return slim

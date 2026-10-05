@@ -296,3 +296,20 @@ body:has(.broadcast) { background: transparent; }
   .scrub { order: 3; flex-basis: 100%; }
   .actions { width: 100%; }
 }
+
+/* Tactics panel: formation now, how the team builds and defends, tactic tags, set pieces so far. */
+.tactics .tt { padding: 8px 0 10px; border-top: 1px solid var(--line); }
+.tactics .tt:first-of-type { border-top: 0; padding-top: 0; }
+.tt-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.tt-head .formation { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 800; letter-spacing: 0.04em; }
+.tt-head .changed { font-style: normal; font-size: 11px; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 1px 8px; }
+.shapes { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0 0 6px; font-size: 13px; }
+.shapes dt { color: var(--muted); }
+.shapes dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 700; }
+.tags { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-wrap: wrap; gap: 5px; }
+.tags li { font-size: 11.5px; background: rgba(255, 255, 255, 0.08); border-radius: 999px; padding: 2px 9px; }
+.sp { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.sp th { text-align: left; font-weight: 500; color: var(--muted); padding: 1px 6px 1px 0; white-space: nowrap; }
+.sp td.n { font-variant-numeric: tabular-nums; font-weight: 700; padding: 1px 8px 1px 0; }
+.sp td.d { color: var(--muted); }
+.muted.small { font-size: 11.5px; margin: 6px 0 0; }

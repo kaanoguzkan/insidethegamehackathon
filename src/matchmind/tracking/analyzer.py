@@ -99,7 +99,7 @@ class PhysicalAnalyzer:
         self.milestones_hit: dict[str, int] = {}
 
         self.pending: list[dict] = []
-        self.shape_acc: dict[int, list[tuple[float, float, float, float]]] = {0: [], 1: []}
+        self.shape_acc: dict[int, list[tuple]] = {0: [], 1: []}
         self.x_counter = 0
 
     # ----- setup -----------------------------------------------------------------------------
@@ -386,6 +386,10 @@ class PhysicalAnalyzer:
                     dd = dd[np.isfinite(dd)]
                     press_dist = float(dd.min())
                     near8 = int((dd <= 8.0).sum())
+                in_possession = bool(chunk.alive[k]) and not out_of_possession
+                # Defensive shape is only comparable at the same ball height: a line drops when the ball
+                # is near the goal whatever the tactics, so sample it with the ball in the middle zone.
+                defending_mid = out_of_possession and 35.0 <= ball_ax <= 75.0
                 self.shape_acc[team].append(
                     (
                         float(order[:4].mean()),  # defensive line
@@ -394,6 +398,8 @@ class PhysicalAnalyzer:
                         float(ax.mean()),  # centroid
                         press_dist,
                         near8,
+                        defending_mid,
+                        in_possession,
                     )
                 )
 
@@ -407,6 +413,8 @@ class PhysicalAnalyzer:
                 continue
             a = np.array([r[:4] for r in acc])
             oop = [(r[4], r[5]) for r in acc if r[4] is not None]
+            defending = np.array([bool(r[6]) for r in acc])
+            attacking = np.array([bool(r[7]) for r in acc])
             self.x_counter += 1
             ms = round(end_frame * 1000 / self.hz)
             attrs = {
@@ -418,6 +426,14 @@ class PhysicalAnalyzer:
                 "windowMs": SHAPE_WINDOW_CHUNKS * self.chunk_ticks * 1000 // self.hz,
                 "pressFrames": len(oop),
             }
+            # Teams change shape with the ball, so shape is also reported per phase: a tactical shift
+            # is a change in how the team *defends* (ball in the middle zone) or builds, not in how
+            # long it had the ball or where play happened to be.
+            for flag, mask in (("Def", defending), ("Ip", attacking)):
+                attrs[f"{flag.lower()}Frames"] = int(mask.sum())
+                if mask.sum() >= 10:
+                    attrs[f"lineHeight{flag}M"] = round(float(a[mask, 0].mean()), 1)
+                    attrs[f"width{flag}M"] = round(float(a[mask, 2].mean()), 1)
             if oop:
                 # How tightly the team closes the ball down in the opponent's half.
                 attrs["pressDistM"] = round(float(np.mean([o[0] for o in oop])), 2)

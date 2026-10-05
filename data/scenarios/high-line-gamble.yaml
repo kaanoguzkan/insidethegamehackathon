@@ -1,8 +1,9 @@
 id: high-line-gamble
 description: >-
-  Aldergate, who defend deep and counter, are chasing the game. Around the hour they throw the
-  defensive line up the pitch and start pressing. The pipeline has to notice the change in shape
-  and say what it means: more of the ball, but acres of space behind.
+  Aldergate, who defend deep in a back five and counter, are chasing the game. Around the hour
+  they switch to a back three with wing-backs, throw the defensive line up the pitch and start
+  pressing. The pipeline has to notice the change in shape and say what it means: more of the
+  ball, but acres of space behind.
 home: KES
 away: ALD
 seed: 25
@@ -10,6 +11,7 @@ script:
   - at: "60:00"
     team: ALD
     change: { line_height: 0.7, press_height: 0.5, press_intensity: 0.3 }
+    formation: "3-4-3"
   - at: "72:00"
     team: KES
     event: substitution

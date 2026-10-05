@@ -6,8 +6,9 @@ import { covers } from './cohort'
 import { activeAt, isShown, visibleOverlays } from './overlays'
 import { isNarrative, overlaysFor, SAFE_ID, type Replay } from './data'
 import { recapFor, recapReady } from './recap'
+import { formationAt, setPieceCounts, tagKeys, totalCorners } from './tactics'
 import { maybeGunzip, Tracking } from './tracking'
-import { DEFAULT_PROFILE, type Cohort, type Meta, type Overlay, type Profile } from './types'
+import { DEFAULT_PROFILE, type Cohort, type MatchEvent, type Meta, type Overlay, type Profile } from './types'
 
 const dir = new URL('../../../data/replays/pressing-collapse/', import.meta.url)
 const read = (f: string) => readFileSync(new URL(f, dir))
@@ -177,5 +178,39 @@ describe('model-health variants', () => {
   })
   it('falls back to the healthy set until a variant has loaded', () => {
     expect(overlaysFor(fake, 'unreliable', {})).toBe(overlays)
+  })
+})
+
+describe('tactics panel data', () => {
+  const rc = new URL('../../../data/replays/red-card-drama/', import.meta.url)
+  const rcMeta = JSON.parse(readFileSync(new URL('meta.json', rc)).toString()) as Meta
+  const rcEvents = JSON.parse(readFileSync(new URL('events.json', rc)).toString()) as MatchEvent[]
+  const fake = { events: rcEvents } as unknown as Replay
+
+  it('starts in the nominal formation and switches when the formation_change event arrives', () => {
+    const red = rcMeta.home
+    expect(formationAt(fake, red, 0)).toMatchObject({ name: '4-4-2', changed: false, block: '4-4-2' })
+    const change = rcEvents.find((e) => e.type === 'formation_change' && e.team === red.id)!
+    const after = formationAt(fake, red, change.clock.matchMs + 1)
+    expect(after).toMatchObject({ name: '4-1-4-1', changed: true })
+    expect(after.block).toBe('4-5-1')
+    expect(formationAt(fake, red, change.clock.matchMs - 1).name).toBe('4-4-2')
+  })
+
+  it('counts set-piece routines up to the current time only', () => {
+    const red = rcMeta.home.id
+    const end = Number.MAX_SAFE_INTEGER
+    const all = setPieceCounts(rcEvents, red, end)
+    expect(totalCorners(all)).toBe(rcEvents.filter((e) => e.type === 'corner' && e.team === red).length)
+    expect(all.goalKicks.short + all.goalKicks.long).toBe(rcEvents.filter((e) => e.type === 'goal_kick' && e.team === red).length)
+    expect(totalCorners(setPieceCounts(rcEvents, red, 0))).toBe(0)
+    const half = setPieceCounts(rcEvents, red, 45 * 60_000)
+    expect(totalCorners(half)).toBeLessThanOrEqual(totalCorners(all))
+  })
+
+  it('names only the tactic tags that depart from the defaults', () => {
+    expect(tagKeys(meta.home)).toEqual(expect.arrayContaining(['tag.fullbacks.inverted', 'tag.striker.false9', 'tag.build_up.short', 'tag.corners.short', 'tag.corner_defence.zonal']))
+    expect(tagKeys(meta.home)).not.toContain('tag.pivot.stay')
+    expect(tagKeys({ ...meta.home, style: { fullbacks: 'hold', pivot: 'stay', corner_defence: 'man', long_throws: true } })).toEqual(['tag.corner_defence.man', 'tag.long_throws'])
   })
 })

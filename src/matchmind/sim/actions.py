@@ -29,12 +29,12 @@ TUNE: dict[str, float] = {
     "pass_w": 1.00,
     "carry_w": 0.45,
     "dribble_w": 0.10,
-    "shot_w": 0.072,
-    "shot_k": 3.2,
+    "shot_w": 0.065,
+    "shot_k": 3.9,
     "first_time_boost": 3.0,
     "clear_w": 3.8,
-    "duel_rate": 0.13,
-    "pressure_base": 0.17,
+    "duel_rate": 0.15,
+    "pressure_base": 0.20,
     "pressure_gain": 0.72,
     "foul_share": 0.56,
     "tackle_win": 0.40,
@@ -506,7 +506,7 @@ class ActionsMixin:
             prog = fwd
             s = (0.030 + 0.030 * st.directness) * prog
             s += 14.0 * (threat(jax, jay) - threat(hax, hay))
-            s += 1.5 * math.log(max(p, 0.03))
+            s += 1.8 * math.log(max(p, 0.03))
             s -= 0.020 * max(0.0, dist - 25.0) * (1.25 - st.directness)
             if dist < 18.0:
                 s += 0.25 * (1.0 - st.directness)
@@ -521,6 +521,8 @@ class ActionsMixin:
             s += 0.3 * st.width * abs(jay - G.CY) / G.CY
             if self.t < self.transition_until[t_]:
                 s += 0.04 * prog * st.counter_bias
+            if restart == "goal_kick" and self.routine:  # build short from the back, or go long to the target
+                s += (1.4 if dist < 30.0 else -1.6) if self.routine.get("mode") == "short" else (-1.5 if dist < 28.0 else 1.2)
             out.append({
                 "j": j, "end": end, "kind": kind, "dist": dist, "p": p, "score": s, "fwd": fwd,
                 "lane": lane, "prx": prx, "through": through, "jax": jax, "line": line,
@@ -706,7 +708,7 @@ class ActionsMixin:
         goal_x = G.PITCH_L if d == 1 else 0.0
         fin = pl.attrs["finishing"]
 
-        p_goal = min(0.95, xgv * (0.80 + 0.40 * (fin - 40.0) / 55.0))
+        p_goal = min(0.95, xgv * (0.96 + 0.40 * (fin - 40.0) / 55.0))
         gk = o * 11
         p_goal *= 1.0 - 0.25 * (self.players[gk].attrs["keeping"] - 70.0) / 30.0
         p_goal = min(0.95, max(0.005, p_goal))
@@ -843,8 +845,8 @@ class ActionsMixin:
         if out == "complete":
             j = f["receiver"]
             self.set_piece_shot = True
-            self.first_time, self.first_time_for = "cross", j
-            self.last_lofted = True
+            self.first_time, self.first_time_for = ("cutback" if f.get("delivery") == "edge" else "cross"), j
+            self.last_lofted = bool(f.get("lofted", True))
             self.gain_possession(j, "pass")
         elif out == "claimed":
             gk = o * 11
@@ -1025,13 +1027,37 @@ class ActionsMixin:
                 best, best_s = j, s
         return best if best is not None else base + 1
 
+    def _pick_thrower(self, team: int, spot, delay: float) -> int:
+        """A long-throw specialist: the strong, aggressive player who can reach the spot in time."""
+        base = team * 11
+        reach = 4.5 * delay
+        best, best_s = None, -1e9
+        for slot in range(1, 11):
+            j = base + slot
+            if not self.active[j]:
+                continue
+            dd = float(np.hypot(*(self.pos[j] - spot)))
+            if dd > reach:
+                continue
+            a = self.players[j].attrs
+            s = a["aggression"] + 0.5 * a["stamina"] - 0.8 * dd
+            if s > best_s:
+                best, best_s = j, s
+        return best if best is not None else self._pick_taker("throw_in", team, spot, delay)
+
     def _schedule_restart(self, kind: str, team: int, spot, delay: float, setpiece: bool = False) -> None:
         spot = np.array(G.clamp_pitch(spot[0], spot[1], 0.0), dtype=float)
         if kind == "free_kick":
             ax, ay = self.att(team, spot)
             setpiece = ax >= 78.0 and abs(ay - G.CY) <= 26.0
         taker = self._pick_taker(kind, team, spot, delay)
-        self.restart = {"kind": kind, "team": team, "spot": spot, "at": self.t + delay, "taker": taker, "setpiece": setpiece}
+        routine = self._plan_routine(kind, team, spot)
+        if routine and routine.get("mode") == "long" and kind == "throw_in":
+            taker = self._pick_thrower(team, spot, delay)
+        self.restart = {
+            "kind": kind, "team": team, "spot": spot, "at": self.t + delay, "taker": taker,
+            "setpiece": setpiece, "routine": routine,
+        }  # fmt: skip
         self.mode = "dead"
         self.holder = None
         self.flight = None
@@ -1047,6 +1073,9 @@ class ActionsMixin:
             return  # still walking to the ball
         self.restart = None
         kind, team, spot = r["kind"], r["team"], r["spot"]
+        self.routine = r.get("routine")
+        label = self._routine_label(kind, self.routine)
+        wall = self._wall_size(self.routine)
         self.pos[taker] = spot + np.array([-0.4 * self.dir[team], 0.0])
         self.vel[taker] = 0.0
         self.ball[:2] = spot
@@ -1054,14 +1083,10 @@ class ActionsMixin:
         self._announce_possession(team, taker, kind)
         if kind == "kickoff":
             self.emit("kickoff", team=team, player=taker, loc=spot, outcome=None)
-        elif kind == "throw_in":
-            self.emit("throw_in", team=team, player=taker, loc=spot, outcome=None)
-        elif kind == "goal_kick":
-            self.emit("goal_kick", team=team, player=taker, loc=spot, outcome=None)
-        elif kind == "corner":
-            self.emit("corner", team=team, player=taker, loc=spot, outcome=None)
+        elif kind in ("throw_in", "goal_kick", "corner"):
+            self.emit(kind, team=team, player=taker, loc=spot, outcome=None, routine=label)
         elif kind == "free_kick":
-            self.emit("free_kick", team=team, player=taker, loc=spot, outcome=None)
+            self.emit("free_kick", team=team, player=taker, loc=spot, outcome=None, routine=label, wall=wall or None)
         self.holder = taker
         self.mode = "carry"
         self.holder_since = self.t
@@ -1072,12 +1097,23 @@ class ActionsMixin:
             self._launch_shot(taker, xgv, "foot", "open", 0.0, "penalty")
         elif kind == "corner":
             self._deliver_corner(taker, team, spot)
+        elif kind == "throw_in" and self.routine and self.routine.get("mode") == "long":
+            self._deliver_corner(taker, team, spot, throw=True)
         else:
             self._decide(restart=kind)
 
-    def _deliver_corner(self, taker: int, team: int, spot) -> None:
+    def _deliver_corner(self, taker: int, team: int, spot, throw: bool = False) -> None:
         d = self.dir[team]
         pl = self.players[taker]
+        rt = self.routine or {}
+        delivery = rt.get("delivery", "far") if not throw else "far"
+        side = rt.get("side", 1)
+        helper = rt.get("helper")
+        if delivery == "short" and helper is not None and self.active[helper]:
+            self._short_corner(taker, team, spot, helper)
+            return
+        if delivery == "short":
+            delivery = "near"
         # Attackers in the box compete with defenders for the delivery.
         att = []
         for slot in range(1, 11):
@@ -1087,11 +1123,22 @@ class ActionsMixin:
             ax, ay = self.att(team, self.pos[j])
             if ax >= G.PITCH_L - 20.0 and abs(ay - G.CY) <= 20.0:
                 att.append(j)
-        end_att = (G.PITCH_L - self.rng.uniform(5.0, 13.0), G.CY + self.rng.uniform(-9.0, 9.0))
+        U = self.rng.uniform
+        if delivery == "near":
+            end_att = (G.PITCH_L - U(3.0, 8.0), G.CY + side * U(1.0, 6.0))
+        elif delivery == "edge":
+            end_att = (G.PITCH_L - U(14.0, 19.0), G.CY + U(-9.0, 9.0))
+        else:
+            end_att = (G.PITCH_L - U(5.0, 12.0), G.CY - side * U(0.0, 8.0))
         end = np.array(G.from_att(end_att[0], end_att[1], d))
         r = self.rng.random()
         skill_adj = 0.06 * (pl.attrs["passing"] - 65) / 30.0
-        if att and r < 0.38 + skill_adj:
+        # Zonal defences give attackers a run at the ball; man-markers stay with them.
+        marking_adj = {"zonal": 0.02, "man": -0.02}.get(rt.get("defence", "zonal"), 0.0)
+        p_complete = {"near": 0.34, "far": 0.40, "edge": 0.32}[delivery] + marking_adj + skill_adj
+        if throw:
+            p_complete -= 0.06
+        if att and r < p_complete:
             j = min(att, key=lambda k: float(np.hypot(*(self.pos[k] - end))))
             outcome = "complete"
         elif r < 0.66 + skill_adj:
@@ -1101,19 +1148,22 @@ class ActionsMixin:
         else:
             outcome, j = "loose", None
         dist = float(np.hypot(*(end - spot)))
-        dur = max(0.8, dist / 20.0)
+        dur = max(0.8, dist / (14.0 if throw else 20.0))
         ev_out = "complete" if outcome == "complete" else "incomplete"
         self.emit(
             "pass", team=team, player=taker, receiver=j, loc=spot, end=end, outcome=ev_out,
-            passType="corner", height="lofted", bodyPart="right_foot", underPressure=False, restart="corner",
+            passType="throw_in" if throw else "corner", height="lofted" if delivery != "edge" else "ground",
+            bodyPart="hands" if throw else "right_foot", underPressure=False,
+            restart="throw_in" if throw else "corner", routine=delivery,
         )  # fmt: skip
         self.last_passer, self.last_pass_t = taker, self.t
         self.flight = {
             "kind": "corner", "t0": self.t, "t1": self.t + dur, "start": np.array(spot, dtype=float), "end": end,
-            "passer": taker, "receiver": j, "outcome": outcome, "z_peak": 7.0, "lofted": True,
+            "passer": taker, "receiver": j, "outcome": outcome, "z_peak": 7.0 if delivery != "edge" else 0.0,
+            "lofted": delivery != "edge", "delivery": delivery,
         }  # fmt: skip
         self.mode = "flight"
         self.holder = None
-        self.last_lofted = True
+        self.last_lofted = delivery != "edge"
         if j is not None:
             self.over[j] = (float(end[0]), float(end[1]), 0.9, self.t + dur + 0.4)

@@ -4,6 +4,7 @@ import { MomentList } from './components/MomentList'
 import { ProfilePanel } from './components/ProfilePanel'
 import { RecapPanel } from './components/RecapPanel'
 import { Screen } from './components/Screen'
+import { TacticsPanel } from './components/TacticsPanel'
 import { Timeline } from './components/Timeline'
 import { Transport } from './components/Transport'
 import { useClock } from './hooks/useClock'
@@ -179,6 +180,7 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
           <ProfilePanel profile={profile} onChange={setProfile} replay={replay} heading={route.split ? `${t(lang, 'viewer')} A` : undefined} />
           {route.split && <ProfilePanel profile={profileB} onChange={setProfileB} replay={replay} heading={`${t(lang, 'viewer')} B`} />}
           <RecapPanel replay={replay} profile={profile} ms={ms} onPick={pick} />
+          <TacticsPanel replay={replay} ms={ms} lang={lang} />
           <section className="panel">
             <h2 className="panel-title">{t(lang, 'moments')}</h2>
             <MomentList replay={replay} lang={lang} selected={selected} onPick={pick} />

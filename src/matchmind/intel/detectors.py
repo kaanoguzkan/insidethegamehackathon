@@ -323,15 +323,26 @@ def _rhythm_break(ip, t, now, prev) -> list[dict]:
 
 
 def _shape_mean(ip: Interpreter, team: str, t0: int, t1: int) -> dict | None:
+    """Defensive shape (line height and width while defending, ball in the middle zone) over a window.
+
+    Teams change shape with the ball and the line follows it, so comparing windows with different
+    possession or ball height would report a "tactical shift" every time the match tilted. Only
+    frames where the opponent had the ball in the middle of the pitch count.
+    """
     shapes = [e for e in ip.events if e["type"] == "team_shape" and e["team"] == team and t0 < e["_ms"] <= t1]
-    if not shapes:
+    n = line = width = 0.0
+    ids = []
+    for s in shapes:
+        a = s["attributes"]
+        w = a.get("defFrames", 0)
+        if w >= 10 and "lineHeightDefM" in a:
+            n += w
+            line += w * a["lineHeightDefM"]
+            width += w * a["widthDefM"]
+            ids.append(s["id"])
+    if n < ip.cfg.shift_min_frames:
         return None
-    n = len(shapes)
-    return {
-        "line": sum(s["attributes"]["lineHeightM"] for s in shapes) / n,
-        "width": sum(s["attributes"]["widthM"] for s in shapes) / n,
-        "ids": [s["id"] for s in shapes[-2:]],
-    }
+    return {"line": line / n, "width": width / n, "ids": ids[-2:]}
 
 
 def _shift_at(ip: Interpreter, c: str, t: int) -> tuple[dict, dict] | None:
@@ -375,7 +386,7 @@ def _tactical_shift(ip, t) -> list[dict]:
                 "width": "wider" if dw > 0 else "narrower" if dw < 0 else "unchanged",
                 "lineShifted": line_shift, "widthShifted": width_shift,
             },
-            magnitude=min(1.0, max(abs(dl) / 24.0, abs(dw) / 16.0)),
+            magnitude=min(1.0, max(abs(dl) / 14.0, abs(dw) / 16.0)),
         ))  # fmt: skip
     return res
 

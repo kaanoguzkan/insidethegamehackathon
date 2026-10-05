@@ -12,23 +12,50 @@ from __future__ import annotations
 import numpy as np
 
 from ..core import geometry as G
+from . import tactics
 
 ACC = 6.0  # max acceleration, m/s^2
 BASE_URGENCY = 0.08  # urgency of ordinary positional jogging
+PHASE_RATE = 0.30  # how fast a team glides between its in- and out-of-possession shape (1/s)
 
 
 class ShapeMixin:
     # ----- shape bookkeeping -------------------------------------------------------------
 
     def _reindex_shape(self, t: int) -> None:
-        """Recompute normalised depth for the team's outfield slots (handles red cards)."""
-        slots = self.slots[t][1:]
-        fx = np.array([s[1] for s in slots])
-        fy = np.array([s[2] for s in slots])
+        """Recompute the team's three layouts (base, attack, block) for its ten outfield players.
+
+        Depth is normalised against the *base* layout of the players still on the pitch, so a red
+        card squeezes the team, while the attacking and defensive layouts keep their own depth
+        relative to it (wing-backs really do drop to the back line).
+        """
+        f = tactics.FORMATIONS_FULL[self.formation_name[t]]
+        idx = self.slot_idx[t]
+        base = np.array(tactics.layout(self.formation_name[t], "base"))[idx]
+        att = np.array(tactics.apply_attack_tags(self.formation_name[t], tactics.layout(self.formation_name[t], "attack"), self.style[t].tags))[idx]
+        blk = np.array(f["block"])[idx]
         act = self.active[t * 11 + 1 : t * 11 + 11]
-        lo, hi = (fx[act].min(), fx[act].max()) if act.any() else (0.0, 1.0)
-        self.u[t] = (fx - lo) / max(hi - lo, 1e-6)
-        self.fy[t] = fy
+        lo, hi = (base[act, 0].min(), base[act, 0].max()) if act.any() else (0.0, 1.0)
+        span = max(hi - lo, 1e-6)
+        self.u[t] = (base[:, 0] - lo) / span
+        self.fy[t] = base[:, 1]
+        self.u_att[t] = (att[:, 0] - lo) / span
+        self.fy_att[t] = att[:, 1]
+        self.u_blk[t] = (blk[:, 0] - lo) / span
+        self.fy_blk[t] = blk[:, 1]
+        self.slot_role[t] = [tactics.roles(self.formation_name[t])[k] for k in idx]
+
+    def _blend_phase(self, t: int, in_poss: bool) -> tuple[np.ndarray, np.ndarray]:
+        """The team's current target layout: a glide between its block and its attacking shape."""
+        step = PHASE_RATE * self.DT
+        goal = 1.0 if in_poss else 0.0
+        self.phase[t] += max(-step, min(step, goal - self.phase[t]))
+        a = self.phase[t]
+        # Teams that press high keep their nominal front line out of possession; the rest drop into the block.
+        k = min(1.0, max(0.0, (self.style[t].press_height - 0.5) / 0.4))
+        u_def = self.u_blk[t] + (self.u[t] - self.u_blk[t]) * k
+        fy_def = self.fy_blk[t] + (self.fy[t] - self.fy_blk[t]) * k
+        return u_def * (1 - a) + self.u_att[t] * a, fy_def * (1 - a) + self.fy_att[t] * a
 
     def team_in_possession(self, t: int) -> bool:
         if self.mode == "dead" and self.restart is not None:
@@ -70,11 +97,8 @@ class ShapeMixin:
         in_poss = self.team_in_possession(t)
         bx, by = G.to_att(focus[0], focus[1], d)
 
-        if self.mode == "dead" and self.restart and self.restart.get("setpiece"):
-            self._setpiece_targets(t, bx, by, tgt, urg)
-            return
-
-        u, fy = self.u[t], self.fy[t]
+        u_eff, fy = self._blend_phase(t, in_poss)
+        u = self.u[t]  # base depth: who counts as a runner or a free marker
         S = self.stamina[base : base + 11]
 
         if in_poss:
@@ -90,7 +114,7 @@ class ShapeMixin:
             shift = (by - G.CY) * 0.35
             wscale = 0.72 + 0.14 * st.width
 
-        x_att = back + u * (front - back)
+        x_att = back + u_eff * (front - back)
         y_att = G.CY + (fy - 0.5) * G.PITCH_W * wscale + shift
 
         if in_poss:
@@ -127,6 +151,9 @@ class ShapeMixin:
         if not in_poss:
             pressers = self._assign_pressers(t, focus, bx, tgt, urg)
             self._assign_markers(t, bx, pressers, tgt, urg)
+
+        if self.mode == "dead" and self.restart:
+            self._restart_targets(t, tgt, urg)  # the restart's choreography overrides the open-play shape
 
     def _assign_pressers(
         self, t: int, focus: np.ndarray, bx: float, tgt: np.ndarray, urg: np.ndarray
@@ -212,36 +239,6 @@ class ShapeMixin:
             toward = toward / (float(np.hypot(*toward)) or 1.0)
             tgt[best] = apos + toward * tight
             urg[best] = max(urg[best], 0.26)
-
-    def _setpiece_targets(self, t: int, bx: float, by: float, tgt: np.ndarray, urg: np.ndarray) -> None:
-        """Crowd the box for corners and dangerous free kicks."""
-        d = self.dir[t]
-        base = t * 11
-        attacking = self.restart["team"] == t
-        u = self.u[t]
-        order = np.argsort(-u) if attacking else np.argsort(u)
-        n_in = 6 if attacking else 8
-        gk_x = 3.0 if not attacking else 40.0
-        gkx, gky = G.from_att(gk_x, G.CY, d)
-        tgt[base] = (gkx, gky)
-        urg[base] = 0.2
-        for rank, j in enumerate(order):
-            slot = base + 1 + int(j)
-            if not self.active[slot]:
-                continue
-            if rank < n_in:
-                col, row = rank % 3, rank // 3
-                if attacking:
-                    ax = 91.0 + 4.0 * col + self.rng.uniform(-0.8, 0.8)
-                    ay = 24.0 + 10.0 * row + 5.0 * col + self.rng.uniform(-1, 1)
-                else:
-                    ax = 7.0 + 4.0 * col + self.rng.uniform(-0.8, 0.8)
-                    ay = 22.0 + 6.0 * row + 4.0 * col + self.rng.uniform(-1, 1)
-            else:
-                ax = 66.0 if attacking else 32.0
-                ay = G.CY + (rank - n_in - 1) * 12.0
-            tgt[slot] = G.from_att(ax, ay, d)
-            urg[slot] = 0.35
 
     def _apply_overrides(self, tgt: np.ndarray, urg: np.ndarray) -> None:
         for slot, (x, y, u, until) in list(self.over.items()):

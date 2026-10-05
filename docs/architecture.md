@@ -8,7 +8,10 @@ MatchMind is one Python package (`src/matchmind`) used by every deployment shape
 1. **Simulator** (`sim/`). A 5 Hz agent-based simulation of 22 players and a ball for a fictional
    six-club league. Style dials (press intensity and height, line height, width, tempo, directness,
    counter bias) drive movement, pressing, marking, transitions and decisions, so clubs differ in the data.
-   Output: an event stream and tracking frames, as a data provider would deliver. Scenarios (YAML) script
+   Nine formations each have an attacking shape and a defensive block that a team glides between with the
+   ball, club tags choose how the shape is played (fullbacks, pivot, false nine), and restarts are
+   choreographed (corner routines, walls, short or long goal kicks, throw-in outlets; see
+   [tactics.md](tactics.md)). Output: an event stream and tracking frames, as a data provider would deliver. Scenarios (YAML) script
    changes mid-match; the pipeline is never told about them.
 2. **Tracking** (`tracking/`). Frames travel as 5-second gzip chunks (live) or one bundle (replay). The
    **physical analyzer** is incremental and reads only tracking and events: sprints, top speed, distance
