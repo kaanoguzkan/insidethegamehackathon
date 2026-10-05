@@ -15,98 +15,63 @@
 
 ## Status: where the build stands
 
-*Updated Sunday 4 October 2026, 03:40 (UTC+3). This is day 0 of the build window; the Submission Period opens on Tuesday 6 October. Development is paused here at your request; everything below is committed.*
+*Updated Monday 5 October 2026 (UTC+3), the day before the Submission Period opens. Everything below is committed locally; nothing is pushed or deployed.*
 
-**In one paragraph.** The data side of the pipeline (stages 1 and 2) is built, tested and committed. The simulator produces football-realistic matches and tracking, the physical analyzer and the interpreter turn them into evidence-backed moments, and the scripted demo story (Northbridge stop pressing at 55:00) is detected without the pipeline being told about it. The localized template engine is done and tested, and a first draft of the Verifier is written but untested. The rest of the agent layer (stages 3 to 5), the Azure adapters, the web app and the infrastructure are not built yet. The work this plan scheduled for 5 to 12 October (simulator, auto-eventing, realism report, interpreter) is done, about a week early.
+**In one paragraph.** All five pipeline stages run end to end on a laptop with no keys, network or GPU: the simulator produces matches and tracking, the interpreter finds moments and builds evidence packs, a Microsoft Agent Framework workflow explains them (checked by a code Verifier, with a degradation ladder), the Overlay Producer emits schema-validated overlay JSON and recaps in three languages for eight audiences, and a React match center plays it with a personalization panel, evidence drawer and a model-health switch. An MCP server and a FastAPI Brain expose the same data and agents, a container image and Bicep infrastructure exist, and CI gates quality. What is **not** done is everything that needs a real Azure subscription or a real language model, the demo video, and the season-history feature.
 
 ### Build status
 
 | Part | Status | Notes |
 |---|---|---|
-| Fictional league: 6 clubs, 150 players | Done | Deterministic; names checked against a denylist of real surnames |
-| Match simulator (5 Hz, 22 players, ball) | Done | Events plus tracking; about 3 s per match |
-| Realism report | Done | 19 league averages checked against target bands; a test fails if one leaves its band |
-| Scenario system and `pressing-collapse` | Done | YAML script; the pipeline is never told about it |
-| Tracking feed | Done | 5 s gzip chunks, 0.1 m integers, ball-in-play flag |
-| Physical analyzer | Done | Sprints, top speed, distance milestones, team shape, pressing distance, ball and shot speed, pass pressure and lane context. Streaming and batch give identical output (tested). |
-| Interpreter | Done | Window metrics, three indices, 12 moment types, evidence packs, template-overlay facts, per-minute snapshots |
-| Fitted xT grid and index baselines | Done | `matchmind build-league-data` writes `data/league/` |
-| CLI | Partly | `simulate`, `report-realism`, `build-league-data` work. `run-local` and `build-replay` arrive with the agent layer. |
-| Public data contracts (pydantic) | Written | JSON Schema export and the sync test are still to do |
-| Template engine (English, Spanish, Turkish) | Done | Every moment type and fact card, analyst and casual, club-side tone; 120 tests. The three defects found on first render are fixed. |
-| Season history, milestones, published dataset | Not started | §5.6 and §5.8 |
-| Verifier | Drafted, untested | `agents/verify.py` imports but has no tests yet and is not wired into anything. It checks numbers, names, citations, honesty about contradicting metrics, policy, language and format. Treat it as a draft until the adversarial tests exist. |
-| Agent Framework workflow, offline model, Overlay Producer | Not started | Next |
-| MCP server and Brain API | Not started | |
-| Azure adapters (Functions, Container Apps, Cosmos DB) | Not started | Cannot be deployed or tested from this machine: no `az` or `azd` |
-| Web app | Not started | |
-| Foundry hosted recap agent, evals, tracing | Not started | |
-| Bicep, `azd`, GitHub Actions | Not started | |
-| README, docs, demo video | Not started | The README is a stub |
+| Fictional league, simulator, tracking feed, scenarios | Done | 19 realism bands enforced by a test; 3 scripted stories (seeds 15, 35, 25) |
+| Physical analyzer, interpreter, evidence packs | Done | Pressing detected from tracking; streaming equals batch |
+| Template engine EN/ES/TR | Done | Every moment type and fact card, analyst and casual |
+| Verifier | Done | Deterministic, adversarially tested, wired into the workflow and the Producer (the `verified` flag is earned, not asserted) |
+| Agent Framework workflow, offline model, fault injector | Done | Editor, Explainer, Storyteller, Localizer, Recap Writer; levels 0 agent, 1 retry, 2 template, 3 stat graphic |
+| Overlay Producer, JSON Schemas, replay packages | Done | Version 2 packages; 3 matches, about 10 MB; recaps 3 kinds x 8 cohorts; healthy, unreliable and outage variants |
+| Web app | Done | Pitch, overlays, profile panel, timeline, evidence drawer, recaps, health switch, EN/ES/TR UI, accessibility options |
+| MCP server (9 tools) and Brain API | Done | Verified over real HTTP, in tests and in Docker; registry hardened; fault-switch routes now opt-in and key-protected |
+| Evals and CI gates | Done | `matchmind evals`; reproducibility check is informational |
+| Dockerfile, Bicep, `azd`, GitHub Actions | Written | Image builds and runs; Bicep compiles; workflows YAML-valid, third-party actions pinned to commit SHAs; **never run on Azure or GitHub** |
+| README and docs/ | Done | Honest "verified vs not" tables |
+| Season history and milestone moments | Not built | `get_season_context` says so |
+| Azure adapters (Functions, Cosmos change feed, Event Grid, SignalR publishing) | Not built | The Brain runs the agents on demand; replays are static |
+| Foundry hosted recap agent, evals, tracing; real-model run | Not built / unverified | `FoundryChatClient` and the OpenAI-compatible client are wired but unrun |
+| Live streaming mode | Not built | Replay and on-demand only |
+| Demo video | Not recorded | |
 
-160 tests are collected. The fast suite passed at the last commit; the slow realism test last ran at the interpreter commit, and the simulator has not changed since. There are about 7,000 lines of Python in `src/` and `tests/`, in five commits plus the one that saves this update.
-
-**Template defects, now fixed and covered by tests.** Rendering every moment type found three: a team name lower-cased mid-sentence in the club-perspective variant, Turkish case suffixes after numbers that are only right for some numbers (now phrased "X iken Y oldu"), and a leftover hack in `explain()`.
-
-**Known gaps in what exists.** The Verifier is untested. The `Moment` shape is checked only through hand-built packs. The interpreter's other detectors (chaos flip, tactical shift, momentum swing) are noisier than the pressing detector.
+428 tests are collected (the fast suite and ruff pass at the last run) plus 24 web tests. About 10,400 lines of Python and 2,600 of web code.
 
 ### Measured results
 
-**Synthetic data realism.** 100 simulated matches, every metric inside its band:
+* **Realism.** All 19 league averages inside their bands over 100 matches (table in `docs/data-card.md`).
+* **Pressing-collapse detection.** Found in 15 of 16 seeds, median 6 minutes after the change at 55:00; no false collapse in 16 controls (study in `docs/metrics.md`). The other detectors are noisier and carry lower salience.
+* **Quality gates over the three replay packages.** Numeric fidelity 1.0, verification 1.0, language 1.0, honesty about contradicting metrics 1.0, recaps 24 of 24 verified, analyst text about 4x as number-dense as casual.
+* **Resilience demo.** Healthy: 128 agent-written overlays. Unreliable model: 56 recovered by retry, 96 template. Outage: all 152 template, none lost.
 
-| Metric (per match, both teams unless noted) | Mean | Band |
-|---|---|---|
-| Goals | 2.88 | 2.4–3.2 |
-| Shots | 25.1 | 20–30 |
-| Shots on target | 7.6 | 6.5–11.5 |
-| Passes | 1,096 | 850–1,150 |
-| Pass completion | 80% | 78–86% |
-| Possession share of the larger side | 55% | 35–65% |
-| Distance per outfield starter | 11.5 km | 9.5–12 |
-| Fastest player speed | 34.4 km/h | 31–36.5 |
-| Sprints per team (25 km/h for 1 s) | 77 | 35–120 |
-| Tackles | 34.5 | 28–55 |
-| Interceptions | 31.7 | 14–40 |
-| Fouls | 20.3 | 18–30 |
-| Corners | 8.1 | 7–14 |
-| Throw-ins | 64.6 | 60–110 |
-| Goal kicks | 21.9 | 12–28 |
-| Clearances | 28.8 | 28–70 |
-| Offsides | 5.6 | 3–11 |
-| Yellow cards | 3.1 | 1.5–5.5 |
-| Pressure events | 222 | 200–520 |
+### Where the build differs from this plan
 
-**Pressing-collapse detection.** The script changes Northbridge's style at 55:00; the interpreter is not told. Over 16 seeds:
-- The collapse is detected in **15 of 16**, a median **6 minutes** after the change.
-- It never fires as a Northbridge collapse in 16 unscripted control matches.
-- A spurious pressing moment appears before 55:00 in 2 of 16 matches, in both the scripted and the control group.
-- The operating point comes from a 24-seed study of detection power against false alarms (see §6.3).
-
-**The other detectors are noisier.** In unscripted matches the interpreter produces roughly 2.5 chaos flips, 2.5 tactical shifts, 1.8 momentum swings and 1 fatigue drop per match. They carry lower salience and the Editor will rank them, but tightening them is on the list.
-
-### Where the build differs from this plan, and why
-
-1. **Pressing is detected from tracking, not from PPDA.** Over five minutes a team makes 0 to 3 defensive actions in the build-up zone, so PPDA flip-flopped between "collapse" and "surge" on noise. The trigger is now the distance from the ball to the nearest defender (measured every frame, in the half the team attacks), which must be corroborated by the pressure-event rate and hold for two consecutive evaluations. PPDA, shrunk toward the league mean, is reported as supporting evidence only.
-2. **Evidence packs say when a metric disagrees.** Each metric carries `consistent: true/false` against the detected story, and deltas are computed from the rounded numbers shown. In the demo moment PPDA and Harbour's threat moved the "wrong" way; the pack keeps them, flagged, so a narrator has to be honest about mixed evidence.
-3. **Pass difficulty and shot context come from tracking.** The analyzer measures ball speed, passer and receiver pressure and lane blockage from positions and publishes them as "physics" documents about 1.4 s after the event. The interpreter then applies the xPass and xG models. This keeps simulator internals hidden and mirrors a real provider.
-4. **The tracking feed carries a ball-in-play flag.** Without it, the ball being reset for a restart looked like a 900 km/h shot.
-5. **The simulator was changed to make the dials measurable.** Pressure events now depend on the pressing dial and fatigue, passive defenders stand off the ball, and defenders rarely foul in their own box (penalties dropped from about 3 to about 0.3 a match). The realism bands were re-checked after each change.
-6. **Detector thresholds were set from data, not guesses.** Tactical shifts need 14 m (line) or 10 m (width) held for two evaluations because line height has a standard deviation of about 6 m on its own. Chaos flips use a smoothed index. Fatigue uses 10-minute windows and a 60% drop. Moment types have their own cooldowns. §6.3 has the current values.
-7. **Tooling.** Python 3.12 through `uv`. Microsoft Agent Framework is at **1.20**; its API (`Agent`, `@tool`, `WorkflowBuilder`, executors, `OpenAIChatCompletionClient`, `FoundryChatClient`, `MCPStreamableHTTPTool`) was read from the installed package, not from older documentation. The `agent-framework` meta-package installs about 30 provider packages, so the project will depend on `agent-framework-core` and the specific sub-packages instead. The MCP Python SDK is 1.30.
+1. Pressing is detected from tracking (nearest-defender distance, corroborated and persistent), not from PPDA, which is too noisy over five minutes.
+2. Evidence packs flag metrics that move against the story (`consistent`), and the Verifier requires the text to admit them.
+3. Pass difficulty and shot context are measured from tracking and arrive as late "physics" enrichments, as they would from a provider.
+4. The tracking feed carries a ball-in-play flag; the simulator was changed to make the style dials measurable.
+5. Detector thresholds come from data (tactical shifts need 14 m line or 10 m width held twice).
+6. Tooling: Python 3.12 with `uv`, Agent Framework 1.20 (`agent-framework-core` plus extras instead of the 30-package meta-package), MCP SDK 1.30, pnpm 11 with `allowBuilds`.
+7. Security review fixes: replay ids validated in the web app, the Producer's `verified` flag is earned, the match registry is slug-validated, limited to listed ids and LRU-bounded, the director fault routes are off unless `MATCHMIND_DIRECTOR=1`, and workflow actions are pinned.
 
 ### Not yet verified
 
-- **Anything that needs a real language model.** The machine has Ollama but no model pulled and no API keys, so prompts and structured-output behaviour will be exercised only through the deterministic offline model and mocked responses. Model quality, latency and token cost are unmeasured.
-- **Any Azure deployment.** The machine has no `az` or `azd`. Bicep and adapters can be written and unit-tested against local fakes, but a first real `azd up` has to be run by you.
+- **Anything that needs a real language model.** No model or key was available; prompts, structured-output behaviour, quality, latency and cost are unmeasured.
+- **Any Azure deployment.** No `az` or `azd` login here; the first `azd up` is yours to run (`docs/running-on-azure.md`).
 - **Free-tier limits and prices marked with \* elsewhere in this plan.**
-- **The web app and the demo video**, which do not exist yet.
+- **GitHub Actions on GitHub**, and cross-machine floating-point reproducibility of the replay packages.
 
 ### Next
 
-1. Test the Verifier properly: adversarial cases that try to slip an invented number, an invented or wrong player, a wrong club, a hallucinated minute, a banned word, the wrong language, a written-out count or a cherry-picked metric past it. Fix what the tests find, then check that it accepts every template output.
-3. Offline model and the Agent Framework workflow: Editor, Explainer, Storyteller, Localizer and the degradation ladder, running the real framework.
-4. Overlay Producer, JSON Schema export, `run-local`, replay packages.
-5. MCP server and Brain API, then the web app, then Azure infrastructure and the evals.
+1. Push to a public GitHub repository; confirm CI and the Pages mirror run (needs your account).
+2. On or after 13 October (free-account credit window), create a Foundry project, run `azd up`, then measure real-model quality and latency and tune prompts.
+3. Record the under-2-minute demo video from the running app.
+4. If time allows: season history and milestones, the Functions adapters, live mode.
 
 ---
 

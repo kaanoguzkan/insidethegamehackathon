@@ -9,19 +9,21 @@ endpoints with the offline model, so everything here works with no keys and no n
     GET  /api/matches                  matches that can be queried
     GET  /api/matches/{id}/moments     interpreter moments for a match
     POST /api/beats                    run the agent workflow for chosen moments and cohorts
-    GET  /api/director/faults          current model-fault switch
-    POST /api/director/faults          set it (none | error | slow | hallucinate), for the resilience demo
+    GET  /api/director/faults          current model-fault switch (only when MATCHMIND_DIRECTOR=1)
+    POST /api/director/faults          set it (none | error | slow | hallucinate), for the resilience demo;
+                                       needs the X-Director-Key header if MATCHMIND_DIRECTOR_KEY is set
     *    /mcp                          Match Data MCP server (streamable HTTP)
 """
 
 from __future__ import annotations
 
 import contextlib
+import hmac
 import os
 import time
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from matchmind import __version__
@@ -52,7 +54,9 @@ class FaultRequest(BaseModel):
     every: int = Field(1, ge=1, le=20)
 
 
-def create_app(registry: MatchRegistry | None = None, llm: str | None = None) -> FastAPI:
+def create_app(
+    registry: MatchRegistry | None = None, llm: str | None = None, director: bool | None = None
+) -> FastAPI:
     reg = registry or MatchRegistry()
     faults = Faults()
     kind = (llm or os.environ.get("MATCHMIND_LLM", "offline")).lower()
@@ -113,14 +117,23 @@ def create_app(registry: MatchRegistry | None = None, llm: str | None = None) ->
             ],
         }
 
-    @app.get("/api/director/faults")
-    def get_faults() -> dict:
-        return {"mode": faults.mode, "delay_s": faults.delay_s, "remaining": faults.remaining, "every": faults.every}
+    # The fault switch degrades the model for every caller, so it is off unless explicitly enabled
+    # (MATCHMIND_DIRECTOR=1 or director=True) and, when MATCHMIND_DIRECTOR_KEY is set, key-protected.
+    if director if director is not None else os.environ.get("MATCHMIND_DIRECTOR") == "1":
 
-    @app.post("/api/director/faults")
-    def set_faults(req: FaultRequest) -> dict:
-        faults.mode, faults.delay_s, faults.remaining, faults.every, faults._seen = req.mode, req.delay_s, req.remaining, req.every, 0
-        return get_faults()
+        def require_director(x_director_key: str | None = Header(None)) -> None:
+            key = os.environ.get("MATCHMIND_DIRECTOR_KEY")
+            if key and not hmac.compare_digest(x_director_key or "", key):
+                raise HTTPException(403, "director key required")
+
+        @app.get("/api/director/faults", dependencies=[Depends(require_director)])
+        def get_faults() -> dict:
+            return {"mode": faults.mode, "delay_s": faults.delay_s, "remaining": faults.remaining, "every": faults.every}
+
+        @app.post("/api/director/faults", dependencies=[Depends(require_director)])
+        def set_faults(req: FaultRequest) -> dict:
+            faults.mode, faults.delay_s, faults.remaining, faults.every, faults._seen = req.mode, req.delay_s, req.remaining, req.every, 0
+            return get_faults()
 
     return app
 

@@ -21,7 +21,7 @@ def reg(match):
 
 @pytest.fixture()
 def client(reg):
-    with TestClient(create_app(reg)) as c:
+    with TestClient(create_app(reg, director=True)) as c:
         yield c
 
 
@@ -75,6 +75,21 @@ def test_director_fault_switch_degrades_the_next_request_and_recovers(client):
 )
 def test_requests_are_bounded_and_validated(client, body):
     assert client.post("/api/beats", json=body).status_code == 422
+
+
+def test_director_routes_do_not_exist_unless_enabled(reg, monkeypatch):
+    monkeypatch.delenv("MATCHMIND_DIRECTOR", raising=False)
+    with TestClient(create_app(reg)) as c:
+        assert c.get("/api/director/faults").status_code == 404
+        assert c.post("/api/director/faults", json={"mode": "error"}).status_code == 404
+
+
+def test_director_key_is_required_when_configured(reg, monkeypatch):
+    monkeypatch.setenv("MATCHMIND_DIRECTOR_KEY", "s3cret")
+    with TestClient(create_app(reg, director=True)) as c:
+        assert c.post("/api/director/faults", json={"mode": "error"}).status_code == 403
+        assert c.post("/api/director/faults", json={"mode": "error"}, headers={"X-Director-Key": "no"}).status_code == 403
+        assert c.post("/api/director/faults", json={"mode": "error"}, headers={"X-Director-Key": "s3cret"}).status_code == 200
 
 
 def test_unknown_moment_is_a_404(client):
