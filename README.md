@@ -125,7 +125,7 @@ Details: [docs/architecture.md](docs/architecture.md).
 | **Microsoft Foundry** | `FoundryChatClient` is wired in as one of three model backends | Wired, **not run against a live Foundry project** (no model access while building) |
 | **GitHub Copilot** | Built with it; `.github/copilot-instructions.md` and the MCP config for agent mode | In use |
 | **Azure Container Apps, Cosmos DB, Storage, SignalR, Key Vault, Static Web Apps, App Insights** | `infra/` Bicep sized for the free tier, identity-only access, a budget with alerts | Bicep **compiles** (`az bicep build`); the container image **builds and runs**; **not deployed** (no Azure access while building) |
-| **GitHub Actions** | CI (lint, tests, quality gates, schema sync, web build, Bicep compile, container smoke test), Pages fallback mirror, OIDC deploy | Workflows written and YAML-validated; not yet run on GitHub |
+| **GitHub Actions** | CI (lint, tests, quality gates, schema sync, web build, Bicep compile, container smoke test), Pages fallback mirror, OIDC deploy | `actionlint`-clean and covered by a test; the first CI runs failed on a YAML error (fixed), so CI has **not yet passed on GitHub**; Pages needs enabling in the repo settings |
 
 What is **not** built: the Azure Functions pipeline adapters (Cosmos change feed, Event Grid, SignalR
 publishing) and Microsoft Fabric. The replay path (static files, no backend) is what the demo and the

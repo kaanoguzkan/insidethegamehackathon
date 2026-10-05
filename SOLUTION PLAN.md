@@ -33,7 +33,7 @@
 | Web app | Done | Pitch, overlays, profile panel, timeline, evidence drawer, recaps, health switch, Tactics panel, Match analytics panel (11 tabs), win-probability strip, live graphics layers, EN/ES/TR UI, accessibility options |
 | MCP server (24 tools) and Brain API | Done | Verified over real HTTP, in tests and in Docker; registry hardened; fault-switch routes now opt-in and key-protected |
 | Evals and CI gates | Done | `matchmind evals`; reproducibility check is informational |
-| Dockerfile, Bicep, `azd`, GitHub Actions | Written | Image builds and runs; Bicep compiles; workflows YAML-valid, third-party actions pinned to commit SHAs; **never run on Azure or GitHub** |
+| Dockerfile, Bicep, `azd`, GitHub Actions | Written | Image builds and runs; Bicep compiles; workflows `actionlint`-clean with a test that parses them and checks the SHA pins, third-party actions pinned to commit SHAs; **never deployed to Azure, and CI has not yet passed on GitHub** (its first runs failed on an invalid step name, now fixed) |
 | README and docs/ | Done | Honest "verified vs not" tables |
 | Opta-style analytics | Done | Win probability, possession value (VAEP style), xGOT, pitch control, packing and line breaks, networks, measured formations, runs, load, transitions, set-piece review; models fitted from simulated matches (`docs/analytics.md`) |
 | Season history, milestones, prediction, radars | Done | 42 simulated matches; table, form, head-to-head, records, Poisson prediction, goal milestones, player radars and "plays like" |

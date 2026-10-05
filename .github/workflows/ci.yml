@@ -30,7 +30,7 @@ jobs:
         run: |
           uv run matchmind export-schemas
           git diff --exit-code schemas
-      - name: Replay packages are reproducible (informational: bit-identical floats across CPUs are not guaranteed)
+      - name: "Replay packages are reproducible (informational, since bit-identical floats across CPUs are not guaranteed)"
         continue-on-error: true
         run: |
           uv run matchmind build-replay pressing-collapse
@@ -69,5 +69,7 @@ jobs:
       - name: Smoke test the image
         run: |
           docker run -d --name brain -p 8000:8000 matchmind-brain
-          for i in $(seq 1 30); do curl -sf localhost:8000/health && break || sleep 1; done
+          timeout 60 sh -c 'until curl -sf localhost:8000/health; do sleep 1; done'
           curl -sf localhost:8000/api/matches
+          curl -sf localhost:8000/api/matches/pressing-collapse/analytics | python3 -c "import json, sys; d = json.load(sys.stdin); assert d['possessionValue']['available'] and d['season']"
+          docker logs brain
