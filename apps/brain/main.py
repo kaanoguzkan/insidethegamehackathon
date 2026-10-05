@@ -35,9 +35,11 @@ from matchmind.agents.team import AgentSettings, AgentTeam
 from matchmind.agents.verify import Registry
 from matchmind.agents.workflow import Batch, WorkflowDeps, build_workflow, run_batch
 from matchmind.analytics.report import MatchAnalytics
+from matchmind.analytics.season import load_season
 from matchmind.core.contracts import Cohort
 from matchmind.mcp_server.registry import MatchRegistry, UnknownMatch
 from matchmind.mcp_server.server import build_server
+from matchmind.runner import build_analytics
 
 MAX_COHORTS = 12  # cost guard: text is generated once per cohort, so bound the number per request
 MAX_MOMENTS = 6
@@ -99,7 +101,8 @@ def create_app(
     @app.get("/api/matches/{match_id}/analytics")
     def analytics(match_id: str) -> dict:
         """The match's Opta-style analytics (what the replay package stores as analytics.json)."""
-        return MatchAnalytics(_ip(match_id)).summary()
+        ip = _ip(match_id)
+        return build_analytics(ip, load_season(), ip.season, ip.meta)
 
     @app.get("/api/matches/{match_id}/win-probability")
     def win_probability(match_id: str) -> dict:

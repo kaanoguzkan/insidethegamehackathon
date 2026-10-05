@@ -249,7 +249,7 @@ resource brain 'Microsoft.App/containerApps@2024-03-01' = {
         {
           name: 'brain'
           image: brainImage
-          resources: { cpu: json('0.5'), memory: '1Gi' }
+          resources: { cpu: json('1.0'), memory: '2Gi' }
           env: [
             { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
             { name: 'MATCHMIND_LLM', value: empty(foundryProjectEndpoint) ? 'offline' : 'foundry' }

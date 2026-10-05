@@ -216,12 +216,12 @@ def build_replay(
         "levels": _overlay_levels([o for b in beats for o in b.overlays]),
     }
     events = sorted([*result.events, *analysis.events], key=lambda e: (e["clock"]["matchMs"], e["seq"]))
-    analytics = _analytics(ip, season_data, ctx, meta)
+    analytics = build_analytics(ip, season_data, ctx, meta)
     info["analytics"] = bool(analytics)
     return Replay(meta=meta, cohorts=cohorts, moments=moments, snapshots=out.snapshots, facts=out.facts, overlays=overlays, events=events, recaps=recaps, variants=variants, info=info, analytics=analytics)
 
 
-def _analytics(ip, season_data: dict, ctx: dict, meta: dict) -> dict:
+def build_analytics(ip, season_data: dict, ctx: dict, meta: dict) -> dict:
     """The match analytics plus the season context and player and team radars that go with it."""
     an = MatchAnalytics(ip).summary()
     if ctx:

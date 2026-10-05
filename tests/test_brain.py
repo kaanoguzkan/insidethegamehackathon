@@ -136,3 +136,15 @@ def test_mcp_is_served_over_streamable_http_to_a_real_client(reg):
         server.should_exit = True
         t.join(timeout=5)
     assert "get_window_stats" in tools and not res.isError
+
+
+def test_the_analytics_endpoint_matches_the_replay_package(reg):
+    from matchmind.analytics.season import context_for, load_season
+
+    ctx = context_for(load_season(), "HAR", "NOR")
+    ip = reg.get("t0001")
+    ip.season = ctx  # the registry fixture's interpreter has no season; give it the one a replay build would
+    with TestClient(create_app(reg)) as c:
+        d = c.get("/api/matches/t0001/analytics").json()
+    assert {"winProbability", "shots", "players", "season", "radars", "teamRadars"} <= set(d)
+    assert d["season"]["prediction"]["home"] + d["season"]["prediction"]["draw"] + d["season"]["prediction"]["away"] == pytest.approx(1.0, abs=0.01)
