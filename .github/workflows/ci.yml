@@ -1,0 +1,72 @@
+name: ci
+
+on:
+  push: { branches: [main] }
+  pull_request:
+  schedule:
+    - cron: "17 3 * * *" # nightly: also runs the slow realism test
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - run: uv sync --frozen
+      - run: uv run ruff check src tests apps
+      - name: Tests (fast)
+        if: github.event_name != 'schedule'
+        run: uv run pytest -m "not slow"
+      - name: Tests (everything, including the realism bands)
+        if: github.event_name == 'schedule'
+        run: uv run pytest
+      - name: Quality gates over the committed replay packages
+        run: uv run matchmind evals --out evals-report.json
+      - name: JSON Schemas are in sync with the contracts
+        run: |
+          uv run matchmind export-schemas
+          git diff --exit-code schemas
+      - name: Replay packages are reproducible
+        run: |
+          uv run matchmind build-replay pressing-collapse
+          git diff --exit-code data/replays/pressing-collapse
+      - uses: actions/upload-artifact@v4
+        with: { name: evals-report, path: evals-report.json }
+
+  web:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: web } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 11 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm, cache-dependency-path: web/pnpm-lock.yaml }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  infra:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile Bicep
+        run: |
+          az bicep install
+          az bicep build --file infra/main.bicep --stdout > /dev/null
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t matchmind-brain .
+      - name: Smoke test the image
+        run: |
+          docker run -d --name brain -p 8000:8000 matchmind-brain
+          for i in $(seq 1 30); do curl -sf localhost:8000/health && break || sleep 1; done
+          curl -sf localhost:8000/api/matches

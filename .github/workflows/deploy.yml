@@ -1,0 +1,37 @@
+# Manual deploy to Azure with the Azure Developer CLI, authenticating by OIDC federation
+# (no stored secrets). Configure AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID as
+# repository variables and a federated credential for this repository on the app registration.
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment: { description: azd environment name, required: true, default: matchmind }
+      location: { description: Azure region, required: true, default: westeurope }
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AZURE_ENV_NAME: ${{ inputs.environment }}
+      AZURE_LOCATION: ${{ inputs.location }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      FOUNDRY_PROJECT_ENDPOINT: ${{ vars.FOUNDRY_PROJECT_ENDPOINT }}
+      MATCHMIND_LLM_MODEL: ${{ vars.MATCHMIND_LLM_MODEL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Azure/setup-azd@v2
+      - uses: pnpm/action-setup@v4
+        with: { version: 11 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Log in with OIDC
+        run: |
+          azd auth login --client-id "${{ vars.AZURE_CLIENT_ID }}" \
+            --federated-credential-provider github --tenant-id "${{ vars.AZURE_TENANT_ID }}"
+      - run: azd provision --no-prompt
+      - run: azd deploy --no-prompt

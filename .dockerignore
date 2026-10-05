@@ -1,0 +1,13 @@
+.git
+.venv
+.remember
+**/node_modules
+web
+out
+runs
+**/__pycache__
+.pytest_cache
+.ruff_cache
+tests
+docs
+*.png

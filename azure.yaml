@@ -1,0 +1,25 @@
+# Azure Developer CLI service map. `azd up` provisions infra/ and deploys both services.
+name: matchmind
+metadata:
+  template: matchmind@0.1.0
+infra:
+  provider: bicep
+  path: infra
+services:
+  brain:
+    project: .
+    host: containerapp
+    language: python
+    docker:
+      path: ./Dockerfile
+      context: .
+      remoteBuild: true
+  web:
+    project: ./web
+    host: staticwebapp
+    language: js
+    dist: dist
+    hooks:
+      prebuild:
+        shell: sh
+        run: pnpm install --frozen-lockfile && pnpm sync
