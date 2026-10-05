@@ -15,6 +15,21 @@ export interface Chip {
   value: string
 }
 
+export interface Shape {
+  shape: 'line' | 'arrow' | 'polygon' | 'circle' | 'text'
+  points: { x: number; y: number }[]
+  radius?: number | null
+  label?: string | null
+  style: 'solid' | 'dashed' | 'dotted'
+  emphasis: 'primary' | 'secondary' | 'muted'
+}
+
+export interface Graphic {
+  type: 'offside_line' | 'run' | 'line_break' | 'shot_trace'
+  team?: string | null
+  shapes: Shape[]
+}
+
 export interface Overlay {
   id: string
   matchId: string
@@ -26,7 +41,8 @@ export interface Overlay {
   priority: number
   cohort: Cohort
   content: { headline: string; body: string; chips: Chip[] }
-  anchor: { type: 'screen' | 'player'; region?: string | null; player?: string | null }
+  anchor: { type: 'screen' | 'player' | 'pitch'; region?: string | null; player?: string | null }
+  graphic?: Graphic | null
   provenance: { agents: string[]; verified: boolean; evidenceRef?: string | null; fallbackLevel: number; model?: string | null }
   schemaVersion: string
 }

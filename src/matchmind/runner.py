@@ -183,6 +183,9 @@ def build_replay(
             o = producer.fact_overlay(fact, shared, names)
             if o is not None:
                 overlays.append(o)
+            g = producer.graphic_overlay(fact, shared, names)
+            if g is not None:
+                overlays.append(g)
         for snap in out.snapshots:
             overlays.extend(producer.momentum_overlays(snap, short, shared))
     overlays = producer.resolve_collisions(overlays)

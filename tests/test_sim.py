@@ -125,7 +125,7 @@ def test_style_dials_change_how_teams_play(clubs):
 
 @pytest.mark.slow
 def test_league_averages_are_realistic():
-    samples = realism.run_realism(48)
+    samples = realism.run_realism(100)
     rows = realism.evaluate(samples)
     failing = [f"{r.name}={r.mean:.2f} (target {r.low}-{r.high})" for r in rows if not r.ok]
     assert not failing, "outside realism bands: " + "; ".join(failing)

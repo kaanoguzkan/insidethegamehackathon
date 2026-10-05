@@ -1,3 +1,4 @@
+import { winProbAt } from '../lib/analytics'
 import { clockAt } from '../lib/clock'
 import type { Replay } from '../lib/data'
 import type { Lang } from '../lib/types'
@@ -17,6 +18,7 @@ export function Scoreboard({ replay, ms, lang }: { replay: Replay; ms: number; l
   const { home, away } = replay.meta
   const score = scoreAt(replay, ms)
   const clock = clockAt(replay.meta, ms)
+  const wp = winProbAt(replay.analytics, ms)
   return (
     <header className="scoreboard" aria-label={`${home.name} ${score[home.id]}, ${away.name} ${score[away.id]}, ${clock.label}`}>
       <div className="sb-team">
@@ -36,6 +38,16 @@ export function Scoreboard({ replay, ms, lang }: { replay: Replay; ms: number; l
         <span>{clock.label}</span>
         <small>{clock.period === 1 ? t(lang, 'firstHalf') : t(lang, 'secondHalf')}</small>
       </div>
+      {wp && (
+        <div className="sb-wp" role="img" aria-label={`${t(lang, 'winShort')}: ${home.short} ${Math.round(wp.home * 100)}%, ${t(lang, 'wp.draw')} ${Math.round(wp.draw * 100)}%, ${away.short} ${Math.round(wp.away * 100)}%`}>
+          <i style={{ width: `${wp.home * 100}%`, background: home.colors.primary }} />
+          <i className="draw" style={{ width: `${wp.draw * 100}%` }} />
+          <i style={{ width: `${wp.away * 100}%`, background: away.colors.primary }} />
+          <span className="l">{Math.round(wp.home * 100)}%</span>
+          <span className="m">{t(lang, 'winShort')}</span>
+          <span className="r">{Math.round(wp.away * 100)}%</span>
+        </div>
+      )}
     </header>
   )
 }

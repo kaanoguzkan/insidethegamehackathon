@@ -32,7 +32,8 @@
           "default": "screen",
           "enum": [
             "screen",
-            "player"
+            "player",
+            "pitch"
           ],
           "title": "Type",
           "type": "string"
@@ -119,6 +120,46 @@
       "title": "DisplayAt",
       "type": "object"
     },
+    "Graphic": {
+      "description": "Geometry for a ``pitch_graphic`` overlay, so any renderer can draw it on its own pitch.",
+      "properties": {
+        "shapes": {
+          "items": {
+            "$ref": "#/$defs/Shape"
+          },
+          "title": "Shapes",
+          "type": "array"
+        },
+        "team": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Team"
+        },
+        "type": {
+          "enum": [
+            "offside_line",
+            "run",
+            "line_break",
+            "shot_trace"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "shapes"
+      ],
+      "title": "Graphic",
+      "type": "object"
+    },
     "OverlayContent": {
       "properties": {
         "body": {
@@ -142,6 +183,26 @@
         "headline"
       ],
       "title": "OverlayContent",
+      "type": "object"
+    },
+    "Point": {
+      "properties": {
+        "x": {
+          "description": "metres along the pitch, 0 to 105",
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "description": "metres across the pitch, 0 to 68",
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "Point",
       "type": "object"
     },
     "Provenance": {
@@ -191,6 +252,81 @@
       },
       "title": "Provenance",
       "type": "object"
+    },
+    "Shape": {
+      "description": "A drawing primitive in pitch metres: a line, an arrow, a polygon, a circle or a text label.",
+      "properties": {
+        "emphasis": {
+          "default": "primary",
+          "enum": [
+            "primary",
+            "secondary",
+            "muted"
+          ],
+          "title": "Emphasis",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "points": {
+          "description": "line/arrow: from and to (or a polyline); polygon: the ring; circle and text: one point",
+          "items": {
+            "$ref": "#/$defs/Point"
+          },
+          "title": "Points",
+          "type": "array"
+        },
+        "radius": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "circle radius in metres",
+          "title": "Radius"
+        },
+        "shape": {
+          "enum": [
+            "line",
+            "arrow",
+            "polygon",
+            "circle",
+            "text"
+          ],
+          "title": "Shape",
+          "type": "string"
+        },
+        "style": {
+          "default": "solid",
+          "enum": [
+            "solid",
+            "dashed",
+            "dotted"
+          ],
+          "title": "Style",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shape",
+        "points"
+      ],
+      "title": "Shape",
+      "type": "object"
     }
   },
   "description": "One timed, machine-readable graphic. Renderer-agnostic.",
@@ -224,6 +360,18 @@
       "default": null,
       "title": "Factid"
     },
+    "graphic": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Graphic"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "pitch geometry, present on pitch_graphic overlays"
+    },
     "id": {
       "title": "Id",
       "type": "string"
@@ -241,7 +389,8 @@
         "momentum_bar",
         "control_meter",
         "recap_card",
-        "ticker"
+        "ticker",
+        "pitch_graphic"
       ],
       "title": "Kind",
       "type": "string"

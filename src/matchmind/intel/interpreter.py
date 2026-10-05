@@ -254,8 +254,11 @@ class Interpreter:
         if last is not None and r["_ms"] - last < self.cfg.run_card_cooldown_ms:
             return
         self.last_run_card[key] = r["_ms"]
+        d = self.attack_dirs.get(r["clock"]["period"], {}).get(r["team"], 1)  # the run is in the team's attack frame
+        start, end = G.from_att(a["from"][0], a["from"][1], d), G.from_att(a["to"][0], a["to"][1], d)
         self._fact(out, "run_card", a["startMs"], r["team"], r["player"],
-                   {"kind": a["kind"], "distanceM": a["distanceM"], "peakKmh": a["peakKmh"]}, priority=4)  # fmt: skip
+                   {"kind": a["kind"], "distanceM": a["distanceM"], "peakKmh": a["peakKmh"],
+                    "from": [round(start[0], 1), round(start[1], 1)], "to": [round(end[0], 1), round(end[1], 1)]}, priority=4)  # fmt: skip
 
     def _on_load(self, r: dict, out: InterpretOutput) -> None:
         self.loads.update(r["attributes"]["players"])
@@ -279,7 +282,11 @@ class Interpreter:
         if r is None:
             return
         r["physics"] = doc["physics"]
-        if r["type"] == "pass":
+        if r["type"] == "offside" and doc["physics"].get("offside"):
+            o = doc["physics"]["offside"]
+            self._fact(out, "offside_graphic", r["_ms"], r["team"], r.get("player"), {
+                "lineX": o["lineX"], "receiverX": o["receiverX"], "receiverY": o["receiverY"], "marginM": o["marginM"]}, priority=3)  # fmt: skip
+        elif r["type"] == "pass":
             self._rate_pass(r, out)
         elif r["type"] == "shot":
             pend = self.pending_shots.get(r["id"])
@@ -307,7 +314,8 @@ class Interpreter:
         if r.get("outcome") == "complete" and (r["_lines"] >= 3 or r["_bypassed"] >= self.cfg.packing_card):
             self._fact(
                 out, "line_break_card", r["_ms"] + 800, r["team"], r["player"],
-                {"bypassed": r["_bypassed"], "lines": r["_lines"], "receiver": r.get("receiver"), "distanceM": ph["distanceM"]},
+                {"bypassed": r["_bypassed"], "lines": r["_lines"], "receiver": r.get("receiver"), "distanceM": ph["distanceM"],
+                 "from": [r["location"]["x"], r["location"]["y"]], "to": [r["end"]["x"], r["end"]["y"]]},
                 priority=3,
             )  # fmt: skip
         if r.get("outcome") == "complete" and r["_diff"] >= self.cfg.key_pass_difficulty:
@@ -357,7 +365,8 @@ class Interpreter:
         self._fact(
             out, "shot_card", s["_ms"] + 1200, s["team"], s["player"],
             {"xg": round(xg_v, 2), "shotSpeedKmh": speed, "distanceM": round(G.goal_dist(s["_ax"], s["_ay"]), 1) if "_ax" in s else None,
-             "outcome": s.get("outcome"), "bodyPart": s["attributes"].get("bodyPart")},
+             "outcome": s.get("outcome"), "bodyPart": s["attributes"].get("bodyPart"),
+             "from": [s["location"]["x"], s["location"]["y"]] if "location" in s else None, "to": [s["end"]["x"], s["end"]["y"]] if "end" in s else None},
             priority=2 if s.get("outcome") == "goal" else 3,
         )  # fmt: skip
         if speed and speed >= self.cfg.fast_shot_kmh and speed > self.max_shot_kmh:

@@ -22,7 +22,7 @@ OverlayMode = Literal["analyst", "casual", "any"]  # "any": stat graphics shown 
 Language = Literal["en", "es", "tr"]
 OverlayKind = Literal[
     "lower_third", "stat_card", "player_tag", "speed_badge", "pass_card", "shot_card",
-    "goal_card", "card_badge", "momentum_bar", "control_meter", "recap_card", "ticker",
+    "goal_card", "card_badge", "momentum_bar", "control_meter", "recap_card", "ticker", "pitch_graphic",
 ]  # fmt: skip
 
 SUPPORTED_LANGUAGES: tuple[str, ...] = ("en", "es", "tr")
@@ -94,9 +94,33 @@ class DisplayAt(BaseModel):
 
 
 class Anchor(BaseModel):
-    type: Literal["screen", "player"] = "screen"
+    type: Literal["screen", "player", "pitch"] = "screen"
     region: str | None = Field(None, description="e.g. bottom_left, top_right")
     player: str | None = Field(None, description="player id to follow when type is 'player'")
+
+
+class Point(BaseModel):
+    x: float = Field(description="metres along the pitch, 0 to 105")
+    y: float = Field(description="metres across the pitch, 0 to 68")
+
+
+class Shape(BaseModel):
+    """A drawing primitive in pitch metres: a line, an arrow, a polygon, a circle or a text label."""
+
+    shape: Literal["line", "arrow", "polygon", "circle", "text"]
+    points: list[Point] = Field(description="line/arrow: from and to (or a polyline); polygon: the ring; circle and text: one point")
+    radius: float | None = Field(None, description="circle radius in metres")
+    label: str | None = None
+    style: Literal["solid", "dashed", "dotted"] = "solid"
+    emphasis: Literal["primary", "secondary", "muted"] = "primary"
+
+
+class Graphic(BaseModel):
+    """Geometry for a ``pitch_graphic`` overlay, so any renderer can draw it on its own pitch."""
+
+    type: Literal["offside_line", "run", "line_break", "shot_trace"]
+    team: str | None = None
+    shapes: list[Shape]
 
 
 class Provenance(BaseModel):
@@ -127,6 +151,7 @@ class Overlay(BaseModel):
     cohort: Cohort
     content: OverlayContent
     anchor: Anchor = Field(default_factory=Anchor)
+    graphic: Graphic | None = Field(None, description="pitch geometry, present on pitch_graphic overlays")
     provenance: Provenance = Field(default_factory=Provenance)
     schemaVersion: str = SCHEMA_VERSION
 

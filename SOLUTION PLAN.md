@@ -17,7 +17,7 @@
 
 *Updated Monday 5 October 2026 (UTC+3), the day before the Submission Period opens. Everything below is committed locally; nothing is pushed or deployed.*
 
-**In one paragraph.** All five pipeline stages run end to end on a laptop with no keys, network or GPU: the simulator produces matches and tracking, the interpreter finds moments and builds evidence packs, a Microsoft Agent Framework workflow explains them (checked by a code Verifier, with a degradation ladder), the Overlay Producer emits schema-validated overlay JSON and recaps in three languages for eight audiences, and a React match center plays it with a personalization panel, evidence drawer and a model-health switch. An MCP server and a FastAPI Brain expose the same data and agents, a container image and Bicep infrastructure exist, and CI gates quality. What is **not** done is everything that needs a real Azure subscription or a real language model, the demo video, and the season-history feature.
+**In one paragraph.** All five pipeline stages run end to end on a laptop with no keys, network or GPU: the simulator produces matches and tracking, the interpreter finds moments and builds evidence packs, a Microsoft Agent Framework workflow explains them (checked by a code Verifier, with a degradation ladder), the Overlay Producer emits schema-validated overlay JSON and recaps in three languages for eight audiences, and a React match center plays it with a personalization panel, evidence drawer and a model-health switch. An MCP server and a FastAPI Brain expose the same data and agents, a container image and Bicep infrastructure exist, and CI gates quality. On top of that sit an Opta-style analytics layer (win probability, possession value, post-shot xG, pitch control, packing, off-ball runs, physical load, formations from tracking, a simulated season with predictions and milestones) and broadcast-style pitch graphics. What is **not** done is everything that needs a real Azure subscription or a real language model, and the demo video.
 
 ### Build status
 
@@ -30,18 +30,20 @@
 | Verifier | Done | Deterministic, adversarially tested, wired into the workflow and the Producer (the `verified` flag is earned, not asserted) |
 | Agent Framework workflow, offline model, fault injector | Done | Editor, Explainer, Storyteller, Localizer, Recap Writer; levels 0 agent, 1 retry, 2 template, 3 stat graphic |
 | Overlay Producer, JSON Schemas, replay packages | Done | Version 2 packages; 3 matches, about 10 MB; recaps 3 kinds x 8 cohorts; healthy, unreliable and outage variants |
-| Web app | Done | Pitch, overlays, profile panel, timeline, evidence drawer, recaps, health switch, Tactics panel, EN/ES/TR UI, accessibility options |
-| MCP server (9 tools) and Brain API | Done | Verified over real HTTP, in tests and in Docker; registry hardened; fault-switch routes now opt-in and key-protected |
+| Web app | Done | Pitch, overlays, profile panel, timeline, evidence drawer, recaps, health switch, Tactics panel, Match analytics panel (11 tabs), win-probability strip, live graphics layers, EN/ES/TR UI, accessibility options |
+| MCP server (24 tools) and Brain API | Done | Verified over real HTTP, in tests and in Docker; registry hardened; fault-switch routes now opt-in and key-protected |
 | Evals and CI gates | Done | `matchmind evals`; reproducibility check is informational |
 | Dockerfile, Bicep, `azd`, GitHub Actions | Written | Image builds and runs; Bicep compiles; workflows YAML-valid, third-party actions pinned to commit SHAs; **never run on Azure or GitHub** |
 | README and docs/ | Done | Honest "verified vs not" tables |
-| Season history and milestone moments | Not built | `get_season_context` says so |
+| Opta-style analytics | Done | Win probability, possession value (VAEP style), xGOT, pitch control, packing and line breaks, networks, measured formations, runs, load, transitions, set-piece review; models fitted from simulated matches (`docs/analytics.md`) |
+| Season history, milestones, prediction, radars | Done | 42 simulated matches; table, form, head-to-head, records, Poisson prediction, goal milestones, player radars and "plays like" |
+| Pitch graphics | Done | `pitch_graphic` overlays with geometry; live pitch control, team shape, offside line, passing options and run layers in the match center |
 | Azure adapters (Functions, Cosmos change feed, Event Grid, SignalR publishing) | Not built | The Brain runs the agents on demand; replays are static |
 | Foundry hosted recap agent, evals, tracing; real-model run | Not built / unverified | `FoundryChatClient` and the OpenAI-compatible client are wired but unrun |
 | Live streaming mode | Not built | Replay and on-demand only |
 | Demo video | Not recorded | |
 
-465 tests are collected (the fast and slow suites and ruff pass at the last run) plus 27 web tests. About 10,400 lines of Python and 2,600 of web code.
+528 tests are collected (the fast and slow suites and ruff pass at the last run) plus 39 web tests. About 12,600 lines of Python in the package and 4,600 of web code.
 
 ### Measured results
 

@@ -17,9 +17,9 @@ def test_chunks_are_small_enough_to_stream(match):
     assert max(sizes) < 8_000  # a 5 s chunk stays in the low kilobytes
 
 
-def test_every_pass_and_shot_is_enriched_once(match):
+def test_every_pass_shot_and_offside_is_enriched_once(match):
     out = analyze_match(match)
-    wanted = {e["id"] for e in match.events if e["type"] in ("pass", "shot")}
+    wanted = {e["id"] for e in match.events if e["type"] in ("pass", "shot", "offside")}
     got = [d["ref"] for d in out.enrichments]
     assert set(got) == wanted
     assert len(got) == len(set(got))

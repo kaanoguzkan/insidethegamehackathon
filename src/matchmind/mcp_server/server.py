@@ -16,13 +16,18 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
+from ..analytics.report import MatchAnalytics, jsonable
+from ..analytics.season import context_for, load_season, radars
 from ..intel.evidence import GLOSSARY, change
 from ..intel.interpreter import Interpreter
 from .registry import MatchRegistry
 
 INSTRUCTIONS = (
-    "Facts about a synthetic football match: score, rolling indices, window statistics, event chains "
-    "and key moments. Times are display minutes. All data is synthetic and the clubs are fictional."
+    "Facts about a synthetic football match: score, rolling indices, window statistics, event chains, "
+    "key moments and Opta-style analytics (win probability, possession value, pitch control, passing "
+    "networks, measured formations, line-breaking passes, off-ball runs, physical load, set pieces, "
+    "transitions, goalkeepers, season context and predictions). Times are display minutes. All data is "
+    "synthetic and the clubs are fictional."
 )
 
 WINDOW_FIELDS = (
@@ -46,6 +51,13 @@ def _team(ip: Interpreter, team: str) -> str:
     if team not in ip.clubs:
         raise ValueError(f"team must be one of {ip.clubs}")
     return team
+
+
+def _an(ip: Interpreter) -> MatchAnalytics:
+    """The analytics for a match, built once per interpreter."""
+    if getattr(ip, "_analytics", None) is None:
+        ip._analytics = MatchAnalytics(ip)
+    return ip._analytics
 
 
 def _round(v: Any) -> Any:
@@ -115,7 +127,7 @@ def build_server(registry: MatchRegistry | None = None, path: str = "/mcp") -> F
         if event_id not in ip.by_id:
             raise ValueError(f"unknown event {event_id!r}")
         before, after = max(0, min(before, 10)), max(0, min(after, 10))
-        evs = [e for e in ip.events if e["type"] not in ("team_shape", "distance_milestone", "possession_change")]
+        evs = [e for e in ip.events if e["type"] not in ("team_shape", "distance_milestone", "possession_change", "space_control", "shape_profile", "player_load")]
         i = next(k for k, e in enumerate(evs) if e["id"] == event_id) if any(e["id"] == event_id for e in evs) else None
         if i is None:
             return [_slim(ip.by_id[event_id])]
@@ -137,8 +149,158 @@ def build_server(registry: MatchRegistry | None = None, path: str = "/mcp") -> F
 
     @mcp.tool()
     def get_season_context(entity_id: str) -> dict:
-        """Season totals for a player or club. Season history is not built yet, so this says so."""
-        return {"entity": entity_id, "available": False, "reason": "season history has not been generated for this league"}
+        """Season context for a club (table position, form, runs, strengths) or a player (season totals), plus the league records."""
+        season = load_season()
+        if not season:
+            return {"entity": entity_id, "available": False, "reason": "season history has not been generated (matchmind build-season)"}
+        clubs = season["clubs"]
+        ctx = context_for(season, *(clubs[:2]))
+        if entity_id in clubs:
+            row = next(r for r in ctx["standings"] if r["club"] == entity_id)
+            other = next(c for c in clubs if c != entity_id)
+            c2 = context_for(season, entity_id, other)
+            return {"entity": entity_id, "available": True, "kind": "club", "table": row, "form": c2["form"][entity_id], "streaks": c2["streaks"][entity_id],
+                    "rating": c2["ratings"][entity_id], "season": ctx["season"], "roundsPlayed": ctx["played"]}
+        if entity_id in ctx["players"]:
+            return {"entity": entity_id, "available": True, "kind": "player", "season": ctx["season"], "totals": ctx["players"][entity_id], "topScorers": ctx["topScorers"]}
+        return {"entity": entity_id, "available": False, "reason": f"unknown club or player; clubs are {clubs}"}
+
+    @mcp.tool()
+    def get_prediction(match_id: str) -> dict:
+        """The pre-match model: win/draw/loss probabilities, expected goals, likeliest scores, and the table and form behind them."""
+        ip = reg.get(match_id)
+        s = ip.season
+        if not s:
+            return {"available": False, "reason": "no season context for this match"}
+        return {"available": True, "prediction": s["prediction"], "table": [r for r in s["standings"] if r["club"] in ip.clubs], "form": s["form"],
+                "headToHead": s["headToHead"], "ratings": {c: s["ratings"][c] for c in ip.clubs}}
+
+    @mcp.tool()
+    def get_win_probability(match_id: str, minute: float | None = None) -> dict:
+        """Win/draw/loss probabilities at a minute (default: full time) and how each goal or red card moved them."""
+        ip = reg.get(match_id)
+        wp = _an(ip).win_probability()
+        ms = ms_at(ip, minute) if minute is not None else 10**9
+        at = [p for p in wp["series"] if p["matchMs"] <= ms and p["tag"] == "tick"]
+        return {"clubs": {"home": ip.clubs[0], "away": ip.clubs[1]}, "preMatch": wp["preMatch"], "at": at[-1]["p"] if at else None,
+                "swings": [{**x, "label": ip.minute_label(x["matchMs"])} for x in wp["swings"]], "model": wp["model"]}
+
+    @mcp.tool()
+    def get_key_actions(match_id: str, top: int = 6) -> dict:
+        """The most valuable actions of the match and the players ranked by possession value (the VAEP / OBV idea)."""
+        ip = reg.get(match_id)
+        an = _an(ip)
+        pv = an.possession_value(top=max(1, min(top, 15)))
+        if not pv.get("available"):
+            return {"available": False, "reason": "possession-value model not fitted (matchmind fit-models)"}
+        table = an.players_table()
+        return {"available": True, "bestActions": [{**a, "label": ip.minute_label(a["ms"])} for a in pv["best"]],
+                "players": [{k: r[k] for k in ("id", "name", "team", "pos", "value", "impact", "goals", "assists")} for r in table[: max(1, min(top, 15))]]}
+
+    @mcp.tool()
+    def get_space_control(match_id: str, team: str, from_minute: float, to_minute: float) -> dict:
+        """Pitch control from tracking: the share of the pitch and of the final third a team could reach first, and the space the opposition controls behind its defensive line."""
+        ip = reg.get(match_id)
+        _team(ip, team)
+        t0, t1 = ms_at(ip, from_minute), ms_at(ip, to_minute)
+        rows = [p for p in _an(ip).space()["series"][team] if t0 < p["ms"] <= t1]
+        if not rows:
+            return {"team": team, "available": False}
+        behind = [p["behind"] for p in rows if p["behind"] is not None]
+        return {"team": team, "available": True, "controlShare": round(sum(p["control"] for p in rows) / len(rows), 3),
+                "finalThirdControl": round(sum(p["finalThird"] for p in rows) / len(rows), 3),
+                "spaceBehindLineM2": round(sum(behind) / len(behind)) if behind else None, "windows": len(rows)}
+
+    @mcp.tool()
+    def get_passing_network(match_id: str, team: str, half: str = "full", top: int = 8) -> dict:
+        """Who passes to whom: players at their average pass position and the strongest links. half is 'full', '1' or '2'."""
+        ip = reg.get(match_id)
+        _team(ip, team)
+        key = {"full": "full", "1": "h1", "2": "h2"}.get(half)
+        if key is None:
+            raise ValueError("half must be 'full', '1' or '2'")
+        net = _an(ip).networks()[team][key]
+        return {**net, "edges": net["edges"][: max(1, min(top, 30))]}
+
+    @mcp.tool()
+    def get_team_shape(match_id: str, team: str) -> dict:
+        """The formation as designed and as measured from tracking, out of possession and in possession, and how it changed by 15-minute block."""
+        ip = reg.get(match_id)
+        _team(ip, team)
+        sh = _an(ip).shapes()[team]
+        return {"team": team, "nominal": sh["nominal"], "designed": sh["designed"],
+                "defending": sh["def"]["measured"], "inPossession": sh["ip"]["measured"], "byBlock": sh["blocks"]}
+
+    @mcp.tool()
+    def get_line_breaks(match_id: str, top: int = 5) -> dict:
+        """Packing (opponents bypassed by completed passes) and line-breaking passes per team, with the best passes."""
+        ip = reg.get(match_id)
+        lb = _an(ip).line_breaks(top=max(1, min(top, 15)))
+        return {"teams": lb["teams"], "best": [{**b, "label": ip.minute_label(b["ms"])} for b in lb["best"]]}
+
+    @mcp.tool()
+    def get_off_ball_runs(match_id: str, team: str | None = None, kind: str | None = None, min_distance: float = 0.0) -> dict:
+        """Off-ball runs detected from tracking (in_behind, overlap, drop), with whether the ball was played to the runner."""
+        ip = reg.get(match_id)
+        if team is not None:
+            _team(ip, team)
+        if kind is not None and kind not in ("in_behind", "overlap", "drop"):
+            raise ValueError("kind must be in_behind, overlap or drop")
+        runs = _an(ip).runs()
+        sel = [r for r in runs["runs"] if (team is None or r["team"] == team) and (kind is None or r["kind"] == kind) and r["distanceM"] >= min_distance]
+        return {"counts": runs["teams"], "runs": [{**r, "label": ip.minute_label(r["startMs"])} for r in sel[:40]], "total": len(sel)}
+
+    @mcp.tool()
+    def get_physical_load(match_id: str, player_id: str | None = None, top: int = 5) -> dict:
+        """Distance, high-speed running, sprint distance and accelerations from tracking, with a fatigue index (late vs early high-speed running)."""
+        ip = reg.get(match_id)
+        ld = _an(ip).load()
+        if player_id is not None:
+            if player_id not in ld["players"]:
+                raise ValueError(f"no load data for {player_id!r}")
+            return {"player": player_id, **ld["players"][player_id]}
+        return {"top": ld["top"][: max(1, min(top, 15))]}
+
+    @mcp.tool()
+    def get_transitions(match_id: str) -> dict:
+        """Counter-pressing (regaining the ball within five seconds), high turnovers, quick entries and fast breaks per team."""
+        ip = reg.get(match_id)
+        return {c: {k: v for k, v in t.items() if k != "fastBreakList"} | {"fastBreakList": t["fastBreakList"][:5]} for c, t in _an(ip).transitions().items()}
+
+    @mcp.tool()
+    def get_set_piece_report(match_id: str) -> dict:
+        """What each routine produced (corners, free kicks, long throws, goal kicks) and what each defence conceded."""
+        return _an(reg.get(match_id)).set_pieces()
+
+    @mcp.tool()
+    def get_shot_map(match_id: str, team: str | None = None, min_xg: float = 0.0) -> dict:
+        """Shots with xG and post-shot xG, and per-team totals."""
+        ip = reg.get(match_id)
+        if team is not None:
+            _team(ip, team)
+        sh = _an(ip).shots()
+        return {"teams": sh["teams"], "shots": [{**s, "label": ip.minute_label(s["ms"])} for s in sh["shots"] if (team is None or s["team"] == team) and s["xg"] >= min_xg]}
+
+    @mcp.tool()
+    def get_goalkeeper_report(match_id: str) -> dict:
+        """Shot-stopping against post-shot xG (goals prevented), claims, sweeping and distribution for each keeper."""
+        return _an(reg.get(match_id)).goalkeepers()
+
+    @mcp.tool()
+    def get_pressing_report(match_id: str) -> dict:
+        """Where each team presses (high, middle, low) and what triggers it (a back pass, a bad pass)."""
+        return _an(reg.get(match_id)).pressing()
+
+    @mcp.tool()
+    def get_player_profile(match_id: str, player_id: str) -> dict:
+        """A player's numbers in this match, a radar (percentiles among positional peers over the history) and the three players he most resembles."""
+        ip = reg.get(match_id)
+        if player_id not in ip.players:
+            raise ValueError(f"unknown player {player_id!r}")
+        row = next((r for r in _an(ip).players_table() if r["id"] == player_id), None)
+        if row is None:
+            return {"player": player_id, "available": False, "reason": "the player has no recorded actions"}
+        return jsonable({"player": row, "radar": radars(load_season(), [row]).get(player_id)})
 
     @mcp.tool()
     def list_moments(match_id: str, since_minute: float = 0.0, min_salience: float = 0.0) -> list[dict]:

@@ -347,6 +347,18 @@ def _shape_mean(ip: Interpreter, team: str, t0: int, t1: int) -> dict | None:
     return {"line": line / n, "width": width / n, "ids": ids[-2:]}
 
 
+def _space_mean(ip: Interpreter, team: str, t0: int, t1: int) -> float | None:
+    """Mean space (m^2) the opposition controlled behind the team's defensive line over a window, from tracking."""
+    n = tot = 0.0
+    for e in ip.events:
+        if e["type"] == "space_control" and e["team"] == team and t0 < e["_ms"] <= t1:
+            a = e["attributes"]
+            if a.get("spaceBehindM2") is not None and a.get("behindSamples"):
+                n += a["behindSamples"]
+                tot += a["behindSamples"] * a["spaceBehindM2"]
+    return tot / n if n >= 20 else None
+
+
 def _shift_at(ip: Interpreter, c: str, t: int) -> tuple[dict, dict] | None:
     cfg = ip.cfg
     after = _shape_mean(ip, c, t - cfg.shift_after_ms, t)
@@ -376,6 +388,10 @@ def _tactical_shift(ip, t) -> list[dict]:
             f"{c}.line_height_m": change(before["line"], after["line"], 1),
             f"{c}.width_m": change(before["width"], after["width"], 1),
         }
+        sp0 = _space_mean(ip, c, t - cfg.shift_after_ms - cfg.shift_before_ms, t - cfg.shift_after_ms)
+        sp1 = _space_mean(ip, c, t - cfg.shift_after_ms, t)
+        if sp0 is not None and sp1 is not None:
+            metrics[f"{c}.space_behind_m2"] = change(sp0, sp1, 0)
         res.append(dict(
             type_="tactical_shift", ms=t, subject=c, beneficiary=None, metrics=metrics, events=after["ids"],
             players=[],

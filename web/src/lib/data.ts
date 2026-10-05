@@ -1,3 +1,4 @@
+import type { Analytics } from './analytics'
 import type { MatchEvent, Meta, Moment, Overlay, Recap, ReplayIndexEntry, Snapshot } from './types'
 import { gunzip, type SlotRow, Tracking } from './tracking'
 
@@ -11,6 +12,7 @@ export interface Replay {
   events: MatchEvent[]
   eventsById: Map<string, MatchEvent>
   tracking: Tracking
+  analytics: Analytics | null // older packages have none
 }
 
 const base = () => `${import.meta.env.BASE_URL}replays/`
@@ -31,7 +33,7 @@ export const SAFE_ID = /^[a-z0-9][a-z0-9-]{0,63}$/
 export async function loadReplay(id: string, root = base()): Promise<Replay> {
   if (!SAFE_ID.test(id)) throw new Error(`invalid match id: ${id}`)
   const dir = `${root}${id}/`
-  const [meta, moments, overlays, snapshots, recaps, events, slots, bin] = await Promise.all([
+  const [meta, moments, overlays, snapshots, recaps, events, slots, bin, analytics] = await Promise.all([
     json<Meta>(`${dir}meta.json`),
     json<Moment[]>(`${dir}moments.json`),
     json<Overlay[]>(`${dir}overlays.json`),
@@ -40,6 +42,7 @@ export async function loadReplay(id: string, root = base()): Promise<Replay> {
     json<MatchEvent[]>(`${dir}events.json`),
     json<SlotRow[]>(`${dir}slots.json`),
     fetch(`${dir}tracking.bin.gz`).then(gunzip),
+    json<Analytics>(`${dir}analytics.json`).catch(() => null),
   ])
   overlays.sort((a, b) => a.displayAt.matchMs - b.displayAt.matchMs || a.priority - b.priority)
   return {
@@ -52,6 +55,7 @@ export async function loadReplay(id: string, root = base()): Promise<Replay> {
     events,
     eventsById: new Map(events.map((e) => [e.id, e])),
     tracking: new Tracking(bin, slots),
+    analytics,
   }
 }
 

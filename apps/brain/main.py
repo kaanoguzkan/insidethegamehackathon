@@ -8,6 +8,8 @@ endpoints with the offline model, so everything here works with no keys and no n
     GET  /health                       liveness plus which model client is configured
     GET  /api/matches                  matches that can be queried
     GET  /api/matches/{id}/moments     interpreter moments for a match
+    GET  /api/matches/{id}/analytics   Opta-style analytics (win probability, possession value, networks ...)
+    GET  /api/matches/{id}/win-probability
     POST /api/beats                    run the agent workflow for chosen moments and cohorts
     GET  /api/director/faults          current model-fault switch (only when MATCHMIND_DIRECTOR=1)
     POST /api/director/faults          set it (none | error | slow | hallucinate), for the resilience demo;
@@ -32,6 +34,7 @@ from matchmind.agents.store import InMemoryMomentStore
 from matchmind.agents.team import AgentSettings, AgentTeam
 from matchmind.agents.verify import Registry
 from matchmind.agents.workflow import Batch, WorkflowDeps, build_workflow, run_batch
+from matchmind.analytics.report import MatchAnalytics
 from matchmind.core.contracts import Cohort
 from matchmind.mcp_server.registry import MatchRegistry, UnknownMatch
 from matchmind.mcp_server.server import build_server
@@ -92,6 +95,15 @@ def create_app(
             {"id": m["id"], "type": m["type"], "label": m["detectedAt"]["label"], "salience": m["salience"], "team": m["subjectTeam"]}
             for m in ip.all_moments if m["salience"] >= min_salience
         ]  # fmt: skip
+
+    @app.get("/api/matches/{match_id}/analytics")
+    def analytics(match_id: str) -> dict:
+        """The match's Opta-style analytics (what the replay package stores as analytics.json)."""
+        return MatchAnalytics(_ip(match_id)).summary()
+
+    @app.get("/api/matches/{match_id}/win-probability")
+    def win_probability(match_id: str) -> dict:
+        return MatchAnalytics(_ip(match_id)).win_probability()
 
     @app.post("/api/beats")
     async def beats(req: BeatRequest) -> dict:

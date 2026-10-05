@@ -15,9 +15,12 @@ from ..core.contracts import (
     Chip,
     Cohort,
     DisplayAt,
+    Graphic,
     Overlay,
     OverlayContent,
+    Point,
     Provenance,
+    Shape,
     StoryVariant,
 )
 from . import templates as T
@@ -29,7 +32,7 @@ DURATION_MS = {"lower_third": 9000, "goal": 12000, "card": 6000, "badge": 4500, 
 LANE = {
     "lower_third": "lower_third", "goal_card": "lower_third", "recap_card": "lower_third",
     "stat_card": "card", "shot_card": "card", "pass_card": "card", "card_badge": "card",
-    "speed_badge": "badge", "player_tag": "badge",
+    "speed_badge": "badge", "player_tag": "badge", "pitch_graphic": "graphic",
 }  # fmt: skip
 MAX_DELAY_MS = 15_000
 
@@ -114,6 +117,47 @@ def fact_overlay(fact: dict, cohort: Cohort, names: dict[str, str]) -> Overlay |
         content=OverlayContent(headline=headline, body=body, chips=chips),
         anchor=Anchor(type="player", player=fact.get("player")) if on_player and fact.get("player")
         else Anchor(type="screen", region="bottom_right"),
+        provenance=Provenance(agents=["template"], verified=True, evidenceRef=fact["id"], fallbackLevel=3),
+    )
+
+
+def graphic_overlay(fact: dict, cohort: Cohort, names: dict[str, str]) -> Overlay | None:
+    """A pitch graphic (offside line, run, line-breaking pass, shot trace) from an interpreter fact.
+
+    The geometry is in pitch metres, so any renderer can draw it; the caption is in the cohort's language.
+    """
+    t, v = fact["type"], fact["values"]
+    caption = T.graphic_caption(fact, cohort.language, names)
+    if caption is None:
+        return None
+    pt = lambda xy: Point(x=float(xy[0]), y=float(xy[1]))  # noqa: E731
+    team = fact.get("team")
+    shapes: list[Shape]
+    if t == "offside_graphic":
+        x = float(v["lineX"])
+        shapes = [
+            Shape(shape="line", points=[Point(x=x, y=0.0), Point(x=x, y=68.0)], style="dashed", label=caption[0]),
+            Shape(shape="circle", points=[pt((v["receiverX"], v["receiverY"]))], radius=1.4, label=caption[1], emphasis="secondary"),
+        ]
+        gtype, dur, prio = "offside_line", 5000, 3
+    elif t == "run_card":
+        shapes = [Shape(shape="arrow", points=[pt(v["from"]), pt(v["to"])], style="dashed", label=caption[0])]
+        gtype, dur, prio = "run", 4500, 4
+    elif t == "line_break_card":
+        shapes = [Shape(shape="arrow", points=[pt(v["from"]), pt(v["to"])], label=caption[0]), Shape(shape="text", points=[pt(v["to"])], label=caption[1], emphasis="secondary")]
+        gtype, dur, prio = "line_break", 4500, 4
+    elif t == "shot_card":
+        if not v.get("from") or not v.get("to") or (v["xg"] < 0.1 and v.get("outcome") != "goal"):
+            return None
+        shapes = [Shape(shape="arrow", points=[pt(v["from"]), pt(v["to"])], label=caption[0]), Shape(shape="circle", points=[pt(v["from"])], radius=1.2, emphasis="secondary")]
+        gtype, dur, prio = "shot_trace", 5000, 2 if v.get("outcome") == "goal" else 4
+    else:
+        return None
+    return Overlay(
+        id=f"{fact['id']}.pg.{slug(cohort)}", matchId=fact["matchId"], factId=fact["id"], kind="pitch_graphic",
+        displayAt=DisplayAt(matchMs=fact["matchMs"] + (800 if t == "shot_card" else 0)), durationMs=dur, priority=prio, cohort=cohort,
+        content=OverlayContent(headline=caption[0], body=caption[1]), anchor=Anchor(type="pitch"),
+        graphic=Graphic(type=gtype, team=team, shapes=shapes),
         provenance=Provenance(agents=["template"], verified=True, evidenceRef=fact["id"], fallbackLevel=3),
     )
 

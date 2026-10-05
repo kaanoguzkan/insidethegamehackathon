@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EvidenceDrawer } from './components/EvidenceDrawer'
+import { GraphicsBar } from './components/GraphicsBar'
+import { Insights } from './components/insights/Insights'
 import { MomentList } from './components/MomentList'
 import { ProfilePanel } from './components/ProfilePanel'
 import { RecapPanel } from './components/RecapPanel'
@@ -11,6 +13,7 @@ import { useClock } from './hooks/useClock'
 import { buildHash, useRoute } from './hooks/useHash'
 import { t } from './i18n'
 import { totalMs } from './lib/clock'
+import { NO_LAYERS, type Layers } from './lib/layers'
 import { type Health, loadIndex, loadReplay, loadVariant, overlaysFor, type Replay } from './lib/data'
 import { DEFAULT_PROFILE, type Overlay, type Profile, type ReplayIndexEntry } from './lib/types'
 
@@ -74,6 +77,7 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
   const lang = profile.language
   const [selected, setSelected] = useState<string | null>(null)
   const [showOnPitch, setShowOnPitch] = useState(true)
+  const [layers, setLayers] = useState<Layers>(NO_LAYERS)
   const [health, setHealth] = useState<Health>('healthy')
   const [variants, setVariants] = useState<Partial<Record<Health, Overlay[]>>>({})
   useEffect(() => {
@@ -167,14 +171,16 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
         <div className="main-col">
           {route.split ? (
             <div className="split">
-              <Screen replay={replay} ms={ms} msRef={msRef} profile={profile} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} title={`${t(lang, profile.mode)} · ${profile.language.toUpperCase()}`} />
-              <Screen replay={replay} ms={ms} msRef={msRef} profile={profileB} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} title={`${t(profileB.language, profileB.mode)} · ${profileB.language.toUpperCase()}`} />
+              <Screen replay={replay} ms={ms} msRef={msRef} profile={profile} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} layers={layers} title={`${t(lang, profile.mode)} · ${profile.language.toUpperCase()}`} />
+              <Screen replay={replay} ms={ms} msRef={msRef} profile={profileB} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} layers={layers} title={`${t(profileB.language, profileB.mode)} · ${profileB.language.toUpperCase()}`} />
             </div>
           ) : (
-            <Screen replay={replay} ms={ms} msRef={msRef} profile={profile} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} />
+            <Screen replay={replay} ms={ms} msRef={msRef} profile={profile} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} layers={layers} />
           )}
+          <GraphicsBar layers={layers} onToggle={(k) => setLayers((l) => ({ ...l, [k]: !l[k] }))} onClear={() => setLayers(NO_LAYERS)} lang={lang} />
           <Transport replay={replay} ms={ms} playing={playing} speed={speed} lang={lang} toggle={toggle} setSpeed={setSpeed} seek={seek} onPick={pick} />
           <Timeline replay={replay} ms={ms} lang={lang} seek={seek} onPick={pick} selected={selected} />
+          <Insights replay={replay} ms={ms} lang={lang} />
         </div>
         <aside className="side-col">
           <ProfilePanel profile={profile} onChange={setProfile} replay={replay} heading={route.split ? `${t(lang, 'viewer')} A` : undefined} />

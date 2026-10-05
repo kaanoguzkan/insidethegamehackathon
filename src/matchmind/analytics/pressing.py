@@ -28,8 +28,24 @@ def pressing_report(events: list[dict], clubs: list[str]) -> dict:
                 elif q.get("outcome") != "complete" or (q.get("_diff") or 0) >= 6.5:
                     kind = "badPass"
             triggers[kind] += 1
+        # PPDA by zone: opponent passes in a zone per defensive action of ours in the same zone, zones
+        # measured from the pressing team's goal (high = the opponent's own third).
+        def zone(x_from_own_goal: float) -> str:
+            return "high" if x_from_own_goal >= G.FINAL_THIRD_X else "low" if x_from_own_goal < G.PITCH_L / 3 else "middle"
+
+        opp_passes = {"high": 0, "middle": 0, "low": 0}
+        actions = {"high": 0, "middle": 0, "low": 0}
+        for e in events:
+            if "_ax" not in e:
+                continue
+            if e["type"] == "pass" and e["team"] == opp:
+                opp_passes[zone(G.PITCH_L - e["_ax"])] += 1
+            elif e["type"] in ("tackle", "interception", "foul") and e["team"] == c:
+                actions[zone(e["_ax"])] += 1
+        ppda_zone = {z: (round(opp_passes[z] / actions[z], 1) if actions[z] >= 3 else None) for z in opp_passes}
         n = len(pressures) or 1
         out[c] = {
+            "ppdaByZone": ppda_zone,
             "pressures": len(pressures),
             "zoneShare": {k: round(v / n, 3) for k, v in zones.items()},
             "triggerShare": {k: round(v / n, 3) for k, v in triggers.items()},

@@ -3,7 +3,8 @@
 Everything a tracking provider adds on top of events, from nothing but player and ball positions:
 
 * ``space_control`` every 30 s: how much of the pitch each team controls, how much of the final third,
-  and how much space the opponent controls *behind the team's defensive line* while they have the ball
+  how much space the opponent controls *behind the team's defensive line* while they have the ball, and how
+  large the defending block is (convex hull of its ten outfield players)
 * ``off_ball_run`` events: runs in behind, overlaps and forwards dropping into midfield, from player
   velocities alone
 * ``player_load`` every 5 minutes: distance, high-speed running, sprint distance, accelerations and
@@ -43,6 +44,29 @@ FULLBACKS = ("LB", "RB", "LWB", "RWB")
 Make = Callable[..., dict]
 
 
+def hull_area(points: np.ndarray) -> float:
+    """Area in m^2 of the convex hull of a set of (x, y) points (monotone chain and the shoelace formula)."""
+    p = sorted(map(tuple, points.tolist()))
+    if len(p) < 3:
+        return 0.0
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    lower: list = []
+    for q in p:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], q) <= 0:
+            lower.pop()
+        lower.append(q)
+    upper: list = []
+    for q in reversed(p):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], q) <= 0:
+            upper.pop()
+        upper.append(q)
+    h = lower[:-1] + upper[:-1]
+    return abs(sum(h[i][0] * h[(i + 1) % len(h)][1] - h[(i + 1) % len(h)][0] * h[i][1] for i in range(len(h)))) / 2.0
+
+
 class TrackingInsights:
     def __init__(self, meta: dict, make: Make, hz: int) -> None:
         self.make = make
@@ -56,7 +80,7 @@ class TrackingInsights:
         self.hist: list[np.ndarray] = []
         self.speed_hist: list[np.ndarray] = []
         # space control
-        self.ctrl = {c: {"share": 0.0, "third": 0.0, "n": 0, "behind": 0.0, "behind_n": 0} for c in self.clubs}
+        self.ctrl = {c: self._blank_ctrl() for c in self.clubs}
         # runs
         self.runs: dict[int, dict] = {}
         # load
@@ -65,6 +89,10 @@ class TrackingInsights:
         # shape
         self.shape: dict[str, dict[str, dict[str, list]]] = {c: {"def": {}, "ip": {}} for c in self.clubs}
         self._cur_block = 0
+
+    @staticmethod
+    def _blank_ctrl() -> dict:
+        return {"share": 0.0, "third": 0.0, "n": 0, "behind": 0.0, "behind_n": 0, "block": 0.0, "block_n": 0}
 
     # ----- the frame step ----------------------------------------------------------------------------------
 
@@ -155,6 +183,9 @@ class TrackingInsights:
         c = self.ctrl[dfn]
         c["behind"] += space
         c["behind_n"] += 1
+        if ball_ax <= 75.0:  # the defending block while the ball is in the middle of the pitch
+            c["block"] += hull_area(opp)
+            c["block_n"] += 1
 
     def _emit_control(self, f_end: int) -> list[dict]:
         evs = []
@@ -167,10 +198,11 @@ class TrackingInsights:
                 "finalThirdControl": round(c["third"] / c["n"], 3),
                 "spaceBehindM2": round(c["behind"] / c["behind_n"], 0) if c["behind_n"] else None,
                 "behindSamples": c["behind_n"],
+                "blockAreaM2": round(c["block"] / c["block_n"], 0) if c["block_n"] else None,
                 "samples": c["n"],
             }
             evs.append(self.make("space_control", f_end, club, None, attrs))
-        self.ctrl = {c: {"share": 0.0, "third": 0.0, "n": 0, "behind": 0.0, "behind_n": 0} for c in self.clubs}
+        self.ctrl = {c: self._blank_ctrl() for c in self.clubs}
         return evs
 
     # ----- physical load ---------------------------------------------------------------------------------------------

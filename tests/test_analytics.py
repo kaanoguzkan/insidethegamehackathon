@@ -290,3 +290,48 @@ def test_set_piece_report_covers_the_routines_taken(ip, report):
     taken = sum(r["n"] for t in report["setPieces"]["teams"].values() for kind in t["taken"].values() for r in kind.values())
     routines = sum(1 for e in ip.events if (e.get("attributes") or {}).get("routine") and e["type"] in ("corner", "goal_kick") or (e["type"] == "free_kick" and (e.get("attributes") or {}).get("routine") in ("direct", "cross")))
     assert taken >= routines - 1
+
+
+def test_pitch_control_matches_the_browser_fixture():
+    """web/src/lib/control.ts implements the same formula; both are checked against this fixture."""
+    fx = json.loads((league_dir().parents[1] / "tests" / "fixtures" / "pitch_control.json").read_text())
+    assert (fx["nx"], fx["ny"]) == (NX, NY)
+    for f in fx["frames"]:
+        got = home_control(np.array(f["players"]))
+        assert np.allclose(got.reshape(-1), np.array(f["grid"]), atol=1e-4)
+
+
+def test_hull_area_and_the_defensive_block(match):
+    from matchmind.tracking.insights import hull_area
+
+    assert hull_area(np.array([[0, 0], [10, 0], [10, 10], [0, 10], [5, 5]])) == pytest.approx(100.0)
+    assert hull_area(np.array([[0, 0], [4, 0], [0, 3]])) == pytest.approx(6.0)
+    assert hull_area(np.array([[0, 0], [1, 1]])) == 0.0
+    blocks = [e["attributes"]["blockAreaM2"] for e in analyze_match(match).events if e["type"] == "space_control" and e["attributes"].get("blockAreaM2")]
+    assert blocks and 300 < float(np.median(blocks)) < 2500, "a defending block covers hundreds to a couple of thousand square metres"
+
+
+def test_a_tactical_shift_carries_the_space_behind_the_line():
+    pkg = league_dir().parents[0] / "replays" / "high-line-gamble" / "moments.json"
+    shifts = [m for m in json.loads(pkg.read_text()) if m["type"] == "tactical_shift" and m["subjectTeam"] == "ALD"]
+    assert shifts, "the scripted line change is detected"
+    with_space = [m for m in shifts if "ALD.space_behind_m2" in m["metrics"]]
+    assert with_space
+    m = with_space[0]["metrics"]["ALD.space_behind_m2"]
+    assert m["before"] > 0 and m["after"] > 0
+    assert "space_behind_m2" in with_space[0]["glossary"]
+
+
+def test_every_metric_in_every_committed_pack_has_a_definition():
+    from matchmind.intel.evidence import GLOSSARY
+
+    root = league_dir().parents[0] / "replays"
+    seen = set()
+    for pkg in root.iterdir():
+        for m in json.loads((pkg / "moments.json").read_text()):
+            for key in m["metrics"]:
+                base = key.split(".", 1)[-1]
+                seen.add(base)
+                assert base in GLOSSARY, f"{key} (in {m['id']}) has no glossary entry"
+                assert base in m["glossary"], f"{base} missing from the pack's own glossary"
+    assert {"win_prob", "space_behind_m2"} <= seen, "the new evidence reaches the packs"

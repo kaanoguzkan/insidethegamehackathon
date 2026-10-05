@@ -85,8 +85,9 @@ def test_moments_and_glossary(registry):
     assert "pressing" in d["definition"]
 
 
-def test_season_context_is_honest_that_it_is_missing(registry):
-    assert data(call(registry, "get_season_context", {"entity_id": "HAR-09"}))["available"] is False
+def test_season_context_rejects_entities_it_does_not_know(registry):
+    d = data(call(registry, "get_season_context", {"entity_id": "NOBODY-99"}))
+    assert d["available"] is False and "unknown" in d["reason"]
 
 
 @pytest.mark.parametrize(

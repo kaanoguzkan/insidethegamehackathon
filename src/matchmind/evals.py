@@ -10,6 +10,9 @@ properties the design promises, using the same checks the live system relies on:
 * **language correctness** detected language equals the cohort's language
 * **honesty**           moments with contradicting metrics whose explanation admits it
 * **degradation**       how many overlays were agent-written, retried or template, per model-health run
+* **analytics**         the match analytics agree with the match: win probability ends where the match ended,
+                        player and shot totals add up to the score, every team has a measured shape, the
+                        prediction is a probability, and pitch graphics stay on the pitch
 
 Custom evaluators here are plain functions so they can also run as Foundry evaluators.
 """
@@ -41,6 +44,36 @@ def readability(text: str) -> float:
 def number_density(text: str) -> float:
     words = max(1, len(text.split()))
     return round(len(re.findall(r"\d+(?:[.,]\d+)?", text)) / words, 3)
+
+
+def evaluate_analytics(pkg: Path, meta: dict, overlays: list[dict]) -> dict:
+    """Consistency checks between analytics.json, the match score and the overlays. Each check is a bool."""
+    f = pkg / "analytics.json"
+    if not f.exists():
+        return {"present": False, "checks": {}}
+    a = json.loads(f.read_text())
+    home, away = meta["home"]["id"], meta["away"]["id"]
+    score = meta["score"]
+    wp = a["winProbability"]
+    final = wp["final"] or {}
+    winner = "home" if score[home] > score[away] else "away" if score[away] > score[home] else "draw"
+    graphics = [o for o in overlays if o["kind"] == "pitch_graphic"]
+    inside = all(-1 <= p["x"] <= 106 and -1 <= p["y"] <= 69 for o in graphics for sh in o["graphic"]["shapes"] for p in sh["points"])
+    checks = {
+        "winProbabilitySumsToOne": all(abs(sum(p["p"].values()) - 1) < 1e-3 for p in wp["series"]),
+        "winProbabilityEndsWithTheResult": final.get(winner, 0) > 0.5 if winner != "draw" else final.get("draw", 0) > 0.3,
+        "oneSwingPerGoalAndRedCard": len(wp["swings"]) == sum(score.values()) + sum(1 for e in a["winProbability"]["series"] if e["tag"] == "after_red"),
+        "playerGoalsAddUp": sum(p["goals"] for p in a["players"]) == sum(score.values()),
+        "shotGoalsAddUp": sum(t["goals"] for t in a["shots"]["teams"].values()) == sum(score.values()),
+        "xgRaceEndsAtTeamXg": all(abs(a["shots"]["race"][c][-1][1] - a["shots"]["teams"][c]["xg"]) < 0.02 for c in (home, away)),
+        "everyTeamHasAMeasuredShape": all(a["shapes"][c][ph]["measured"] for c in (home, away) for ph in ("def", "ip")),
+        "possessionValueAvailable": bool(a["possessionValue"].get("available")),
+        "goalkeepersPresent": set(a["goalkeepers"]) == {home, away},
+        "predictionIsAProbability": (not a.get("season")) or abs(sum(a["season"]["prediction"][k] for k in ("home", "draw", "away")) - 1) < 0.02,
+        "graphicsStayOnThePitch": inside,
+        "graphicsPresent": bool(graphics),
+    }
+    return {"present": True, "checks": checks, "players": len(a["players"]), "graphics": len(graphics)}
 
 
 def evaluate_package(pkg: Path) -> dict:
@@ -98,6 +131,7 @@ def evaluate_package(pkg: Path) -> dict:
         "personaSeparation": sep,
         "honesty": {"mixedEvidenceMoments": len(mixed), "admitted": admitted, "rate": round(admitted / len(mixed), 3) if mixed else 1.0},
         "recapsVerified": f"{recap_ok}/{len(recaps)}",
+        "analytics": evaluate_analytics(pkg, meta, overlays),
         "levels": levels,
         "modelHealth": meta["package"].get("variants", {}),
     }
@@ -116,6 +150,9 @@ def gate(report: dict) -> list[str]:
     sep = report["personaSeparation"]
     if sep["pairs"] and not sep["analyst_number_density"] > sep["casual_number_density"]:
         fails.append(f"{report['matchId']}: analyst text is not denser in numbers than casual text")
+    an = report.get("analytics", {})
+    if an.get("present"):
+        fails += [f"{report['matchId']}: analytics check failed: {k}" for k, ok in an["checks"].items() if not ok]
     if report["honesty"]["rate"] < 1.0:
         fails.append(f"{report['matchId']}: some contradicting evidence was not admitted ({report['honesty']})")
     return fails

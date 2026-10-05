@@ -1,3 +1,4 @@
+import { INSIGHTS } from './i18n-insights'
 import type { Lang } from './lib/types'
 
 type Dict = Record<string, string>
@@ -338,10 +339,10 @@ const tr: Dict = {
   recapWait: 'Maç bu noktaya gelince görünür.',
 }
 
-const DICTS: Record<Lang, Dict> = { en, es, tr }
+const DICTS: Record<Lang, Dict> = { en: { ...en, ...INSIGHTS.en }, es: { ...es, ...INSIGHTS.es }, tr: { ...tr, ...INSIGHTS.tr } }
 
 export function t(lang: Lang, key: string): string {
-  return DICTS[lang][key] ?? en[key] ?? key
+  return DICTS[lang][key] ?? DICTS.en[key] ?? key
 }
 
 export const MOMENT_TYPES: Record<Lang, Dict> = {

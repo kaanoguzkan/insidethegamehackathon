@@ -1,6 +1,7 @@
 import { useEffect, useRef, type MutableRefObject } from 'react'
 import type { Replay } from '../lib/data'
-import type { MatchEvent, TeamMeta } from '../lib/types'
+import { drawGraphic, drawLayers, type Labels, type Layers } from '../lib/layers'
+import type { MatchEvent, Overlay, TeamMeta } from '../lib/types'
 
 const L = 105
 const W = 68
@@ -18,17 +19,20 @@ interface Props {
   focusPlayer: string | null
   evidence: MatchEvent[] | null
   badges: PitchBadge[]
+  layers: Layers
+  graphics: Overlay[]
+  labels: Labels
   highContrast: boolean
   reducedMotion: boolean
   label: string
 }
 
-export function Pitch({ replay, msRef, focusPlayer, evidence, badges, highContrast, reducedMotion, label }: Props) {
+export function Pitch({ replay, msRef, focusPlayer, evidence, badges, layers, graphics, labels, highContrast, reducedMotion, label }: Props) {
   const wrap = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   // The draw loop reads the latest props through a ref so it never restarts.
-  const props = useRef({ focusPlayer, evidence, badges, highContrast, reducedMotion })
-  props.current = { focusPlayer, evidence, badges, highContrast, reducedMotion }
+  const props = useRef({ focusPlayer, evidence, badges, layers, graphics, labels, highContrast, reducedMotion })
+  props.current = { focusPlayer, evidence, badges, layers, graphics, labels, highContrast, reducedMotion }
 
   useEffect(() => {
     const el = wrap.current
@@ -69,11 +73,9 @@ export function Pitch({ replay, msRef, focusPlayer, evidence, badges, highContra
       const prev = tracking.at(Math.max(0, ms - 200))
       const prevById = new Map(prev.players.map((q) => [q.id, q]))
 
-      // Evidence chain under the players.
-      if (p.evidence && p.evidence.length) drawEvidence(ctx, p.evidence, meta.home.id, meta, X, Y, s)
-
       // Ball carrier: the closest player to a live ball.
       let carrier: string | null = null
+      let carrierPoint: (typeof f.players)[number] | null = null
       if (f.ball.alive) {
         let best = 2.6
         for (const q of f.players) {
@@ -81,9 +83,17 @@ export function Pitch({ replay, msRef, focusPlayer, evidence, badges, highContra
           if (d < best) {
             best = d
             carrier = q.id
+            carrierPoint = q
           }
         }
       }
+
+      // Live graphics sit under the players; overlay graphics from the pipeline too.
+      const tx = { X, Y, s }
+      drawLayers(ctx, replay, f, ms, p.layers, carrierPoint, tx, p.labels)
+      for (const g of p.graphics) drawGraphic(ctx, g, ms, tx, p.reducedMotion)
+      // Evidence chain under the players.
+      if (p.evidence && p.evidence.length) drawEvidence(ctx, p.evidence, meta.home.id, meta, X, Y, s)
 
       const r = Math.max(6.5, s * 1.25)
       const tags: { x: number; y: number; text: string; color: string; strong: boolean }[] = []

@@ -32,6 +32,10 @@ Adding phase shapes and set pieces meant re-calibrating (see [tactics.md](tactic
 the six-yard box), pressure events that ignored the pressing dial, teleporting set-piece takers (250 km/h
 "sprints"), and excess penalties (about 3 a match; now about 0.3).
 
+**Shot placement.** On-target shots carry where in the goal mouth they went (`goalMouthY`, `goalMouthZ`). In the simulator finishers beat the keeper toward the corners and keepers save more shots at a comfortable height, so post-shot xG can learn from placement; that relationship is built in, not observed.
+
+**History.** `data/league/season.json` holds 42 simulated matches (last season and four rounds of this one) used for standings, form, head-to-head, records, team strengths and player radars.
+
 **Formats.** Events: JSON, `matchId`, `seq`, `type`, `clock`, `team`, `player`, `location`/`end` in metres
 on a 105 x 68 m pitch (home attacks +x in the first half). Tracking: 5 Hz, 22 player slots plus the ball,
 0.1 m integers, a ball-in-play flag; a slot table records substitutions.

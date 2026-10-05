@@ -36,6 +36,19 @@ routines against zonal or man-marking defences; free kicks get walls; goal kicks
 against a pressing line; and scripted stories include in-match formation changes. All of it is in the tracking
 and the events, and visible in the **Tactics** panel. See [docs/tactics.md](docs/tactics.md).
 
+## Opta-style analytics
+
+Win probability with the swing of every goal, possession value (VAEP / OBV style), post-shot xG, pitch control,
+packing and line-breaking passes, passing networks, formations recognised from tracking, off-ball runs, physical
+load, transitions, set-piece review, season context with live milestones, a pre-match prediction and player radars
+with "plays like" matches: the metrics Opta, StatsBomb, SkillCorner and Second Spectrum publish, from the
+synthetic feed, in a tabbed **Match analytics** panel and as live pitch graphics (pitch control, team shape,
+offside line, passing options, run trails).
+
+![Pitch control and team shape over the match](docs/img/pitch-control.png)
+
+Definitions, fitted-model diagnostics and honest limits: [docs/analytics.md](docs/analytics.md).
+
 ## Why you can trust what it says
 
 1. **Code computes, models explain.** Numbers come from deterministic code. A language model may only
@@ -56,7 +69,9 @@ and the events, and visible in the **Tactics** panel. See [docs/tactics.md](docs
 uv sync
 uv run matchmind build-replay pressing-collapse     # simulate, analyze, interpret, run the agents, write a package
 uv run matchmind evals                              # quality gates over the committed packages
-uv run pytest -m "not slow"                         # 465 tests
+uv run matchmind fit-models                         # win probability, possession value, post-shot xG
+uv run matchmind build-season                       # the league's simulated history
+uv run pytest -m "not slow"                         # the fast suite
 cd web && pnpm install && pnpm dev                  # the match center (27 tests: pnpm test)
 ```
 
@@ -72,8 +87,9 @@ docker build -t matchmind-brain . && docker run -p 8000:8000 matchmind-brain
 
 ### Ask the match from GitHub Copilot
 
-The Match Data MCP server exposes nine tools (match state, window stats, compare windows, event chains,
-player windows, moments, metric glossary ...). `.vscode/mcp.json` points Copilot's agent mode at a local
+The Match Data MCP server exposes 24 tools (match state, window stats, event chains, win probability, key actions by possession value,
+space control, passing networks, measured formations, line breaks, off-ball runs, physical load, transitions, set pieces, shot maps,
+goalkeepers, player profiles, season context and predictions ...). `.vscode/mcp.json` points Copilot's agent mode at a local
 Brain, so you can ask *"who controlled the last 15 minutes of pressing-collapse?"*.
 
 ## Architecture
@@ -105,7 +121,7 @@ Details: [docs/architecture.md](docs/architecture.md).
 | Technology | Use | Status |
 |---|---|---|
 | **Microsoft Agent Framework 1.20** | Editor, Explainer, Storyteller, Localizer and Recap Writer as `Agent`s; a `WorkflowBuilder` graph with retry loops and fallbacks | Used and tested (offline model; a fault injector exercises every recovery path) |
-| **Model Context Protocol** | Match Data MCP server, 9 tools, served over streamable HTTP | Used and tested, including a real MCP client over HTTP |
+| **Model Context Protocol** | Match Data MCP server, 24 tools, served over streamable HTTP | Used and tested, including a real MCP client over HTTP |
 | **Microsoft Foundry** | `FoundryChatClient` is wired in as one of three model backends | Wired, **not run against a live Foundry project** (no model access while building) |
 | **GitHub Copilot** | Built with it; `.github/copilot-instructions.md` and the MCP config for agent mode | In use |
 | **Azure Container Apps, Cosmos DB, Storage, SignalR, Key Vault, Static Web Apps, App Insights** | `infra/` Bicep sized for the free tier, identity-only access, a budget with alerts | Bicep **compiles** (`az bicep build`); the container image **builds and runs**; **not deployed** (no Azure access while building) |
@@ -139,8 +155,8 @@ apps/brain/      FastAPI service: REST + MCP + agent workflow
 web/             React + TypeScript match center (replay player, overlays, evidence drawer, recaps)
 data/            league, scenarios (3 stories), replay packages (3 matches, ~10 MB)
 infra/           Bicep + azure.yaml          schemas/   JSON Schemas of the public contracts
-docs/            architecture, tactics, metrics, agents, overlay contract, data card, responsible AI, Azure
-tests/ evals/    465 + 27 tests              SOLUTION PLAN.md   design, schedule, status
+docs/            architecture, tactics, analytics, metrics, agents, overlay contract, data card, responsible AI, Azure
+tests/ evals/    528 + 39 tests              SOLUTION PLAN.md   design, schedule, status
 ```
 
 ## Honest limits

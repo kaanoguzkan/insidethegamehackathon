@@ -160,7 +160,7 @@ class PhysicalAnalyzer:
             if t == "period_start":
                 p = e["attributes"].get("period", e["clock"]["period"])
                 self._register_period(p, e["clock"]["matchMs"], e["attributes"]["attackDirection"])
-            elif t in ("pass", "shot"):
+            elif t in ("pass", "shot", "offside"):
                 if not any(p["id"] == e["id"] for p in self.pending):
                     self.pending.append(e)
 
@@ -357,10 +357,35 @@ class PhysicalAnalyzer:
         self.pending = keep
         return out
 
+    def _enrich_offside(self, e: dict, fr: tuple) -> dict | None:
+        """Where the offside line stood when the receiver was flagged, and how far beyond it he was."""
+        pos, _, slots, _ = fr
+        if e.get("player") not in slots:
+            return None
+        team_idx = self.clubs.index(e["team"])
+        d = self.attack_dirs.get(e["clock"]["period"], {}).get(e["team"], 1)
+        opp = pos[(1 - team_idx) * 11 + 1 : (1 - team_idx) * 11 + 11]
+        opp = opp[~np.isnan(opp[:, 0])]
+        rx = pos[slots.index(e["player"])]
+        if len(opp) < 2 or np.isnan(rx[0]):
+            return None
+        deepest_first = np.sort(opp[:, 0] if d == 1 else G.PITCH_L - opp[:, 0])[::-1]
+        line_att = float(deepest_first[1])  # the goalkeeper is the last defender, so the second-deepest outfielder sets the line
+        recv_att = float(rx[0] if d == 1 else G.PITCH_L - rx[0])
+        return {
+            "id": f"{e['id']}-phys", "matchId": e["matchId"], "type": "physics", "ref": e["id"], "clock": e["clock"],
+            "physics": {"offside": {
+                "lineX": round(line_att if d == 1 else G.PITCH_L - line_att, 1), "receiverX": round(float(rx[0]), 1),
+                "receiverY": round(float(rx[1]), 1), "marginM": round(recv_att - line_att, 1),
+            }},
+        }
+
     def _enrich(self, e: dict, f_e: int) -> dict | None:
         fr = self._frame_at(f_e)
         if fr is None:
             return None
+        if e["type"] == "offside":
+            return self._enrich_offside(e, fr)
         pos = fr[0]
         team_idx = self.clubs.index(e["team"])
         opp = pos[(1 - team_idx) * 11 : (1 - team_idx) * 11 + 11]

@@ -2,12 +2,16 @@ import { readFileSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
 import { clockAt, totalMs } from './clock'
+import { winProbAt, type Analytics } from './analytics'
 import { covers } from './cohort'
+import { homeControl, homeShare, NX, NY } from './control'
+import { convexHull, defensiveLine, laneBlock, offsideLineX, passingLanes, polygonArea } from './geometry'
+import { attackDir, fade } from './layers'
 import { activeAt, isShown, visibleOverlays } from './overlays'
 import { isNarrative, overlaysFor, SAFE_ID, type Replay } from './data'
 import { recapFor, recapReady } from './recap'
 import { formationAt, setPieceCounts, tagKeys, totalCorners } from './tactics'
-import { maybeGunzip, Tracking } from './tracking'
+import { maybeGunzip, Tracking, type Frame } from './tracking'
 import { DEFAULT_PROFILE, type Cohort, type MatchEvent, type Meta, type Overlay, type Profile } from './types'
 
 const dir = new URL('../../../data/replays/pressing-collapse/', import.meta.url)
@@ -212,5 +216,97 @@ describe('tactics panel data', () => {
     expect(tagKeys(meta.home)).toEqual(expect.arrayContaining(['tag.fullbacks.inverted', 'tag.striker.false9', 'tag.build_up.short', 'tag.corners.short', 'tag.corner_defence.zonal']))
     expect(tagKeys(meta.home)).not.toContain('tag.pivot.stay')
     expect(tagKeys({ ...meta.home, style: { fullbacks: 'hold', pivot: 'stay', corner_defence: 'man', long_throws: true } })).toEqual(['tag.corner_defence.man', 'tag.long_throws'])
+  })
+})
+
+describe('pitch control parity with Python', () => {
+  const fx = JSON.parse(readFileSync(new URL('../../../tests/fixtures/pitch_control.json', import.meta.url)).toString()) as { nx: number; ny: number; frames: { players: [number, number][]; grid: number[] }[] }
+  it('matches the fixture the Python implementation is checked against', () => {
+    expect([fx.nx, fx.ny]).toEqual([NX, NY])
+    for (const f of fx.frames) {
+      const got = homeControl(f.players.map(([x, y], slot) => ({ slot, x, y })))
+      expect(got.length).toBe(f.grid.length)
+      let worst = 0
+      f.grid.forEach((v, i) => (worst = Math.max(worst, Math.abs(got[i] - v))))
+      expect(worst).toBeLessThan(2e-4)
+    }
+  })
+  it('gives each side the part of the pitch it is nearest to', () => {
+    const players = [...Array(11).keys()].map((slot) => ({ slot, x: 15, y: 34 })).concat([...Array(11).keys()].map((i) => ({ slot: 11 + i, x: 90, y: 34 })))
+    const g = homeControl(players)
+    expect(g[7 * NX + 0]).toBeGreaterThan(0.95)
+    expect(g[7 * NX + NX - 1]).toBeLessThan(0.05)
+    expect(homeShare(g)).toBeGreaterThan(0.3)
+    expect(homeShare(g)).toBeLessThan(0.7)
+  })
+})
+
+describe('pitch geometry', () => {
+  const frame = (pts: [number, number][]): Frame => ({ ball: { x: 0, y: 0, z: 0, alive: true }, players: pts.map(([x, y], slot) => ({ slot, id: `p${slot}`, x, y })) })
+  it('takes the convex hull of a team and measures its area', () => {
+    const h = convexHull([[0, 0], [10, 0], [10, 10], [0, 10], [5, 5], [3, 4]])
+    expect(h).toHaveLength(4)
+    expect(polygonArea(h)).toBeCloseTo(100)
+  })
+  it('puts the offside line on the second-deepest outfield defender', () => {
+    // Away team (slots 11-21) attacks toward x = 0; its own goal is at x = 105. Keeper at 104, then 98, 90, ...
+    const away: [number, number][] = [[104, 34], [98, 10], [90, 20], [85, 30], [80, 40], [75, 50], [70, 20], [66, 30], [60, 40], [58, 50], [55, 34]]
+    const f = frame([...Array(11).fill([40, 34]), ...away] as [number, number][])
+    expect(offsideLineX(f, 1, -1)).toBe(90)
+  })
+  it('reads a back line as the four deepest outfield players, ordered across the pitch', () => {
+    const home: [number, number][] = [[3, 34], [20, 50], [21, 20], [22, 40], [23, 28], [40, 10], [41, 60], [45, 30], [55, 34], [60, 20], [62, 50]]
+    const f = frame([...home, ...Array(11).fill([80, 34])] as [number, number][])
+    const line = defensiveLine(f, 0, 1)
+    expect(line.map((p) => p[0]).sort()).toEqual([20, 21, 22, 23])
+    expect(line.map((p) => p[1])).toEqual([20, 28, 40, 50])
+  })
+  it('scores a passing lane as blocked by a defender standing on it and clear when nobody is near', () => {
+    const opp = [{ slot: 11, id: 'o', x: 20, y: 34 }]
+    expect(laneBlock([10, 34], [30, 34], opp)).toBeGreaterThan(0.9)
+    expect(laneBlock([10, 34], [30, 34], [{ slot: 11, id: 'o', x: 20, y: 50 }])).toBe(0)
+  })
+  it('offers the carrier forward, open options first', () => {
+    const f = frame([[30, 34], [45, 20], [45, 50], [20, 34], ...Array(7).fill([10, 5]), ...Array(11).fill([100, 60])] as [number, number][])
+    const lanes = passingLanes(f, f.players[0], 1, 2)
+    expect(lanes.length).toBe(2)
+    expect(lanes.every((l) => l.forward > 0)).toBe(true)
+  })
+})
+
+describe('analytics data', () => {
+  const an = JSON.parse(readFileSync(new URL('analytics.json', dir)).toString()) as Analytics
+  it('interpolates win probability between minute ticks and steps at goals', () => {
+    const pre = winProbAt(an, 0)!
+    expect(pre.home + pre.draw + pre.away).toBeCloseTo(1, 2)
+    const goal = an.winProbability.swings.find((s) => s.kind === 'goal')!
+    const before = winProbAt(an, goal.matchMs - 2)!
+    const after = winProbAt(an, goal.matchMs + 2)!
+    expect(Math.abs(after.home - before.home) + Math.abs(after.away - before.away)).toBeGreaterThan(0.02)
+    expect(winProbAt(null, 0)).toBeNull()
+  })
+  it('is the same match as the package metadata', () => {
+    expect(an.clubs).toEqual([meta.home.id, meta.away.id])
+    expect(an.players.length).toBeGreaterThan(18)
+    expect(Object.keys(an.shapes)).toEqual(an.clubs)
+    expect(an.season?.standings).toHaveLength(6)
+  })
+  it('has pitch graphics in the overlays, with geometry inside the pitch', () => {
+    const gs = overlays.filter((o) => o.kind === 'pitch_graphic')
+    expect(gs.length).toBeGreaterThan(5)
+    for (const o of gs) {
+      expect(o.graphic?.shapes.length).toBeGreaterThan(0)
+      for (const sh of o.graphic!.shapes) for (const p of sh.points) expect(p.x >= -1 && p.x <= 106 && p.y >= -1 && p.y <= 69).toBe(true)
+    }
+  })
+  it('fades graphics in and out', () => {
+    const g = overlays.find((o) => o.kind === 'pitch_graphic')!
+    expect(fade(g, g.displayAt.matchMs)).toBe(0)
+    expect(fade(g, g.displayAt.matchMs + g.durationMs / 2)).toBe(1)
+    expect(fade(g, g.displayAt.matchMs + g.durationMs)).toBe(0)
+  })
+  it('knows which way a club attacks in each half', () => {
+    expect(attackDir(meta, meta.home.id, 1000)).toBe(1)
+    expect(attackDir(meta, meta.home.id, meta.periods[1].startMs + 1000)).toBe(-1)
   })
 })

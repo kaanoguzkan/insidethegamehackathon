@@ -173,6 +173,8 @@ def sheet(pack: dict, lang: str) -> dict[str, Any]:
             wider=f.get("width") == "wider", narrower=f.get("width") == "narrower",
             line_shifted=bool(f.get("lineShifted")),
         )
+        sp = _m(pack, f"{c}.space_behind_m2")
+        sh.update(sp_before=num(sp.get("before"), lang, 0), sp_after=num(sp.get("after"), lang, 0), has_space=bool(sp) and sp.get("delta", 0) != 0)
     elif t == "fatigue_drop":
         c = s_club
         sr = _m(pack, f"{c}.sprint_rate")
@@ -469,6 +471,8 @@ def _en_shift(s, analyst):
     parts = []
     if s["line_shifted"]:
         parts.append(f"defensive line {'higher' if s['higher'] else 'deeper'}: {s['l_before']} m to {s['l_after']} m from their own goal")
+        if s["has_space"]:
+            parts.append(f"space the opposition can reach behind it: {s['sp_before']} m² to {s['sp_after']} m²")
     if not parts or s["wider"] or s["narrower"]:
         parts.append(f"width {s['w_before']} m to {s['w_after']} m")
     if analyst:
@@ -480,6 +484,8 @@ def _es_shift(s, analyst):
     parts = []
     if s["line_shifted"]:
         parts.append(f"línea defensiva {'más alta' if s['higher'] else 'más baja'}: de {s['l_before']} m a {s['l_after']} m de su portería")
+        if s["has_space"]:
+            parts.append(f"espacio a su espalda al que llega el rival: de {s['sp_before']} m² a {s['sp_after']} m²")
     if not parts or s["wider"] or s["narrower"]:
         parts.append(f"anchura de {s['w_before']} m a {s['w_after']} m")
     if analyst:
@@ -491,6 +497,8 @@ def _tr_shift(s, analyst):
     parts = []
     if s["line_shifted"]:
         parts.append(f"savunma hattı {'daha önde' if s['higher'] else 'daha geride'}: kendi kalesinden {s['l_before']} m iken {s['l_after']} m oldu")
+        if s["has_space"]:
+            parts.append(f"rakibin arkasında ulaşabildiği alan {s['sp_before']} m² iken {s['sp_after']} m² oldu")
     if not parts or s["wider"] or s["narrower"]:
         parts.append(f"saha genişliği {s['w_before']} m iken {s['w_after']} m oldu")
     if analyst:
@@ -899,3 +907,31 @@ def _milestone_card(v: dict, lang: str, player: str, team: str) -> tuple[str, st
     else:
         return None
     return head, body, [Chip(label=tag, value="★")], "stat_card"
+
+
+def graphic_caption(fact: dict, lang: str, names: dict[str, str]) -> tuple[str, str] | None:
+    """(label, detail) for a pitch graphic, in the viewer's language."""
+    t, v = fact["type"], fact["values"]
+    player = names.get(fact.get("player") or "", "")
+    if t == "offside_graphic":
+        head = {"en": "Offside line", "es": "Línea de fuera de juego", "tr": "Ofsayt çizgisi"}[lang]
+        m = abs(v["marginM"])
+        body = {"en": f"{player}: {num(m, lang)} m beyond", "es": f"{player}: {num(m, lang)} m de adelanto", "tr": f"{player}: {num(m, lang)} m önde"}[lang]
+        return head, body
+    if t == "run_card":
+        kinds = {
+            "in_behind": {"en": "Run in behind", "es": "Desmarque a la espalda", "tr": "Savunma arkasına koşu"},
+            "overlap": {"en": "Overlap", "es": "Desdoblamiento", "tr": "Bindirme"},
+            "drop": {"en": "Drop", "es": "Baja a recibir", "tr": "Geri çekilme"},
+        }
+        if v["kind"] not in kinds:
+            return None
+        return f"{kinds[v['kind']][lang]}: {player}", f"{num(v['distanceM'], lang)} m"
+    if t == "line_break_card":
+        head = {"en": f"Line-breaking pass: {player}", "es": f"Pase que rompe líneas: {player}", "tr": f"Hat kıran pas: {player}"}[lang]
+        body = {"en": f"{v['bypassed']} bypassed", "es": f"{v['bypassed']} superados", "tr": f"{v['bypassed']} geçildi"}[lang]
+        return head, body
+    if t == "shot_card":
+        xg = {"en": f"xG {num(v['xg'], lang, 2)}", "es": f"xG {num(v['xg'], lang, 2)}", "tr": f"xG {num(v['xg'], lang, 2)}"}[lang]
+        return f"{player} · {xg}" if player else xg, ""
+    return None

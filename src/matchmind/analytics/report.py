@@ -171,14 +171,16 @@ class MatchAnalytics:
         for e in self.ip.events:
             if e["type"] == "space_control":
                 a = e["attributes"]
-                series[e["team"]].append({"ms": e["_ms"], "control": a["controlShare"], "finalThird": a["finalThirdControl"], "behind": a["spaceBehindM2"]})
+                series[e["team"]].append({"ms": e["_ms"], "control": a["controlShare"], "finalThird": a["finalThirdControl"], "behind": a["spaceBehindM2"], "block": a.get("blockAreaM2")})
         summary = {}
         for c, s in series.items():
             behind = [p["behind"] for p in s if p["behind"] is not None]
+            block = [p["block"] for p in s if p["block"] is not None]
             summary[c] = {
                 "controlShare": round(float(np.mean([p["control"] for p in s])), 3) if s else None,
                 "finalThirdControl": round(float(np.mean([p["finalThird"] for p in s])), 3) if s else None,
                 "spaceBehindM2": round(float(np.mean(behind)), 0) if behind else None,
+                "blockAreaM2": round(float(np.mean(block)), 0) if block else None,
             }
         return {"series": series, "teams": summary}
 

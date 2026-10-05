@@ -23,3 +23,23 @@ tested on both sides).
 In the live design the viewer sits about 15 seconds behind the simulator (a broadcast delay), which is the
 budget the agent workflow has to produce text; each beat carries a deadline and degrades to templates
 rather than running late.
+
+## Pitch graphics
+
+`kind: "pitch_graphic"` overlays carry a `graphic` with geometry in pitch metres (x 0 to 105 along the pitch,
+y 0 to 68 across), so a broadcaster's engine can draw them on its own pitch:
+
+```json
+{ "kind": "pitch_graphic", "anchor": {"type": "pitch"},
+  "graphic": { "type": "offside_line", "team": "HAR",
+    "shapes": [ {"shape": "line", "points": [{"x": 62.4, "y": 0}, {"x": 62.4, "y": 68}], "style": "dashed", "label": "Offside line"},
+                {"shape": "circle", "points": [{"x": 64.1, "y": 21.0}], "radius": 1.4, "label": "Marco Quinski: 1.7 m beyond"} ] } }
+```
+
+Shapes are `line`, `arrow`, `polygon`, `circle` and `text`, with a style (`solid`, `dashed`, `dotted`) and an
+emphasis (`primary`, `secondary`, `muted`). Graphic types are `offside_line` (measured from tracking when the
+receiver is flagged), `run` (an off-ball run), `line_break` (a line-breaking pass) and `shot_trace` (a shot with
+its xG). Captions are in the cohort's language and graphics share one lane, so they never pile up.
+
+The match center also draws live layers straight from the tracking frame (pitch control, team shape, offside line,
+passing options, run trails); those are a feature of the reference renderer, not part of the contract.
