@@ -4,6 +4,7 @@ import json
 import pytest
 from mcp.shared.memory import create_connected_server_and_client_session as connect
 
+from matchmind.core.paths import replays_dir
 from matchmind.intel.pipeline import interpret_match
 from matchmind.mcp_server.registry import MatchRegistry, UnknownMatch
 from matchmind.mcp_server.server import build_server, ms_at
@@ -115,7 +116,8 @@ def test_registry_loads_a_committed_replay_by_re_simulating_its_scenario():
     reg = MatchRegistry()
     assert "pressing-collapse" in reg.ids()
     ip = reg.get("pressing-collapse")
-    assert sum(1 for e in ip.events if e["type"] == "goal") == 4
+    committed = json.loads((replays_dir() / "pressing-collapse" / "meta.json").read_text())["score"]
+    assert sum(1 for e in ip.events if e["type"] == "goal") == sum(committed.values()), "the re-simulation is the committed match"
     with pytest.raises(UnknownMatch):
         reg.get("does-not-exist")
 

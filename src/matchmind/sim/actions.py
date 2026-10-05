@@ -751,16 +751,25 @@ class ActionsMixin:
             else:
                 outcome = "off_target"
 
+        mouth_z: float | None = None
         if outcome == "blocked":
             end = hp + (blocker[2]) * (np.array([goal_x, G.CY]) - hp)
         else:
+            side = -1 if self.rng.random() < 0.5 else 1
             if outcome in ("goal", "saved"):
-                ty = G.CY + self.rng.uniform(-1.0, 1.0) * (G.GOAL_W / 2 - 0.5)
+                # Placement matters: finishers beat the keeper toward the corners, while the shots a
+                # keeper saves are more often central and at a comfortable height. Post-shot xG learns this.
+                f, mouth_z = (
+                    (self.rng.betavariate(2.4, 1.1), self.rng.betavariate(1.4, 1.5) * 2.3) if outcome == "goal"
+                    else (self.rng.betavariate(1.2, 2.2), self.rng.betavariate(1.3, 2.6) * 2.3)
+                )
+                ty = G.CY + side * f * (G.GOAL_W / 2 - 0.35)
             elif outcome == "post":
-                ty = G.POST_LO if self.rng.random() < 0.5 else G.POST_HI
+                ty = G.POST_LO if side < 0 else G.POST_HI
+                mouth_z = self.rng.uniform(0.2, 2.3)
             else:
-                side = -1 if self.rng.random() < 0.5 else 1
                 ty = G.CY + side * (G.GOAL_W / 2 + self.rng.uniform(0.4, 5.0))
+                mouth_z = self.rng.uniform(0.2, 4.5)
             end = np.array([goal_x, ty])
         v = min(36.0, max(15.0, self.rng.gauss(24.0 + 0.15 * min(gd, 25.0), 3.5)))
         if penalty:
@@ -775,6 +784,8 @@ class ActionsMixin:
             "shot", team=t_, player=h, loc=hp, end=end, outcome=outcome,
             bodyPart="head" if body == "head" else self.rng.choice(("right_foot", "right_foot", "left_foot")),
             situation=situation, assist=assist, underPressure=pr > 0.35, penalty=penalty,
+            goalMouthY=None if outcome == "blocked" else round(float(end[1] - G.CY), 2),
+            goalMouthZ=None if mouth_z is None else round(mouth_z, 2),
         )  # fmt: skip
         self.flight = {
             "kind": "shot", "t0": self.t, "t1": self.t + dur, "start": hp, "end": end,

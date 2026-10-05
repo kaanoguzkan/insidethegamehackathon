@@ -13,6 +13,8 @@ import threading
 from collections import OrderedDict
 from pathlib import Path
 
+from ..analytics import load_models
+from ..analytics.season import context_for, load_season
 from ..core.paths import league_dir, replays_dir, scenarios_dir
 from ..intel.baselines import load_baselines
 from ..intel.interpreter import Interpreter
@@ -80,5 +82,8 @@ class MatchRegistry:
         clubs = load_league(league_dir() / "league.json")
         sc = load_scenario(scenarios_dir() / f"{scenario}.yaml") if scenario else None
         res = simulate(match_id, clubs[meta["home"]["id"]], clubs[meta["away"]["id"]], seed=meta["seed"], scenario=sc)
-        ip, _ = interpret_match(res, baselines=load_baselines(), xt=XTGrid.load(league_dir() / "xt_grid.json"))
+        ctx = context_for(load_season(), meta["home"]["id"], meta["away"]["id"])
+        ip, _ = interpret_match(
+            res, baselines=load_baselines(), xt=XTGrid.load(league_dir() / "xt_grid.json"), season=ctx, models=load_models()
+        )
         return ip

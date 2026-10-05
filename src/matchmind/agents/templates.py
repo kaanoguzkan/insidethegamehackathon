@@ -105,8 +105,12 @@ def sheet(pack: dict, lang: str) -> dict[str, Any]:
             head=f.get("bodyPart") == "head",
             team=_team(pack, s_club),
         )
+        wp = _m(pack, f"{s_club}.win_prob")
+        sh.update(wp_b=num(wp.get("before"), lang, 0), wp_a=num(wp.get("after"), lang, 0), wp=bool(wp) and wp.get("delta", 0) != 0)
     elif t == "red_card":
         sh.update(player=players[0]["name"] if players else "", second=bool(f.get("secondYellow")))
+        wp = _m(pack, f"{s_club}.win_prob")
+        sh.update(wp_b=num(wp.get("before"), lang, 0), wp_a=num(wp.get("after"), lang, 0), wp=bool(wp) and wp.get("delta", 0) != 0)
     elif t == "penalty":
         sh.update(
             player=players[0]["name"] if players else "",
@@ -202,7 +206,8 @@ def _en_goal(s: dict, analyst: bool) -> tuple[str, str]:
     if analyst:
         a = f" Assist: {s['assist']}." if s["assist"] else ""
         x = f" xG {s['xg']}." if s["xg"] else ""
-        return f"{s['minute']} Goal, {s['team']}: {s['scorer']}", f"{s['scorer']} scores for {s['team']} {where}. {s['score']}.{x}{a}".replace(" .", ".")
+        w = f" Win probability {s['wp_b']}% to {s['wp_a']}%." if s.get("wp") else ""
+        return f"{s['minute']} Goal, {s['team']}: {s['scorer']}", f"{s['scorer']} scores for {s['team']} {where}. {s['score']}.{x}{a}{w}".replace(" .", ".")
     a = f" {s['assist']} set it up." if s["assist"] else ""
     return f"Goal for {s['team']}!", f"{s['scorer']} scores{(' ' + where) if where else ''}. It's {s['score']}.{a}"
 
@@ -212,7 +217,8 @@ def _es_goal(s: dict, analyst: bool) -> tuple[str, str]:
     if analyst:
         a = f" Asistencia: {s['assist']}." if s["assist"] else ""
         x = f" xG {s['xg']}." if s["xg"] else ""
-        return f"{s['minute']} Gol, {s['team']}: {s['scorer']}", f"{s['scorer']} marca para {s['team']} {where}. {s['score']}.{x}{a}".replace(" .", ".")
+        w = f" Probabilidad de ganar: del {s['wp_b']}% al {s['wp_a']}%." if s.get("wp") else ""
+        return f"{s['minute']} Gol, {s['team']}: {s['scorer']}", f"{s['scorer']} marca para {s['team']} {where}. {s['score']}.{x}{a}{w}".replace(" .", ".")
     a = f" {s['assist']} dio el pase." if s["assist"] else ""
     return f"¡Gol del {s['team']}!", f"{s['scorer']} marca{(' ' + where) if where else ''}. Es {s['score']}.{a}"
 
@@ -223,7 +229,8 @@ def _tr_goal(s: dict, analyst: bool) -> tuple[str, str]:
     if analyst:
         a = f" Asist: {s['assist']}." if s["assist"] else ""
         x = f" xG {s['xg']}." if s["xg"] else ""
-        return f"{s['minute']} Gol, {s['team']}: {s['scorer']}", f"{s['scorer']}, {lead}golü attı. {s['score']}.{x}{a}"
+        w = f" Kazanma ihtimali yüzde {s['wp_b']} iken yüzde {s['wp_a']} oldu." if s.get("wp") else ""
+        return f"{s['minute']} Gol, {s['team']}: {s['scorer']}", f"{s['scorer']}, {lead}golü attı. {s['score']}.{x}{a}{w}"
     a = f" Pası {s['assist']} verdi." if s["assist"] else ""
     return f"{s['team']} golü buldu!", f"{s['scorer']} {where + ' ' if where else ''}attı. Skor {s['score']}.{a}"
 
@@ -232,7 +239,7 @@ def _en_red(s, analyst):
     why = " (second yellow)" if s["second"] else ""
     return (
         f"{s['minute']} Red card, {s['team']}",
-        f"{s['player']} is sent off{why}. {s['team']} play on with ten." if analyst else f"{s['player']} is sent off{why}, so {s['team']} are down to ten men.",
+        (f"{s['player']} is sent off{why}. {s['team']} play on with ten." + (f" Win probability {s['wp_b']}% to {s['wp_a']}%." if s.get("wp") else "")) if analyst else f"{s['player']} is sent off{why}, so {s['team']} are down to ten men.",
     )
 
 
@@ -240,7 +247,7 @@ def _es_red(s, analyst):
     why = " (doble amarilla)" if s["second"] else ""
     return (
         f"{s['minute']} Roja, {s['team']}",
-        f"{s['player']} es expulsado{why}. {s['team']} se queda con diez." if analyst else f"{s['player']} ve la roja{why}: el {s['team']} se queda con diez jugadores.",
+        (f"{s['player']} es expulsado{why}. {s['team']} se queda con diez." + (f" Probabilidad de ganar: del {s['wp_b']}% al {s['wp_a']}%." if s.get("wp") else "")) if analyst else f"{s['player']} ve la roja{why}: el {s['team']} se queda con diez jugadores.",
     )
 
 
@@ -248,7 +255,7 @@ def _tr_red(s, analyst):
     why = " (ikinci sarı)" if s["second"] else ""
     return (
         f"{s['minute']} Kırmızı kart, {s['team']}",
-        f"{s['player']} oyundan atıldı{why}. {s['team']} on kişi devam ediyor." if analyst else f"{s['player']} kırmızı kart gördü{why}; {s['team']} on kişi kaldı.",
+        (f"{s['player']} oyundan atıldı{why}. {s['team']} on kişi devam ediyor." + (f" Kazanma ihtimali yüzde {s['wp_b']} iken yüzde {s['wp_a']} oldu." if s.get("wp") else "")) if analyst else f"{s['player']} kırmızı kart gördü{why}; {s['team']} on kişi kaldı.",
     )
 
 
@@ -756,6 +763,22 @@ def fact_card(fact: dict, lang: str, names: dict[str, str]) -> tuple[str, str, l
         return f"{L['on']}: {player}", f"{L['off']}: {off}", [], "stat_card"
     if t == "set_piece":
         return _set_piece_card(v, lang, names.get(fact.get("team") or "", ""), player, L)
+    if t == "line_break_card":
+        recv = names.get(v.get("receiver") or "", "")
+        head = {"en": f"Line-breaking pass: {player}", "es": f"Pase que rompe líneas: {player}", "tr": f"Hat kıran pas: {player}"}[lang]
+        body = {
+            "en": f"Bypassed {v['bypassed']} defenders" + (f", found {recv}." if recv else "."),
+            "es": f"Deja atrás a {v['bypassed']} defensores" + (f" y encuentra a {recv}." if recv else "."),
+            "tr": f"{v['bypassed']} savunmacıyı geçti" + (f", {recv} ile buluştu." if recv else "."),
+        }[lang]
+        chips = [Chip(label=_X["bypassed"][lang], value=str(v["bypassed"])), Chip(label=_X["lines"][lang], value=str(v["lines"]))]
+        return head, body, chips, "pass_card"
+    if t == "milestone_card":
+        return _milestone_card(v, lang, player, names.get(fact.get("team") or "", ""))
+    if t == "run_card":
+        return _run_card(v, lang, player, L)
+    if t == "load_card":
+        return _load_card(v, lang, player, L)
     if t == "formation_change":
         team = names.get(fact.get("team") or "", "")
         head = {"en": f"{team} change shape", "es": f"El {team} cambia de sistema", "tr": f"{team} sistem değiştirdi"}[lang]
@@ -807,3 +830,72 @@ def _set_piece_card(v: dict, lang: str, team: str, player: str, L: dict) -> tupl
         body = {"en": "Hurled into the box.", "es": "Lanzado al área.", "tr": "Ceza alanına fırlatıldı."}[lang]
         return f"{_SP['long_throw'][lang]}: {player}", body, [], "stat_card"
     return None
+
+
+_X = {
+    "bypassed": {"en": "Bypassed", "es": "Superados", "tr": "Geçilen"},
+    "lines": {"en": "Lines broken", "es": "Líneas rotas", "tr": "Kırılan hat"},
+    "peak": {"en": "Top speed", "es": "Velocidad máx.", "tr": "En yüksek hız"},
+    "runLen": {"en": "Run", "es": "Carrera", "tr": "Koşu"},
+    "hsr": {"en": "High-speed running", "es": "Carrera a alta velocidad", "tr": "Yüksek tempolu koşu"},
+    "sprint": {"en": "Sprint distance", "es": "Distancia en sprint", "tr": "Sprint mesafesi"},
+    "accels": {"en": "Accelerations", "es": "Aceleraciones", "tr": "Hızlanma"},
+}
+
+
+def _run_card(v: dict, lang: str, player: str, L: dict) -> tuple[str, str, list[Chip], str] | None:
+    kind = v.get("kind")
+    heads = {
+        "in_behind": {"en": "Run in behind", "es": "Desmarque a la espalda", "tr": "Savunma arkasına koşu"},
+        "overlap": {"en": "Overlapping run", "es": "Desdoblamiento", "tr": "Bindirme koşusu"},
+        "drop": {"en": "Dropping into midfield", "es": "Baja a recibir", "tr": "Orta sahaya iniyor"},
+    }
+    bodies = {
+        "in_behind": {"en": "Runs beyond the last line to stretch the defence.", "es": "Rompe la última línea para estirar la defensa.", "tr": "Son hattı aşarak savunmayı geriyor."},
+        "overlap": {"en": "Goes outside the ball carrier to give him an option.", "es": "Sale por fuera del portador para darle una opción.", "tr": "Top taşıyıcının dışından geçerek seçenek oluşturuyor."},
+        "drop": {"en": "Drops off the line to link play.", "es": "Se aleja de la línea para enlazar el juego.", "tr": "Oyunu bağlamak için hattan geri çekiliyor."},
+    }
+    if kind not in heads:
+        return None
+    chips = [Chip(label=_X["runLen"][lang], value=f"{num(v['distanceM'], lang)} {L['m']}"), Chip(label=_X["peak"][lang], value=f"{num(v['peakKmh'], lang)} {L['kmh']}")]
+    return f"{heads[kind][lang]}: {player}", bodies[kind][lang], chips, "stat_card"
+
+
+def _load_card(v: dict, lang: str, player: str, L: dict) -> tuple[str, str, list[Chip], str]:
+    when = {
+        True: {"en": "Half-time workload", "es": "Carga al descanso", "tr": "Devre arası yük"},
+        False: {"en": "Full-time workload", "es": "Carga final", "tr": "Maç sonu yük"},
+    }[bool(v.get("half"))][lang]
+    chips = [
+        Chip(label=_X["hsr"][lang], value=f"{num(v['hsrM'] / 1000.0, lang, 2)} km"),
+        Chip(label=_X["sprint"][lang], value=f"{num(v['sprintM'], lang)} {L['m']}"),
+        Chip(label=_X["accels"][lang], value=str(v["acc"])),
+    ]
+    body = {"en": f"{num(v['km'], lang)} km covered.", "es": f"{num(v['km'], lang)} km recorridos.", "tr": f"{num(v['km'], lang)} km koştu."}[lang]
+    return f"{when}: {player}", body, chips, "stat_card"
+
+
+def _milestone_card(v: dict, lang: str, player: str, team: str) -> tuple[str, str, list[Chip], str] | None:
+    kind = v.get("kind")
+    tag = {"en": "Milestone", "es": "Hito", "tr": "Dönüm noktası"}[lang]
+    if kind == "hat_trick":
+        head = {"en": f"Hat-trick: {player}", "es": f"Triplete: {player}", "tr": f"Hat-trick: {player}"}[lang]
+        body = {"en": "Three goals in one match.", "es": "Tres goles en un partido.", "tr": "Bir maçta üç gol."}[lang]
+    elif kind == "season_goals":
+        n = v["n"]
+        head = {"en": f"{player}: goal number {n} this season", "es": f"{player}: gol número {n} de la temporada", "tr": f"{player}: sezonun {n}. golü"}[lang]
+        body = {"en": "A landmark for the season.", "es": "Un hito en la temporada.", "tr": "Sezon için bir kilometre taşı."}[lang] if n > 1 else {"en": "First goal of the season.", "es": "Primer gol de la temporada.", "tr": "Sezonun ilk golü."}[lang]
+    elif kind == "fastest_goal":
+        head = {"en": f"Fastest goal in the league's history: {player}", "es": f"El gol más rápido de la historia de la liga: {player}", "tr": f"Ligin en hızlı golü: {player}"}[lang]
+        body = {
+            "en": f"Scored in minute {num(v['minute'], lang, 1)}, beating the record of {num(v['previous'], lang, 1)}.",
+            "es": f"Marcado en el minuto {num(v['minute'], lang, 1)}, superando el récord de {num(v['previous'], lang, 1)}.",
+            "tr": f"{num(v['minute'], lang, 1)}. dakikada geldi; rekor {num(v['previous'], lang, 1)} idi.",
+        }[lang]
+    elif kind == "ends_clean_sheet_run":
+        n = v["n"]
+        head = {"en": f"{team}: clean-sheet run ends", "es": f"El {team} ve acabar su racha sin encajar", "tr": f"{team}: gol yememe serisi sona erdi"}[lang]
+        body = {"en": f"After {n} matches without conceding.", "es": f"Tras {n} partidos sin encajar.", "tr": f"{n} maçtır gol yemiyordu."}[lang]
+    else:
+        return None
+    return head, body, [Chip(label=tag, value="★")], "stat_card"

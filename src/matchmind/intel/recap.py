@@ -113,6 +113,23 @@ def build_pack(ip, kind: str) -> dict:
     top.sort(key=lambda m: m["detectedAt"]["matchMs"])
     ratings = player_ratings(ip, 0, t_end)
     potm = ratings[0] if ratings and ratings[0]["score"] > 0 else None
+    swing = None
+    if kind == "full_time":
+        from ..analytics.report import (
+            MatchAnalytics,  # imported here: analytics depends on the interpreter
+        )
+
+        an = MatchAnalytics(ip)
+        best = an.player_of_the_match()
+        if best is not None and an.valuer.ready and (best["goals"] or best["value"]):
+            counts = next((r for r in ratings if r["id"] == best["id"]), {"shots": best["shots"], "goals": best["goals"], "assists": best["assists"]})
+            potm = {"id": best["id"], "score": best["impact"], "goals": best["goals"], "assists": best["assists"], "shots": best["shots"], **{k: counts.get(k, 0) for k in ("defensive", "hard_passes", "sprints")}}
+        sw = max((x for x in an.win_probability()["swings"] if x["kind"] == "goal"), key=lambda x: x["swing"], default=None)
+        if sw and sw["swing"] >= 0.1:
+            goal = next((e for e in ip.events if e["type"] == "goal" and e["_ms"] == sw["matchMs"]), None)
+            if goal is not None:
+                side = "home" if goal["team"] == ip.clubs[0] else "away"
+                swing = {"team": goal["team"], "label": ip.minute_label(sw["matchMs"]), "before": round(100 * sw["before"][side]), "after": round(100 * sw["after"][side])}
 
     metrics: dict[str, dict] = {}
     for c in clubs:
@@ -147,6 +164,7 @@ def build_pack(ip, kind: str) -> dict:
             "halfTimeScore": next((p[1] for p in reversed(path) if p[0] <= (ip.p2_start_ms or t_end)), path[0][1]),
             "keyMinutes": [int(x) for m in top for x in re.findall(r"\d+", m["detectedAt"]["label"])],
             "potm": potm,
+            "swing": swing,
             "turningMoment": turning["id"] if turning else None,
         },
         "eventIds": [e for m in top for e in m["eventIds"][:1]],
@@ -157,7 +175,7 @@ def build_pack(ip, kind: str) -> dict:
     }
 
 
-def build_preview_pack(meta: dict) -> dict:
+def build_preview_pack(meta: dict, season: dict | None = None) -> dict:
     home, away = meta["home"], meta["away"]
 
     def star(team: dict) -> dict:
@@ -166,6 +184,16 @@ def build_preview_pack(meta: dict) -> dict:
         return {"id": best, "name": team["players"][best]["name"], "team": team["id"], "pos": team["players"][best]["pos"]}
 
     stars = [star(home), star(away)]
+    facts_extra: dict = {}
+    pred = (season or {}).get("prediction")
+    if pred:
+        h, a = home["id"], away["id"]
+        table = {r["club"]: r for r in season["standings"]}
+        facts_extra = {
+            "prediction": {"homePct": round(100 * pred["home"]), "drawPct": round(100 * pred["draw"]), "awayPct": round(100 * pred["away"]),
+                           "favourite": h if pred["home"] - pred["away"] >= 0.08 else a if pred["away"] - pred["home"] >= 0.08 else None},
+            "table": {c: {"pos": table[c]["pos"], "pts": table[c]["pts"]} for c in (h, a) if c in table},
+        }
     start = {t["id"]: t.get("startFormation", t["formation"]) for t in (home, away)}  # not the post-change shape
     clock = {"period": 1, "minute": 0, "second": 0, "matchMs": 0}
     return {
@@ -185,6 +213,7 @@ def build_preview_pack(meta: dict) -> dict:
             "formations": start,
             "formationNumbers": sorted({int(x) for f in start.values() for x in re.findall(r"\d", f)}),
             "styles": {home["id"]: style_tags(home.get("style", {}) or _NEUTRAL), away["id"]: style_tags(away.get("style", {}) or _NEUTRAL)},
+            **facts_extra,
         },
         "eventIds": [],
         "players": stars,

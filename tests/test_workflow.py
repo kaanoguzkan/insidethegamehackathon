@@ -21,14 +21,15 @@ COHORTS = (
 )
 
 
-def run(faults=None, moments=("goal", "pressure_collapse"), budget=3, budget_s=10.0, timeout_s=8.0, clock=None):
+def run(faults=None, moments=("goal", "pressure_collapse"), budget=3, budget_s=10.0, timeout_s=8.0, clock=None, saliences=None):
     client = OfflineChatClient(faults or Faults())
     store = InMemoryMomentStore()
     deps = WorkflowDeps(team=AgentTeam(client, AgentSettings(timeout_s=timeout_s)), registry=REG, store=store)
     if clock:
         deps.clock = clock
     wf = build_workflow(deps)
-    batch = Batch(moments=tuple(P[m] for m in moments), cohorts=COHORTS, budget=budget, budget_s=budget_s)
+    moms = tuple({**P[m], "salience": (saliences or {}).get(m, P[m]["salience"])} for m in moments)
+    batch = Batch(moments=moms, cohorts=COHORTS, budget=budget, budget_s=budget_s)
     results = asyncio.run(run_batch(wf, batch))
     return {r.momentId: r for r in results}, client, store
 
@@ -56,12 +57,18 @@ def test_overlays_are_valid_and_every_text_verifies():
 
 
 def test_editor_budget_declines_extra_stories_to_tickers():
-    res, client, _ = run(moments=("goal", "pressure_collapse", "chaos_flip", "rhythm_break"), budget=1)
+    res, client, _ = run(moments=("goal", "chaos_flip", "rhythm_break", "fatigue_drop"), budget=1, saliences={"chaos_flip": 0.5, "rhythm_break": 0.45, "fatigue_drop": 0.4})
     full = [r for r in res.values() if r.level == 0]
     tick = [r for r in res.values() if r.overlays and r.overlays[0].kind == "ticker"]
     assert len(full) == 2  # the goal (must show) plus one
     assert len(tick) == 2
     assert client.calls.count("explain") == 2
+
+
+def test_a_headline_story_is_told_even_with_no_budget_left():
+    res, client, _ = run(moments=("pressure_collapse", "chaos_flip"), budget=0, saliences={"pressure_collapse": 0.7, "chaos_flip": 0.5})
+    assert res["t-mo-pressure_collapse"].level == 0
+    assert res["t-mo-chaos_flip"].overlays[0].kind == "ticker"
 
 
 def test_one_bad_explanation_is_retried_and_succeeds():

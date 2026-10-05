@@ -15,11 +15,14 @@ from pathlib import Path
 
 from .agents import producer, templates
 from .agents import recap as recap_writer
-from .agents.llm import Faults, make_chat_client
+from .agents.llm import HEADLINE_SALIENCE, MUST_SHOW, Faults, make_chat_client
 from .agents.store import InMemoryMomentStore
 from .agents.team import AgentSettings, AgentTeam
 from .agents.verify import Registry
 from .agents.workflow import Batch, BeatResult, WorkflowDeps, build_workflow, run_batch
+from .analytics import load_models
+from .analytics.report import MatchAnalytics
+from .analytics.season import context_for, load_season, radars, team_radars
 from .core.contracts import SUPPORTED_LANGUAGES, Cohort, Overlay
 from .core.paths import league_dir
 from .intel.baselines import load_baselines
@@ -65,6 +68,7 @@ class Replay:
     recaps: list[dict] = field(default_factory=list)
     variants: dict[str, dict] = field(default_factory=dict)  # model-health variants: narrative overlays + traces
     info: dict = field(default_factory=dict)
+    analytics: dict = field(default_factory=dict)  # the Opta-style views of the match (analytics.json)
 
 
 def _explanations(pack: dict, agent_made: dict | None) -> dict:
@@ -76,7 +80,7 @@ def _explanations(pack: dict, agent_made: dict | None) -> dict:
 
 
 async def _write_recaps(team, ip, cohorts, moments: dict[str, dict], registry, meta: dict) -> list[dict]:
-    packs = {"preview": build_preview_pack(meta), "half_time": build_pack(ip, "half_time"), "full_time": build_pack(ip, "full_time")}
+    packs = {"preview": build_preview_pack(meta, ip.season), "half_time": build_pack(ip, "half_time"), "full_time": build_pack(ip, "full_time")}
     out = []
     for pack in packs.values():
         for c in cohorts:
@@ -112,7 +116,9 @@ async def _run_agents(moments: list[dict], cohorts: tuple[Cohort, ...], deps: Wo
         res = await run_batch(wf, Batch(moments=tuple(batch_moments), cohorts=cohorts, budget=budget, budget_s=budget_s))
         for r in res:
             if r.overlays and r.overlays[0].kind != "ticker":
-                kept_at.append(next(m["detectedAt"]["matchMs"] for m in batch_moments if m["id"] == r.momentId))
+                m = next(m for m in batch_moments if m["id"] == r.momentId)
+                if m["type"] not in MUST_SHOW and m["salience"] < HEADLINE_SALIENCE:  # only the optional beats use up the budget
+                    kept_at.append(m["detectedAt"]["matchMs"])
         results.extend(res)
     return results
 
@@ -129,10 +135,14 @@ def build_replay(
     meta = result.meta
     cohorts = cohorts or default_cohorts(meta)
     analysis = analyze_match(result)
+    season_data = load_season()
+    ctx = context_for(season_data, meta["home"]["id"], meta["away"]["id"])
     ip, out = interpret_match(
         result,
         baselines=load_baselines(),
         xt=XTGrid.load(league_dir() / "xt_grid.json"),
+        season=ctx,
+        models=load_models(),
     )
     client = make_chat_client(llm, faults=faults)
     store = InMemoryMomentStore()
@@ -203,7 +213,21 @@ def build_replay(
         "levels": _overlay_levels([o for b in beats for o in b.overlays]),
     }
     events = sorted([*result.events, *analysis.events], key=lambda e: (e["clock"]["matchMs"], e["seq"]))
-    return Replay(meta=meta, cohorts=cohorts, moments=moments, snapshots=out.snapshots, facts=out.facts, overlays=overlays, events=events, recaps=recaps, variants=variants, info=info)
+    analytics = _analytics(ip, season_data, ctx, meta)
+    info["analytics"] = bool(analytics)
+    return Replay(meta=meta, cohorts=cohorts, moments=moments, snapshots=out.snapshots, facts=out.facts, overlays=overlays, events=events, recaps=recaps, variants=variants, info=info, analytics=analytics)
+
+
+def _analytics(ip, season_data: dict, ctx: dict, meta: dict) -> dict:
+    """The match analytics plus the season context and player and team radars that go with it."""
+    an = MatchAnalytics(ip).summary()
+    if ctx:
+        clubs = [meta["home"]["id"], meta["away"]["id"]]
+        an["season"] = {k: ctx[k] for k in ("season", "round", "played", "standings", "form", "streaks", "headToHead", "topScorers", "records", "prediction")}
+        an["season"]["ratings"] = {c: ctx["ratings"][c] for c in clubs}
+        an["radars"] = radars(season_data, an["players"])
+        an["teamRadars"] = team_radars(season_data, clubs)
+    return an
 
 
 def write_replay(replay: Replay, result, outdir: Path) -> Path:
@@ -221,17 +245,20 @@ def write_replay(replay: Replay, result, outdir: Path) -> Path:
     for name, v in replay.variants.items():
         dump(f"overlays.{name}.json", [o.model_dump(mode="json") for o in v["overlays"]])
     dump("overlays.json", [o.model_dump(mode="json") for o in replay.overlays])
-    dump("events.json", [_slim_event(e) for e in replay.events])
+    dump("events.json", [_slim_event(e) for e in replay.events if e["type"] not in _INTERNAL_EVENTS])
+    if replay.analytics:
+        dump("analytics.json", replay.analytics)
     size = bundle.write(result, outdir)
-    dump("manifest.json", {**replay.info, "matchId": replay.meta["matchId"], "trackingBytes": size, "files": [*(f"overlays.{n}.json" for n in replay.variants), "meta.json", "moments.json", "snapshots.json", "facts.json", "overlays.json", "recaps.json", "events.json", "slots.json", "tracking.bin.gz"]})
+    dump("manifest.json", {**replay.info, "matchId": replay.meta["matchId"], "trackingBytes": size, "files": [*(f"overlays.{n}.json" for n in replay.variants), "meta.json", "moments.json", "snapshots.json", "facts.json", "overlays.json", "recaps.json", "events.json", *(["analytics.json"] if replay.analytics else []), "slots.json", "tracking.bin.gz"]})
     return outdir
 
 
 _KEEP = ("id", "type", "clock", "team", "player", "receiver", "location", "end", "outcome")
 
 
-_TACTICAL_EVENTS = {"corner", "free_kick", "goal_kick", "throw_in", "formation_change"}
-_TACTICAL_ATTRS = {"routine", "wall", "formation", "previous", "attack", "block"}
+_TACTICAL_EVENTS = {"corner", "free_kick", "goal_kick", "throw_in", "formation_change", "off_ball_run"}
+_TACTICAL_ATTRS = {"routine", "wall", "formation", "previous", "attack", "block", "kind", "distanceM", "peakKmh", "from", "to", "startMs", "durationMs"}
+_INTERNAL_EVENTS = {"space_control", "shape_profile", "player_load"}  # analyzer inputs; their results live in analytics.json
 
 
 def _slim_event(e: dict) -> dict:

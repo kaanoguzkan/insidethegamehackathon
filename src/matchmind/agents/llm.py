@@ -87,6 +87,9 @@ class ModelUnavailable(RuntimeError):
 # ---------------------------------------------------------------------------------------------
 
 
+HEADLINE_SALIENCE = 0.6  # a story this strong is always told, whatever the budget
+
+
 def _priority(salience: float) -> int:
     return 1 if salience >= 0.9 else 2 if salience >= 0.7 else 3 if salience >= 0.5 else 4 if salience >= 0.35 else 5
 
@@ -109,8 +112,8 @@ def offline_edit(payload: dict) -> EditorOut:
             chosen[seen[key]].mergeWith.append(m["id"])
             chosen[m["id"]] = BeatChoice(momentId=m["id"], keep=False, priority=5, reason="merged")
             continue
-        keep = budget > 0 and m["salience"] >= 0.3
-        if keep:
+        keep = m["salience"] >= 0.3 and (budget > 0 or m["salience"] >= HEADLINE_SALIENCE)
+        if keep and m["salience"] < HEADLINE_SALIENCE:
             budget -= 1
         chosen[m["id"]] = BeatChoice(
             momentId=m["id"], keep=keep, priority=_priority(m["salience"]),

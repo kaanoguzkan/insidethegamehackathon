@@ -25,6 +25,7 @@ import numpy as np
 from ..core import geometry as G
 from ..core.clock import clock_from_ms
 from .frames import Chunk, iter_chunks
+from .insights import TrackingInsights
 
 SPRINT_KMH = 25.0
 TOP_SPEED_KMH = 32.0
@@ -58,6 +59,32 @@ def lane_block(start: np.ndarray, end: np.ndarray, opp_positions: np.ndarray) ->
     if not mask.any():
         return 0.0
     return float(max(0.0, 1.0 - dd[mask].min() / 2.6))
+
+
+LINE_GAP_M = 6.5  # opponents further apart than this (in depth) belong to different lines
+
+
+def packing(start: np.ndarray, end: np.ndarray, opp: np.ndarray, direction: int) -> dict:
+    """Opponents a forward pass takes out of the game, and the defensive lines it breaks.
+
+    Impect calls the first number *packing*; line-breaking passes are the SkillCorner / Second Spectrum
+    measure. The goalkeeper (slot 0 of ``opp``) is not counted.
+    """
+    pts = opp[1:]
+    pts = pts[~np.isnan(pts[:, 0])]
+    sx = start[0] if direction == 1 else G.PITCH_L - start[0]
+    ex = end[0] if direction == 1 else G.PITCH_L - end[0]
+    if len(pts) == 0 or ex - sx < 3.0:
+        return {"bypassed": 0, "linesBroken": 0}
+    ox = np.sort(pts[:, 0] if direction == 1 else G.PITCH_L - pts[:, 0])
+    bypassed = int(((ox > sx + 0.5) & (ox < ex - 0.5)).sum())
+    groups: list[list[float]] = [[float(ox[0])]]
+    for x in ox[1:]:
+        if x - groups[-1][-1] > LINE_GAP_M:
+            groups.append([])
+        groups[-1].append(float(x))
+    broken = sum(1 for g in groups if len(g) >= 2 and sx < float(np.mean(g)) < ex)
+    return {"bypassed": bypassed, "linesBroken": broken}
 
 
 @dataclass
@@ -98,6 +125,7 @@ class PhysicalAnalyzer:
         self.cum_dist: dict[str, float] = {}
         self.milestones_hit: dict[str, int] = {}
 
+        self.insights = TrackingInsights(meta, self._make_team_event, self.hz)
         self.pending: list[dict] = []
         self.shape_acc: dict[int, list[tuple]] = {0: [], 1: []}
         self.x_counter = 0
@@ -109,6 +137,22 @@ class PhysicalAnalyzer:
         self.period_start_frame[period] = round(start_ms * self.hz / 1000)
         if period == 2:
             self.p2_start_ms = start_ms
+
+    def _make_team_event(self, type_: str, frame: int, club: str, pid: str | None, attributes: dict) -> dict:
+        """An analyzer event about a team (or a player) that has no location of its own."""
+        self.x_counter += 1
+        ms = round(frame * 1000 / self.hz)
+        return {
+            "id": f"{self.match_id}-x{self.x_counter:05d}",
+            "matchId": self.match_id,
+            "seq": 1_000_000 + self.x_counter,
+            "type": type_,
+            "clock": clock_from_ms(ms, self.p2_start_ms),
+            "team": club,
+            "player": pid,
+            "attributes": attributes,
+            "possessionId": None,
+        }
 
     def add_events(self, events: list[dict]) -> None:
         for e in events:
@@ -157,6 +201,7 @@ class PhysicalAnalyzer:
             ev = self._close_run(pid, self.n_frames)
             if ev:
                 out.events.extend(ev)
+        out.events.extend(self.insights.flush(self.n_frames))
         return out
 
     # ----- sprints, top speed, distance ------------------------------------------------------------
@@ -171,6 +216,15 @@ class PhysicalAnalyzer:
             lo, hi = max(0, f - 1), min(len(raw) - 1, f + 1)
             sm = np.mean(raw[lo : hi + 1], axis=0) * 3.6  # km/h
             slots = self._slot_ids(f)
+            fr = self._frame_at(f)
+            if fr is not None:
+                period = 2 if (2 in self.period_start_frame and f >= self.period_start_frame[2]) else 1
+                out.events.extend(
+                    self.insights.step(
+                        f, fr[0], fr[1], fr[3], slots, sm, self.step_dist[f],
+                        self.attack_dirs.get(period, {}), f in self.period_start_frame.values(),
+                    )
+                )
             for i in range(22):
                 pid = slots[i]
                 if i % 11 == 0:
@@ -327,6 +381,7 @@ class PhysicalAnalyzer:
                     "forwardM": round(float(forward), 1),
                 }
             )
+            physics.update(packing(loc, end, opp, d))
         else:
             d = self.attack_dirs.get(e["clock"]["period"], {}).get(e["team"], 1)
             goal = np.array([G.PITCH_L if d == 1 else 0.0, G.CY])

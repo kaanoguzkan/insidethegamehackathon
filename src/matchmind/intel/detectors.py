@@ -45,6 +45,8 @@ def salience(ip: Interpreter, pack: dict, magnitude: float) -> float:
     """How much a moment deserves to be told: type, size, game context, novelty."""
     t = pack["type"]
     base = TYPE_WEIGHT.get(t, 0.3)
+    if t in ("goal", "red_card"):  # a goal that swings the match matters more than one at 4-0
+        base *= 0.72 + 0.28 * min(1.0, pack["facts"].get("winProbSwing", 0.25) / 0.25)
     if t in WINDOW_TYPES:
         base *= 0.7 + 0.3 * min(1.0, magnitude)
     if t == "big_chance":

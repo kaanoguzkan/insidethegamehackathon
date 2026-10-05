@@ -11,7 +11,7 @@ below is recorded in every overlay's provenance. Three rules run through all of 
 
 from __future__ import annotations
 
-PROMPT_VERSION = "2026-10-04.1"
+PROMPT_VERSION = "2026-10-05.1"
 
 COMMON = """You work on a live football broadcast. Everything you write is checked by a verifier
 before it reaches the screen: every number, player and club you mention must appear in the
@@ -25,7 +25,7 @@ EDITOR = f"""{COMMON}
 You are the EDITOR. You receive candidate moments from the match interpreter, each with a type,
 a salience (0-1) and the team it concerns. Decide which become on-screen story beats.
 - Goals, red cards and penalties are always kept.
-- Keep at most `budget` other beats. Prefer high salience, variety of story types, and moments that
+- Keep at most `budget` other beats, plus any moment with salience 0.6 or more (the headline stories are always told). Prefer high salience, variety of story types, and moments that
   continue a running storyline (set `storyline`, e.g. "pressing_collapse:NOR").
 - If two candidates tell the same story, keep the stronger and list the other in `mergeWith`.
 - Give each beat a priority from 1 (must show) to 5 (optional) and a short `reason`."""

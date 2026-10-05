@@ -37,6 +37,9 @@ L10N: dict[str, dict[str, str]] = {
         "half_next": "The second half to come.",
         "preview": "{h} ({fh}) {th}. {a} ({fa}) {ta}. Players to watch: {sh} and {sa}.",
         "preview_casual": "{h} take on {a}. {h} {th}; {a} {ta}. Keep an eye on {sh} and {sa}.",
+        "preview_model": "The model gives {h} {hp}%, a draw {dp}% and {a} {ap}%.", "preview_table": "In the table {h} sit in position {hpos} with {hpts} points, {a} in position {apos} with {apts}.",
+        "preview_fav": "{fav} are the favourites.", "preview_close": "The model sees little between them.",
+        "swing": "Biggest swing: {team}'s goal at {min} took their win probability from {b}% to {a}%.",
         "chip_poss": "Possession", "chip_shots": "Shots", "chip_xg": "xG", "chip_pass": "Pass accuracy",
     },
     "es": {
@@ -51,6 +54,9 @@ L10N: dict[str, dict[str, str]] = {
         "half_next": "Queda la segunda parte.",
         "preview": "{h} ({fh}) {th}. {a} ({fa}) {ta}. A seguir: {sh} y {sa}.",
         "preview_casual": "{h} se mide al {a}. El {h} {th}; el {a} {ta}. Ojo a {sh} y {sa}.",
+        "preview_model": "El modelo da al {h} un {hp}%, al empate un {dp}% y al {a} un {ap}%.", "preview_table": "En la tabla el {h} es {hpos} con {hpts} puntos y el {a} es {apos} con {apts}.",
+        "preview_fav": "El {fav} parte como favorito.", "preview_close": "El modelo ve poca diferencia entre ambos.",
+        "swing": "Mayor giro: el gol del {team} en el {min} subió su probabilidad de ganar del {b}% al {a}%.",
         "chip_poss": "Posesión", "chip_shots": "Tiros", "chip_xg": "xG", "chip_pass": "Precisión de pase",
     },
     "tr": {
@@ -65,6 +71,9 @@ L10N: dict[str, dict[str, str]] = {
         "half_next": "İkinci yarı geliyor.",
         "preview": "{h} ({fh}) {th}. {a} ({fa}) {ta}. İzlenecek isimler: {sh} ve {sa}.",
         "preview_casual": "{h}, {a} ile karşılaşıyor. {h} {th}; {a} {ta}. {sh} ve {sa} oyuncularına dikkat.",
+        "preview_model": "Model, {h} için yüzde {hp}, beraberlik için yüzde {dp}, {a} için yüzde {ap} veriyor.", "preview_table": "Puan durumunda {h} {hpos}. sırada {hpts} puanla, {a} {apos}. sırada {apts} puanla.",
+        "preview_fav": "Favori {fav}.", "preview_close": "Model iki takım arasında pek fark görmüyor.",
+        "swing": "En büyük kırılma: {team} golü ({min}) kazanma ihtimalini yüzde {b} iken yüzde {a} yaptı.",
         "chip_poss": "Topa sahip olma", "chip_shots": "Şut", "chip_xg": "xG", "chip_pass": "Pas isabeti",
     },
 }  # fmt: skip
@@ -93,6 +102,15 @@ def render(pack: dict, cohort: Cohort, moments: dict[str, dict] | None = None) -
         tags = lambda c: AND[lang].join(TAGS[lang][t] for t in st[c]) or {"en": "play their own game", "es": "juega su partido", "tr": "kendi oyununu oynar"}[lang]  # noqa: E731
         f.update(fh=fm[h], fa=fm[a], th=tags(h), ta=tags(a), sh=pack["players"][0]["name"], sa=pack["players"][1]["name"])
         text = fill(L["preview" if analyst else "preview_casual"], f)
+        pred, table = pack["facts"].get("prediction"), pack["facts"].get("table")
+        if pred:
+            if analyst:
+                text += " " + fill(L["preview_model"], {"h": short[h], "a": short[a], "hp": pred["homePct"], "dp": pred["drawPct"], "ap": pred["awayPct"]})
+                if table and h in table and a in table:
+                    text += " " + fill(L["preview_table"], {"h": short[h], "a": short[a], "hpos": table[h]["pos"], "hpts": table[h]["pts"], "apos": table[a]["pos"], "apts": table[a]["pts"]})
+            else:
+                fav = pred.get("favourite")
+                text += " " + (fill(L["preview_fav"], {"fav": short[fav]}) if fav else L["preview_close"])
         chips: list[Chip] = []
         key_moments: list[dict] = []
         potm = None
@@ -112,6 +130,9 @@ def render(pack: dict, cohort: Cohort, moments: dict[str, dict] | None = None) -
         turning = moments.get(pack["facts"].get("turningMoment") or "")
         if turning is not None:
             parts.append(fill(L["turning"], {"text": _LEAD.sub("", T.render(turning, cohort).headline)}))
+        swing = pack["facts"].get("swing")
+        if swing and analyst and kind == "full_time":
+            parts.append(fill(L["swing"], {"team": short[swing["team"]], "min": swing["label"], "b": swing["before"], "a": swing["after"]}))
         potm = pack["facts"].get("potm")
         if potm:
             pl = next((p for p in pack["players"] if p["id"] == potm["id"]), None)

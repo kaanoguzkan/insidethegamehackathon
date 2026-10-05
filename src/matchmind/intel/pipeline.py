@@ -36,9 +36,10 @@ def interpret_match(
     baselines: dict | None = None,
     xt: XTGrid | None = None,
     season: dict | None = None,
+    models: dict | None = None,
 ) -> tuple[Interpreter, InterpretOutput]:
     analysis = analyze_match(result)
-    ip = Interpreter(result.meta, cfg=cfg, baselines=baselines, xt=xt, season=season)
+    ip = Interpreter(result.meta, cfg=cfg, baselines=baselines, xt=xt, season=season, models=models)
     total = InterpretOutput()
     for ms, doc in arrival_stream(result.events, analysis):
         total.extend(ip.ingest(doc, arrival_ms=ms))

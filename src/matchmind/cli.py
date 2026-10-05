@@ -55,6 +55,28 @@ def cmd_build_league_data(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_fit_models(args: argparse.Namespace) -> int:
+    """Fit win probability, possession value and post-shot xG from simulated matches."""
+    from .analytics.fit import fit_models, save_models
+
+    models = fit_models(args.matches, workers=args.workers)
+    path = save_models(models)
+    print(f"wrote {path}")
+    print(json.dumps(models["diagnostics"], indent=1))
+    return 0
+
+
+def cmd_build_season(args: argparse.Namespace) -> int:
+    """Simulate last season and this season's first rounds into data/league/season.json."""
+    from .analytics.season import build_season, save_season
+
+    season = build_season(workers=args.workers)
+    path = save_season(season)
+    n = len(season["matches"])
+    print(f"wrote {path} ({n} matches, {path.stat().st_size // 1024} KB)")
+    return 0
+
+
 def cmd_simulate(args: argparse.Namespace) -> int:
     from .sim.engine import simulate
     from .sim.scenarios import load_scenario
@@ -148,6 +170,15 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--workers", type=int, default=None)
     b.add_argument("--out", default=None)
     b.set_defaults(fn=cmd_build_league_data)
+
+    f = sub.add_parser("fit-models", help="fit win probability, possession value and post-shot xG to data/league/models.json")
+    f.add_argument("--matches", type=int, default=60)
+    f.add_argument("--workers", type=int, default=None)
+    f.set_defaults(fn=cmd_fit_models)
+
+    bs = sub.add_parser("build-season", help="simulate the league's history (last season and this season so far) to data/league/season.json")
+    bs.add_argument("--workers", type=int, default=None)
+    bs.set_defaults(fn=cmd_build_season)
 
     s = sub.add_parser("simulate", help="simulate a match and write events + tracking chunks")
     s.add_argument("--match-id", default="m0001")

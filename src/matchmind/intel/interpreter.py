@@ -18,13 +18,15 @@ from bisect import bisect_right
 from collections import Counter
 from dataclasses import dataclass, field
 
+from ..analytics.season import goal_milestones
+from ..analytics.winprob import WinProbModel
 from ..core import geometry as G
 from ..core.clock import clock_from_ms, label
 from ..core.models import pass_difficulty, xg, xpass
 from ..sim.teams import GROUP
 from . import detectors
 from .config import InterpreterConfig
-from .evidence import glossary_for
+from .evidence import change, glossary_for
 from .metrics import compute_window, indices, window_slice
 from .xt import XTGrid
 
@@ -55,8 +57,11 @@ class Interpreter:
         baselines: dict | None = None,
         xt: XTGrid | None = None,
         season: dict | None = None,
+        models: dict | None = None,
     ) -> None:
         self.meta = meta
+        self.models = models or {}
+        self.winprob = WinProbModel.from_dict(self.models.get("winprob"))
         self.match_id = meta["matchId"]
         self.cfg = cfg or InterpreterConfig()
         self.baselines = baselines or {}
@@ -92,8 +97,28 @@ class Interpreter:
         self.max_shot_kmh = 0.0
         self.max_sprint_kmh = 0.0
         self.loads: dict[str, dict] = {}
+        self.load_cards_done: set[int] = set()
+        self.goal_log: list[dict] = []
+        self.last_run_card: dict[tuple[str, str], int] = {}
         self.history: list[dict] = []  # snapshots, for timelines and recaps
         self.all_moments: list[dict] = []
+
+    def strength(self) -> tuple[float, float]:
+        """Pre-match scoring strength of (home, away) from the season model, or 1.0 each."""
+        st = (self.season or {}).get("prediction", {}).get("strength")
+        return (float(st[self.clubs[0]]), float(st[self.clubs[1]])) if st else (1.0, 1.0)
+
+    def win_probability(self, club: str, ms: int, inclusive: bool = True) -> float:
+        """Percent chance ``club`` wins, from the score, time left, xG so far and any red cards at ``ms``."""
+        marks, shots = self.winprob.timeline(self.events)
+        p = self.winprob.at(marks, shots, self.clubs, ms, inclusive, self.strength())
+        return 100.0 * p["home" if club == self.clubs[0] else "away"]
+
+    def leverage(self, club: str, ms: int) -> tuple[dict, float]:
+        """Win probability of ``club`` just before and after an event at ``ms``, as an evidence metric, and the swing."""
+        before = self.win_probability(club, ms, inclusive=False)
+        after = self.win_probability(club, ms, inclusive=True)
+        return change(before, after, 0), abs(after - before) / 100.0
 
     # ----- setup ---------------------------------------------------------------------------------------------
 
@@ -174,10 +199,11 @@ class Interpreter:
             r["_xpass"] = None
         elif t == "card":
             if r.get("outcome") == "red":
+                wp, swing = self.leverage(team, r["_ms"])
                 self._moment(
                     out, "red_card", r["_ms"], subject=team, beneficiary=self._other(team),
-                    metrics={}, events=[r["id"]], players=[r["player"]],
-                    extra={"card": "red", "secondYellow": bool(attrs.get("secondYellow"))},
+                    metrics={f"{team}.win_prob": wp}, events=[r["id"]], players=[r["player"]], magnitude=swing,
+                    extra={"card": "red", "secondYellow": bool(attrs.get("secondYellow")), "winProbSwing": round(swing, 2)},
                 )  # fmt: skip
             self._fact(out, "card_event", r["_ms"], team, r["player"], {"card": r.get("outcome"), "secondYellow": bool(attrs.get("secondYellow"))}, priority=2)
         elif t == "foul" and attrs.get("inBox"):
@@ -209,8 +235,44 @@ class Interpreter:
                 self._fact(out, "speed_badge", r["_ms"], team, r["player"], {"peakKmh": peak, "distanceM": attrs.get("distanceM")}, priority=4)
         elif t == "distance_milestone":
             self._fact(out, "distance_badge", r["_ms"], team, r["player"], {"km": attrs.get("km")}, priority=5)
+        elif t == "off_ball_run":
+            self._on_run(r, out)
+        elif t == "player_load":
+            self._on_load(r, out)
 
         self._count_player(r)
+
+    # ----- runs and load ---------------------------------------------------------------------------------------
+
+    def _on_run(self, r: dict, out: InterpretOutput) -> None:
+        a = r["attributes"]
+        floor = self.cfg.run_card_m.get(a["kind"])
+        if floor is None or a["distanceM"] < floor:
+            return
+        key = (r["team"], a["kind"])
+        last = self.last_run_card.get(key)
+        if last is not None and r["_ms"] - last < self.cfg.run_card_cooldown_ms:
+            return
+        self.last_run_card[key] = r["_ms"]
+        self._fact(out, "run_card", a["startMs"], r["team"], r["player"],
+                   {"kind": a["kind"], "distanceM": a["distanceM"], "peakKmh": a["peakKmh"]}, priority=4)  # fmt: skip
+
+    def _on_load(self, r: dict, out: InterpretOutput) -> None:
+        self.loads.update(r["attributes"]["players"])
+        periods = self.meta.get("periods", [])
+        half_end = periods[0].get("endMs") if periods else None
+        if half_end and r["_ms"] >= half_end and 1 not in self.load_cards_done:
+            self.load_cards_done.add(1)
+            self._load_cards(half_end, out, half=True)
+
+    def _load_cards(self, ms: int, out: InterpretOutput, half: bool) -> None:
+        for club in self.clubs:
+            mine = {pid: v for pid, v in self.loads.items() if pid.startswith(f"{club}-")}
+            if not mine:
+                continue
+            pid, v = max(mine.items(), key=lambda kv: kv[1]["hsrM"])
+            self._fact(out, "load_card", ms, club, pid,
+                       {"km": v["km"], "hsrM": v["hsrM"], "sprintM": v["sprintM"], "acc": v["acc"], "half": half}, priority=4)  # fmt: skip
 
     def _on_physics(self, doc: dict, out: InterpretOutput) -> None:
         r = self.by_id.get(doc["ref"])
@@ -240,6 +302,14 @@ class Interpreter:
         )  # fmt: skip
         r["_xpass"] = p
         r["_diff"] = pass_difficulty(p)
+        r["_bypassed"] = int(ph.get("bypassed", 0))
+        r["_lines"] = int(ph.get("linesBroken", 0))
+        if r.get("outcome") == "complete" and (r["_lines"] >= 3 or r["_bypassed"] >= self.cfg.packing_card):
+            self._fact(
+                out, "line_break_card", r["_ms"] + 800, r["team"], r["player"],
+                {"bypassed": r["_bypassed"], "lines": r["_lines"], "receiver": r.get("receiver"), "distanceM": ph["distanceM"]},
+                priority=3,
+            )  # fmt: skip
         if r.get("outcome") == "complete" and r["_diff"] >= self.cfg.key_pass_difficulty:
             self._fact(
                 out, "pass_card", r["_ms"] + 800, r["team"], r["player"],
@@ -322,12 +392,21 @@ class Interpreter:
              "score": dict(self.score), "shotSpeedKmh": ph.get("shotSpeedKmh")},
             priority=1,
         )  # fmt: skip
+        clock = goal["clock"]
+        new_goal = {"team": team, "player": goal["player"], "minute": clock["minute"] + clock["second"] / 60.0}
+        for ms in goal_milestones(self.season, self.goal_log, new_goal, self._other(team)):
+            self._fact(out, "milestone_card", goal["_ms"] + 1500, ms["team"], ms.get("player"), {k: v for k, v in ms.items() if k not in ("player", "team")}, priority=3)
+        self.goal_log.append(new_goal)
+        metrics = {f"{team}.xg_shot": {"value": round(xg_v, 2)}} if xg_v is not None else {}
+        wp, swing = self.leverage(team, goal["_ms"])
+        metrics[f"{team}.win_prob"] = wp
         self._moment(
             out, "goal", goal["_ms"], subject=team, beneficiary=team,
-            metrics={f"{team}.xg_shot": {"value": round(xg_v, 2)}} if xg_v is not None else {},
+            metrics=metrics,
             events=[e for e in (shot["id"] if shot else None, goal["id"]) if e],
             players=[goal["player"], assist],
-            extra={"assist": assist, "xg": round(xg_v, 2) if xg_v is not None else None,
+            magnitude=swing,
+            extra={"assist": assist, "xg": round(xg_v, 2) if xg_v is not None else None, "winProbSwing": round(swing, 2),
                    "bodyPart": (shot or {}).get("attributes", {}).get("bodyPart"),
                    "assistType": (shot or {}).get("attributes", {}).get("assist"),
                    "situation": (shot or {}).get("attributes", {}).get("situation")},
@@ -493,5 +572,10 @@ class Interpreter:
         out = InterpretOutput()
         for sid in list(self.pending_shots):
             self._try_finalise_shot(sid, out, force=True)
+        if self.loads and 2 not in self.load_cards_done:
+            self.load_cards_done.add(2)
+            periods = self.meta.get("periods", [])
+            end = periods[-1].get("endMs") if periods else self.latest_ms
+            self._load_cards(end or self.latest_ms, out, half=False)
         return out
 

@@ -87,6 +87,9 @@ def compute_window(
                 if "_diff" in e:
                     p["difficulty_sum"] += e["_diff"]
                     p["difficulty_n"] += 1
+                if done and "_bypassed" in e:
+                    p["packing"] += e["_bypassed"]
+                    p["line_breaks"] += e["_lines"] >= 1
             elif t in ("carry", "dribble") and e.get("outcome") == "complete" and "_eax" in e:
                 p["carries"] += t == "carry"
                 p["dribbles"] += t == "dribble"
@@ -168,6 +171,8 @@ def compute_window(
             "sprints": p["sprints"],
             "front_sprints": p["front_sprints"],
             "carries": p["carries"],
+            "packing": p["packing"],
+            "line_breaks": p["line_breaks"],
             "avg_pass_difficulty": p["difficulty_sum"] / p["difficulty_n"] if p["difficulty_n"] else None,
         }  # fmt: skip
     out["match"] = {

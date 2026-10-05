@@ -28,6 +28,10 @@ class InterpreterConfig:
     speed_badge_kmh: float = 30.0  # sprint peak worth an on-screen speed badge
     fast_shot_kmh: float = 100.0  # fastest shot of the match must also clear this
     key_pass_difficulty: float = 6.5  # completed pass at least this hard gets a card
+    packing_card: int = 10  # a completed pass bypassing this many defenders (or breaking all three lines) gets a card
+
+    run_card_m: dict[str, float] = field(default_factory=lambda: {"in_behind": 30.0, "overlap": 26.0, "drop": 22.0})  # run length worth a card
+    run_card_cooldown_ms: int = 6 * MINUTE  # per team and run kind
 
     # --- pressing ---------------------------------------------------------------------------------
     # PPDA over a few minutes rests on 0-3 defensive actions, so it is far too noisy to trigger on.
