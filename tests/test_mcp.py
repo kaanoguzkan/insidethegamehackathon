@@ -118,3 +118,56 @@ def test_registry_loads_a_committed_replay_by_re_simulating_its_scenario():
     assert sum(1 for e in ip.events if e["type"] == "goal") == 4
     with pytest.raises(UnknownMatch):
         reg.get("does-not-exist")
+
+
+@pytest.mark.parametrize("bad", ["../etc/passwd", "..", "../../data/league", "a/b", "/etc", "PRESSING", "pressing-collapse/../x", "", "x" * 200, "pressing-collapse\x00"])
+def test_match_ids_cannot_escape_the_replay_directory(bad):
+    reg = MatchRegistry()
+    with pytest.raises(UnknownMatch):
+        reg.get(bad)
+
+
+def test_only_listed_matches_load_and_slugs_alone_are_not_enough():
+    reg = MatchRegistry()
+    with pytest.raises(UnknownMatch):
+        reg.get("valid-slug-but-not-listed")
+
+
+def test_live_registration_rejects_unsafe_ids(match):
+    ip, _ = interpret_match(match)
+    with pytest.raises(ValueError):
+        MatchRegistry().register("../x", ip)
+
+
+def test_the_cache_is_bounded_and_evicts_the_least_recently_used(monkeypatch, match):
+    ip, _ = interpret_match(match)
+    reg = MatchRegistry(max_cached=2)
+    monkeypatch.setattr(reg, "_disk_ids", lambda: ["a", "b", "c"])
+    loads = []
+    monkeypatch.setattr(reg, "_load", lambda mid: loads.append(mid) or ip)
+    for mid in ("a", "b", "a", "c"):
+        reg.get(mid)
+    assert list(reg._cache) == ["a", "c"]  # b was least recently used
+    reg.get("b")
+    assert loads == ["a", "b", "c", "b"]
+
+
+def test_concurrent_requests_load_a_match_once(monkeypatch, match):
+    import threading
+    import time
+
+    ip, _ = interpret_match(match)
+    reg = MatchRegistry()
+    monkeypatch.setattr(reg, "_disk_ids", lambda: ["slow"])
+    calls = []
+
+    def slow_load(mid):
+        calls.append(mid)
+        time.sleep(0.2)
+        return ip
+
+    monkeypatch.setattr(reg, "_load", slow_load)
+    threads = [threading.Thread(target=lambda: reg.get("slow")) for _ in range(6)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert calls == ["slow"]

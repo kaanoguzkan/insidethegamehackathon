@@ -95,6 +95,22 @@ def cmd_export_schemas(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_evals(args: argparse.Namespace) -> int:
+    from .core.paths import replays_dir
+    from .evals import evaluate_all, gate
+
+    reports = evaluate_all(Path(args.root) if args.root else replays_dir())
+    fails: list[str] = []
+    for r in reports:
+        print(json.dumps(r, indent=2, ensure_ascii=False))
+        fails += gate(r)
+    if args.out:
+        Path(args.out).write_text(json.dumps(reports, indent=2, ensure_ascii=False) + "\n")
+    for f in fails:
+        print("GATE FAIL:", f, file=sys.stderr)
+    return 1 if fails else 0
+
+
 def cmd_build_replay(args: argparse.Namespace) -> int:
     """Simulate a scenario and build the full replay package (agents included)."""
     from .core.paths import replays_dir
@@ -141,6 +157,11 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--scenario", default=None, help="scenario name in data/scenarios or a YAML path")
     s.add_argument("--out", default="out")
     s.set_defaults(fn=cmd_simulate)
+
+    ev = sub.add_parser("evals", help="measure quality over replay packages; exits 1 if a gate fails")
+    ev.add_argument("--root", default=None)
+    ev.add_argument("--out", default=None)
+    ev.set_defaults(fn=cmd_evals)
 
     e = sub.add_parser("export-schemas", help="write JSON Schemas for the public contracts to schemas/")
     e.add_argument("--out", default=str(Path(__file__).resolve().parents[2] / "schemas"))

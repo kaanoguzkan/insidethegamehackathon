@@ -4,9 +4,9 @@ import time
 
 import pytest
 import uvicorn
+from apps.brain.main import MAX_COHORTS, create_app
 from fastapi.testclient import TestClient
 
-from apps.brain.main import MAX_COHORTS, create_app
 from matchmind.intel.pipeline import interpret_match
 from matchmind.mcp_server.registry import MatchRegistry
 
