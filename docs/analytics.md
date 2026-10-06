@@ -3,7 +3,7 @@
 The metrics that Opta, StatsBomb, SkillCorner, Second Spectrum and Impect publish, computed from the
 synthetic feed. Each one is a deterministic function of events and tracking, goes through the same
 evidence-pack, glossary and Verifier discipline as every other number in MatchMind, and is available three
-ways: in the match center (**Match analytics** panel and live pitch graphics), through MCP tools
+ways: in the match center (the **Explore** step and live pitch graphics, called Lenses), through MCP tools
 (`get_win_probability`, `get_key_actions` ... 24 tools in all) and as `analytics.json` in every replay package.
 
 ![Win probability for high-line-gamble: Kestrel lead, Aldergate turn it round, with each goal's swing marked](img/insights-winprob.png)

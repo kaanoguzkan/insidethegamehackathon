@@ -7,7 +7,6 @@ import { t } from '../i18n'
 import type { Overlay, Profile } from '../lib/types'
 import { OverlayLayer } from './OverlayLayer'
 import { Pitch, type PitchBadge } from './Pitch'
-import { Scoreboard } from './Scoreboard'
 
 interface Props {
   replay: Replay
@@ -55,7 +54,6 @@ export function Screen({ replay, ms, msRef, profile, evidenceMoment, onWhy, titl
   return (
     <section className={`screen${profile.highContrast ? ' hc' : ''}${profile.reducedMotion ? ' calm' : ''}`} aria-label={title}>
       {title && <div className="screen-title">{title}</div>}
-      <Scoreboard replay={replay} ms={ms} lang={profile.language} />
       <div className="stage">
         <Pitch
           replay={replay}

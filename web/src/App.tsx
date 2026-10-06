@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EvidenceDrawer } from './components/EvidenceDrawer'
-import { GraphicsBar } from './components/GraphicsBar'
-import { Insights } from './components/insights/Insights'
-import { MomentList } from './components/MomentList'
+import { Insights, isViewId, type ViewId } from './components/insights/Insights'
+import { MatchStrip } from './components/MatchStrip'
+import { Popover } from './components/Popover'
 import { ProfilePanel } from './components/ProfilePanel'
-import { RecapPanel } from './components/RecapPanel'
+import { Rail, type RailTab } from './components/Rail'
 import { Screen } from './components/Screen'
-import { TacticsPanel } from './components/TacticsPanel'
-import { Timeline } from './components/Timeline'
-import { Transport } from './components/Transport'
+import { StageHead } from './components/StageHead'
 import { useClock } from './hooks/useClock'
-import { buildHash, useRoute } from './hooks/useHash'
+import { buildHash, STEPS, type Step, useRoute } from './hooks/useHash'
 import { t } from './i18n'
 import { totalMs } from './lib/clock'
-import { NO_LAYERS, type Layers } from './lib/layers'
+import { LAYER_KEYS, NO_LAYERS, type Layers } from './lib/layers'
 import { type Health, loadIndex, loadReplay, loadVariant, overlaysFor, type Replay } from './lib/data'
 import { DEFAULT_PROFILE, type Overlay, type Profile, type ReplayIndexEntry } from './lib/types'
 
@@ -78,6 +76,9 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
   const [selected, setSelected] = useState<string | null>(null)
   const [showOnPitch, setShowOnPitch] = useState(true)
   const [layers, setLayers] = useState<Layers>(NO_LAYERS)
+  const [railTab, setRailTab] = useState<RailTab>('story')
+  const step = route.step
+  const exploreTab: ViewId = isViewId(route.tab) ? route.tab : 'win'
   const [health, setHealth] = useState<Health>('healthy')
   const [variants, setVariants] = useState<Partial<Record<Health, Overlay[]>>>({})
   useEffect(() => {
@@ -120,10 +121,11 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
       else if (e.key === ']') setSpeed(Math.min(60, speed * 2))
       else if (e.key === '[') setSpeed(Math.max(1, Math.round(speed / 2)))
       else if (e.key === 'Escape') setSelected(null)
+      else if (e.key >= '1' && e.key <= '3' && !e.metaKey && !e.ctrlKey && !e.altKey) setRoute({ step: STEPS[Number(e.key) - 1] })
     }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
-  }, [toggle, seek, msRef, speed, setSpeed])
+  }, [toggle, seek, msRef, speed, setSpeed, setRoute])
 
   if (broadcast) {
     return (
@@ -133,67 +135,89 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
     )
   }
 
-  const broadcastHref = buildHash({ view: 'broadcast', match: replay.id, profile, split: false, t: Math.round(ms / 60000) })
+  const broadcastHref = buildHash({ view: 'broadcast', match: replay.id, profile, split: false, t: Math.round(ms / 60000), step: 'watch', tab: null })
+  const onLayer = (k: (typeof LAYER_KEYS)[number]) => setLayers((l) => ({ ...l, [k]: !l[k] }))
+  const onLens = (keys: (keyof Layers)[], on: boolean) => setLayers((l) => ({ ...l, ...Object.fromEntries(keys.map((k) => [k, on])) }))
+  const screens = route.split
+    ? [
+        { profile, title: `${t(lang, profile.mode)} · ${profile.language.toUpperCase()}` },
+        { profile: profileB, title: `${t(profileB.language, profileB.mode)} · ${profileB.language.toUpperCase()}` },
+      ]
+    : [{ profile, title: undefined }]
+  const viewerSummary = `${t(lang, profile.mode)} · ${profile.language.toUpperCase()}${route.split ? ' + ' + `${t(profileB.language, profileB.mode)} · ${profileB.language.toUpperCase()}` : ''}`
+
   return (
     <div className={`app${profile.highContrast ? ' hc' : ''}`}>
       <header className="topbar">
-        <div className="brand">
-          <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="10" fill="none" stroke="var(--accent)" strokeWidth="3" /><circle cx="16" cy="16" r="3" fill="var(--accent)" /></svg>
-          <div><b>{t(lang, 'appTitle')}</b><small>{t(lang, 'tagline')}</small></div>
-        </div>
-        <label className="field inline">
-          <span>{t(lang, 'match')}</span>
-          <select value={replay.id} onChange={(e) => setRoute({ match: e.target.value })} aria-label={t(lang, 'selectMatch')}>
-            {index.map((m) => (
-              <option key={m.id} value={m.id}>{m.title} · {m.score[m.home]}–{m.score[m.away]}</option>
-            ))}
-          </select>
-        </label>
-        {hasVariants && (
-          <div className="health" role="radiogroup" aria-label={t(lang, 'health')} title={t(lang, 'healthNote')}>
-            <span>{t(lang, 'health')}</span>
-            {(['healthy', 'unreliable', 'outage'] as const).map((h) => (
-              <button key={h} type="button" role="radio" aria-checked={health === h} className={`${health === h ? 'on' : ''} h-${h}`} onClick={() => setHealth(h)}>
-                {t(lang, h === 'healthy' ? 'healthHealthy' : h === 'unreliable' ? 'healthUnreliable' : 'healthOutage')}
-              </button>
-            ))}
+        <div className="tb-left">
+          <div className="brand">
+            <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="10" fill="none" stroke="currentColor" strokeWidth="3" /><circle cx="16" cy="16" r="3" fill="currentColor" /></svg>
+            <b>{t(lang, 'appTitle')}</b>
           </div>
-        )}
-        <div className="actions">
-          <button type="button" className={`btn${route.split ? ' on' : ''}`} aria-pressed={route.split} onClick={() => setRoute({ split: !route.split })}>
-            {route.split ? t(lang, 'singleView') : t(lang, 'splitView')}
-          </button>
+          <label className="match-pick">
+            <span className="sr-only">{t(lang, 'selectMatch')}</span>
+            <select value={replay.id} onChange={(e) => setRoute({ match: e.target.value })} aria-label={t(lang, 'selectMatch')}>
+              {index.map((m) => (
+                <option key={m.id} value={m.id}>{m.title} · {m.score[m.home]}–{m.score[m.away]}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <nav className="steps" aria-label={t(lang, 'path')}>
+          {STEPS.map((id, i) => (
+            <button key={id} type="button" className={step === id ? 'on' : ''} aria-current={step === id ? 'step' : undefined} onClick={() => setRoute({ step: id })} title={`${t(lang, `step.${id}.d`)} (${i + 1})`}>
+              <span className="step-n" aria-hidden="true">{i + 1}</span>
+              {t(lang, `step.${id}`)}
+            </button>
+          ))}
+        </nav>
+
+        <div className="tb-right">
+          <Popover label={<><span className="pop-key">{t(lang, 'viewer')}</span><span className="pop-val">{viewerSummary}</span></>} title={t(lang, 'viewer')} className="viewer-pop">
+            <ProfilePanel profile={profile} onChange={setProfile} replay={replay} heading={route.split ? `${t(lang, 'viewer')} A` : undefined} />
+            {route.split && <ProfilePanel profile={profileB} onChange={setProfileB} replay={replay} heading={`${t(lang, 'viewer')} B`} />}
+            <button type="button" className={`btn wide${route.split ? ' on' : ''}`} aria-pressed={route.split} onClick={() => setRoute({ split: !route.split })}>
+              {route.split ? t(lang, 'singleView') : t(lang, 'splitView')}
+            </button>
+          </Popover>
+          {hasVariants && (
+            <Popover label={<><span className={`health-dot h-${health}`} aria-hidden="true" /><span className="pop-key">{t(lang, 'health')}</span><span className="pop-val">{t(lang, health === 'healthy' ? 'healthHealthy' : health === 'unreliable' ? 'healthUnreliable' : 'healthOutage')}</span></>} title={t(lang, 'health')}>
+              <p className="pop-title">{t(lang, 'health')}</p>
+              <p className="hint">{t(lang, 'healthNote')}</p>
+              <div className="seg stacked" role="radiogroup" aria-label={t(lang, 'health')}>
+                {(['healthy', 'unreliable', 'outage'] as const).map((h) => (
+                  <button key={h} type="button" role="radio" aria-checked={health === h} className={`${health === h ? 'on' : ''} h-${h}`} onClick={() => setHealth(h)}>
+                    <span className={`health-dot h-${h}`} aria-hidden="true" />
+                    {t(lang, h === 'healthy' ? 'healthHealthy' : h === 'unreliable' ? 'healthUnreliable' : 'healthOutage')}
+                  </button>
+                ))}
+              </div>
+            </Popover>
+          )}
           <a className="btn" href={broadcastHref} target="_blank" rel="noreferrer">{t(lang, 'broadcastLink')}</a>
         </div>
       </header>
 
-      <main className="grid">
-        <div className="main-col">
-          {route.split ? (
-            <div className="split">
-              <Screen replay={replay} ms={ms} msRef={msRef} profile={profile} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} layers={layers} title={`${t(lang, profile.mode)} · ${profile.language.toUpperCase()}`} />
-              <Screen replay={replay} ms={ms} msRef={msRef} profile={profileB} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} layers={layers} title={`${t(profileB.language, profileB.mode)} · ${profileB.language.toUpperCase()}`} />
-            </div>
-          ) : (
-            <Screen replay={replay} ms={ms} msRef={msRef} profile={profile} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} layers={layers} />
-          )}
-          <GraphicsBar layers={layers} onToggle={(k) => setLayers((l) => ({ ...l, [k]: !l[k] }))} onClear={() => setLayers(NO_LAYERS)} lang={lang} />
-          <Transport replay={replay} ms={ms} playing={playing} speed={speed} lang={lang} toggle={toggle} setSpeed={setSpeed} seek={seek} onPick={pick} />
-          <Timeline replay={replay} ms={ms} lang={lang} seek={seek} onPick={pick} selected={selected} />
-          <Insights replay={replay} ms={ms} lang={lang} />
-        </div>
-        <aside className="side-col">
-          <ProfilePanel profile={profile} onChange={setProfile} replay={replay} heading={route.split ? `${t(lang, 'viewer')} A` : undefined} />
-          {route.split && <ProfilePanel profile={profileB} onChange={setProfileB} replay={replay} heading={`${t(lang, 'viewer')} B`} />}
-          <RecapPanel replay={replay} profile={profile} ms={ms} onPick={pick} />
-          <TacticsPanel replay={replay} ms={ms} lang={lang} />
-          <section className="panel">
-            <h2 className="panel-title">{t(lang, 'moments')}</h2>
-            <MomentList replay={replay} lang={lang} selected={selected} onPick={pick} />
-          </section>
-        </aside>
+      <main className="workspace" data-step={step}>
+        <section className="stage-col">
+          <StageHead replay={replay} ms={ms} lang={lang} />
+          <div className="stage-slot">
+            {screens.map((sc, i) => (
+              <div className="cell" key={i}>
+                <Screen replay={replay} ms={ms} msRef={msRef} profile={sc.profile} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} layers={layers} title={sc.title} />
+              </div>
+            ))}
+          </div>
+        </section>
+        {step === 'explore' ? (
+          <Insights replay={replay} ms={ms} lang={lang} tab={exploreTab} onTab={(tab) => setRoute({ tab })} layers={layers} onLens={onLens} />
+        ) : (
+          <Rail step={step} tab={railTab} onTab={setRailTab} onStep={(s: Step) => setRoute({ step: s })} replay={replay} profile={profile} ms={ms} selected={selected} onPick={pick} />
+        )}
       </main>
 
+      <MatchStrip replay={replay} ms={ms} playing={playing} speed={speed} lang={lang} layers={layers} selected={selected} toggle={toggle} setSpeed={setSpeed} seek={seek} onPick={pick} onLayer={onLayer} onClearLayers={() => setLayers(NO_LAYERS)} />
       <EvidenceDrawer moment={moment} replay={replay} lang={lang} onClose={() => setSelected(null)} onSeek={seek} showOnPitch={showOnPitch} setShowOnPitch={setShowOnPitch} health={health} />
       <footer className="foot">
         <span>{t(lang, 'synthetic')}</span>

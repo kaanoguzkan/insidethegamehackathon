@@ -12,6 +12,18 @@ number in every sentence is traced to computed evidence and checked by code befo
 
 All data is synthetic. The league, clubs, crests and players are fictional.
 
+## How to use the match center
+
+The pitch always fits the screen. Depth comes from three steps in the top bar (keys `1`, `2`, `3`), so nobody has to scroll to find things:
+
+| Step | Question it answers | What you see |
+|---|---|---|
+| **1 Watch** | What is happening? | The pitch with verified lower-thirds, the score and live win probability, the key-moment list. |
+| **2 Understand** | Why did it happen? | The recap in your language and tone, the tactics of both teams, the moments; **Why?** on any graphic opens the evidence drawer (explanation, caveats, before/after numbers, agent trace). |
+| **3 Explore** | What do the numbers say? | Eleven analytics views grouped by question (the match, shape and space, players, phases of play, context). Views that have a pitch drawing offer **Show on pitch**. |
+
+The match strip at the bottom never goes away: play, speed, **Lenses** (pitch control, team shape, offside line, passing options, runs) and a draggable ribbon of win probability, momentum, chaos and pressure with the key moments marked. Viewer settings (analyst or casual, language, club, followed player, accessibility, two viewers side by side) and the model-health switch live in menus in the top bar. The whole view is in the URL, so any state can be shared.
+
 ## The pipeline
 
 | Stage | What happens | Where |
@@ -34,7 +46,7 @@ Clubs play recognisable European archetypes: a 4-3-3 with inverted fullbacks and
 a 5-4-1 without the ball, a 5-3-2 low block. Corners come as near-post, far-post, short and edge-of-box
 routines against zonal or man-marking defences; free kicks get walls; goal kicks are built short or sent long
 against a pressing line; and scripted stories include in-match formation changes. All of it is in the tracking
-and the events, and visible in the **Tactics** panel. See [docs/tactics.md](docs/tactics.md).
+and the events, and visible in the **Tactics** tab (Understand step). See [docs/tactics.md](docs/tactics.md).
 
 ## Opta-style analytics
 
@@ -42,7 +54,7 @@ Win probability with the swing of every goal, possession value (VAEP / OBV style
 packing and line-breaking passes, passing networks, formations recognised from tracking, off-ball runs, physical
 load, transitions, set-piece review, season context with live milestones, a pre-match prediction and player radars
 with "plays like" matches: the metrics Opta, StatsBomb, SkillCorner and Second Spectrum publish, from the
-synthetic feed, in a tabbed **Match analytics** panel and as live pitch graphics (pitch control, team shape,
+synthetic feed, in the **Explore** workspace (eleven views in five groups) and as live pitch graphics (pitch control, team shape,
 offside line, passing options, run trails).
 
 ![Pitch control and team shape over the match](docs/img/pitch-control.png)
@@ -60,7 +72,7 @@ Definitions, fitted-model diagnostics and honest limits: [docs/analytics.md](doc
    rule, including written-out counts ("three shots") and cherry-picked metrics. A model cannot mark its
    own homework.
 4. **Degrade, never drop.** If the model is slow, wrong or down, the beat retries with feedback, then falls
-   back to verified, localized templates. Overlays always land on time. Use the **Model health** switch in
+   back to verified, localized templates. Overlays always land on time. Use the **Model health** menu in
    the app to watch it happen.
 
 ## Run it
@@ -72,7 +84,7 @@ uv run matchmind evals                              # quality gates over the com
 uv run matchmind fit-models                         # win probability, possession value, post-shot xG
 uv run matchmind build-season                       # the league's simulated history
 uv run pytest -m "not slow"                         # the fast suite
-cd web && pnpm install && pnpm dev                  # the match center (27 tests: pnpm test)
+cd web && pnpm install && pnpm dev                  # the match center (42 tests: pnpm test)
 ```
 
 No keys, network or GPU needed: the default model client answers from the template engine so the real
@@ -156,7 +168,7 @@ web/             React + TypeScript match center (replay player, overlays, evide
 data/            league, scenarios (3 stories), replay packages (3 matches, ~10 MB)
 infra/           Bicep + azure.yaml          schemas/   JSON Schemas of the public contracts
 docs/            architecture, tactics, analytics, metrics, agents, overlay contract, data card, responsible AI, Azure
-tests/ evals/    528 + 39 tests              SOLUTION PLAN.md   design, schedule, status
+tests/ evals/    528 + 42 tests              SOLUTION PLAN.md   design, schedule, status
 ```
 
 ## Honest limits

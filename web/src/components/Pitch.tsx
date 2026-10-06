@@ -95,7 +95,7 @@ export function Pitch({ replay, msRef, focusPlayer, evidence, badges, layers, gr
       // Evidence chain under the players.
       if (p.evidence && p.evidence.length) drawEvidence(ctx, p.evidence, meta.home.id, meta, X, Y, s)
 
-      const r = Math.max(6.5, s * 1.25)
+      const r = Math.min(14, Math.max(8.5, s * 1.0))
       const tags: { x: number; y: number; text: string; color: string; strong: boolean }[] = []
       for (const q of f.players) {
         const team = teamOf(q.id)
@@ -117,7 +117,7 @@ export function Pitch({ replay, msRef, focusPlayer, evidence, badges, layers, gr
         ctx.fillStyle = gk ? team.colors.secondary : team.colors.primary
         ctx.fill()
         // Shape cue that does not rely on colour: the away side wears a thick light ring.
-        ctx.lineWidth = isHome ? 1.6 : 3.2
+        ctx.lineWidth = isHome ? 1.4 : 2.6
         ctx.strokeStyle = isHome ? 'rgba(255,255,255,.75)' : '#ffffff'
         ctx.stroke()
         if (r >= 8) {
@@ -143,14 +143,15 @@ export function Pitch({ replay, msRef, focusPlayer, evidence, badges, layers, gr
       for (const t of tags) drawTag(ctx, t.x, t.y, t.text, t.color, t.strong, w)
 
       // Ball with a height shadow.
+      const br = Math.min(6.5, Math.max(3.6, s * 0.3))
       const bx = X(f.ball.x)
       const by = Y(f.ball.y)
       ctx.beginPath()
-      ctx.arc(bx + f.ball.z * 0.6, by + f.ball.z * 0.9, 3.2, 0, Math.PI * 2)
+      ctx.arc(bx + f.ball.z * 0.6, by + f.ball.z * 0.9, br * 0.76, 0, Math.PI * 2)
       ctx.fillStyle = 'rgba(0,0,0,.35)'
       ctx.fill()
       ctx.beginPath()
-      ctx.arc(bx, by - f.ball.z * 1.4, 4.2, 0, Math.PI * 2)
+      ctx.arc(bx, by - f.ball.z * 1.4, br, 0, Math.PI * 2)
       ctx.fillStyle = '#fff'
       ctx.fill()
       ctx.lineWidth = 1.2
@@ -281,7 +282,7 @@ function drawEvidence(
       ctx.fill()
     }
     ctx.beginPath()
-    ctx.arc(x, y, Math.max(8, s * 1.5), 0, Math.PI * 2)
+    ctx.arc(x, y, Math.min(16, Math.max(8.5, s * 1.1)), 0, Math.PI * 2)
     ctx.fillStyle = color
     ctx.fill()
     ctx.lineWidth = 2.5

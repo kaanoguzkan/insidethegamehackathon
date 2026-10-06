@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
+import { buildHash, parseHash } from '../hooks/useHash'
 import { clockAt, totalMs } from './clock'
 import { winProbAt, type Analytics } from './analytics'
 import { covers } from './cohort'
@@ -308,5 +309,24 @@ describe('analytics data', () => {
   it('knows which way a club attacks in each half', () => {
     expect(attackDir(meta, meta.home.id, 1000)).toBe(1)
     expect(attackDir(meta, meta.home.id, meta.periods[1].startMs + 1000)).toBe(-1)
+  })
+})
+
+describe('the three-step path lives in the URL', () => {
+  it('defaults to Watch and ignores unknown steps', () => {
+    expect(parseHash('#/?match=x').step).toBe('watch')
+    expect(parseHash('#/?step=nonsense').step).toBe('watch')
+  })
+  it('round-trips the step and the Explore view', () => {
+    const r = parseHash('#/?match=x&step=explore&tab=space')
+    expect([r.step, r.tab]).toEqual(['explore', 'space'])
+    expect(buildHash(r)).toContain('step=explore')
+    expect(buildHash(r)).toContain('tab=space')
+  })
+  it('keeps the address short outside Explore', () => {
+    const h = buildHash({ ...parseHash('#/?step=understand&tab=space'), t: null })
+    expect(h).toContain('step=understand')
+    expect(h).not.toContain('tab=')
+    expect(buildHash(parseHash('#/?match=x'))).not.toContain('step=')
   })
 })

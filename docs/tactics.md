@@ -80,9 +80,9 @@ the taking team's attack frame.
 
 Every routine is recorded on the event (`corner.attributes.routine`, `free_kick.attributes.wall` ...) the
 way a data provider tags set pieces, shown as a small card in each viewer's language, and counted per
-team in the match center's Tactics panel.
+team in the match center's Tactics tab (Understand step).
 
-![The Tactics panel after 62 minutes of red-card-drama](img/tactics-panel.png)
+![The Tactics tab after 62 minutes of pressing-collapse](img/tactics-panel.png)
 
 ## What it cost, and what it taught
 

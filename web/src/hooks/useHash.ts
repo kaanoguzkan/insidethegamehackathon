@@ -7,7 +7,13 @@ export interface Route {
   profile: Profile
   split: boolean
   t: number | null
+  step: Step
+  tab: string | null // the open view in the Explore workspace
 }
+
+/** Watch the match, Understand why it happened, Explore the numbers: the three depths of the app. */
+export type Step = 'watch' | 'understand' | 'explore'
+export const STEPS: Step[] = ['watch', 'understand', 'explore']
 
 const LANGS: Lang[] = ['en', 'es', 'tr']
 
@@ -28,12 +34,15 @@ export function parseHash(hash: string): Route {
     highContrast: q.get('hc') === '1',
   }
   const t = q.get('t')
+  const step = STEPS.find((x) => x === q.get('step')) ?? 'watch'
   return {
     view: path.startsWith('/broadcast') ? 'broadcast' : 'center',
     match: q.get('match'),
     profile,
     split: q.get('split') === '1',
     t: t ? Number(t) * 60_000 : null,
+    step,
+    tab: q.get('tab'),
   }
 }
 
@@ -49,6 +58,8 @@ export function buildHash(r: Omit<Route, 't'> & { t?: number | null }): string {
   if (r.profile.reducedMotion) q.set('motion', '0')
   if (r.profile.highContrast) q.set('hc', '1')
   if (r.split) q.set('split', '1')
+  if (r.step !== 'watch') q.set('step', r.step)
+  if (r.step === 'explore' && r.tab) q.set('tab', r.tab)
   return `#/${r.view === 'broadcast' ? 'broadcast' : ''}?${q.toString()}`
 }
 
