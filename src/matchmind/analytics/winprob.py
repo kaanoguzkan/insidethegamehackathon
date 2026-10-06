@@ -80,7 +80,7 @@ class WinProbModel:
 
     @staticmethod
     def timeline(events: list[dict]) -> tuple[list[tuple[int, str, str]], list[tuple[int, str, float]]]:
-        """Goals and red cards as ``(ms, kind, club)`` and shots as ``(ms, club, xG)``."""
+        """Goals and red cards as ``(ms, kind, club)`` and open-play and set-piece shots as ``(ms, club, xG)`` (penalties excluded)."""
         marks: list[tuple[int, str, str]] = []
         shots: list[tuple[int, str, float]] = []
         for e in events:
@@ -88,7 +88,9 @@ class WinProbModel:
                 marks.append((e["_ms"], "goal", e["team"]))
             elif e["type"] == "card" and e.get("outcome") == "red":
                 marks.append((e["_ms"], "red", e["team"]))
-            elif e["type"] == "shot":
+            elif e["type"] == "shot" and (e.get("attributes") or {}).get("situation") != "penalty":
+                # A penalty already moves the odds as a goal; counting its xG as well would make the
+                # scoring side look more dominant than it was in open play.
                 shots.append((e["_ms"], e["team"], float(e.get("_xg", 0.0))))
         return marks, shots
 

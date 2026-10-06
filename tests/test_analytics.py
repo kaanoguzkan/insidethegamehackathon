@@ -335,3 +335,15 @@ def test_every_metric_in_every_committed_pack_has_a_definition():
                 assert base in GLOSSARY, f"{key} (in {m['id']}) has no glossary entry"
                 assert base in m["glossary"], f"{base} missing from the pack's own glossary"
     assert {"win_prob", "space_behind_m2"} <= seen, "the new evidence reaches the packs"
+
+
+def test_a_penalty_moves_the_odds_as_a_goal_not_as_dominance():
+    """Its xG would count a second time as 'form' and make the scorer look better than they were in open play."""
+    ev = [
+        {"type": "shot", "_ms": 1000, "team": "A", "_xg": 0.78, "attributes": {"situation": "penalty"}},
+        {"type": "shot", "_ms": 2000, "team": "A", "_xg": 0.10, "attributes": {"situation": "open_play"}},
+        {"type": "goal", "_ms": 1500, "team": "A"},
+    ]
+    marks, shots = WinProbModel.timeline(ev)
+    assert [round(s[2], 2) for s in shots] == [0.10]
+    assert marks == [(1500, "goal", "A")]

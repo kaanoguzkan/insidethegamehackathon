@@ -35,7 +35,7 @@ ways: in the match center (the **Explore** step and live pitch graphics, called 
 
 **Win probability.** Goals follow a Poisson process. A team's scoring rate starts at the league average
 (fitted: 0.0135 goals per team-minute over 90 simulated matches, 95.8 minutes a match), scaled by its
-pre-match strength, and is blended with the match's own xG as if the prior were 30 minutes of evidence. A red
+pre-match strength, and is blended with the match's own xG as if the prior were 30 minutes of evidence (penalties are left out of that xG: they already count as goals). A red
 card multiplies the ten-man side's rate by 0.78 and the other side's by 1.22; those two multipliers are
 **priors** (a simulated league has too few sendings-off to estimate them). At 60 minutes the model's Brier
 score is 0.351 against 0.678 for always predicting the pre-match odds (in-sample, 90 matches).
