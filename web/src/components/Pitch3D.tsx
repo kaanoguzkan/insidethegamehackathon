@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import type { Replay } from '../lib/data'
 import { drawGraphic, drawLayers, type Labels, type Layers } from '../lib/layers'
+import { relax } from '../lib/spacing'
 import type { Cam } from '../lib/webgl'
 import type { MatchEvent, Overlay, TeamMeta } from '../lib/types'
 import { drawEvidence, drawPitch, drawTag, L, PAD, SPRINT_TAG_KMH, W, type PitchBadge } from './Pitch'
@@ -10,6 +11,7 @@ import { drawEvidence, drawPitch, drawTag, L, PAD, SPRINT_TAG_KMH, W, type Pitch
 const TEX_W = 1800
 const TEX_H = Math.round((TEX_W * (W + PAD * 2)) / (L + PAD * 2))
 const SCALE = 2.0 // players are drawn a little larger than life so they read at broadcast distance
+const MIN_SEP = 2.4 // metres: figures are drawn at least this far apart (display only)
 const GROUND_FPS = 15 // how often the ground texture is repainted while a live graphic is on it
 
 interface Props {
@@ -273,6 +275,7 @@ export default function Pitch3D(props: Props) {
     // ----- the loop -----------------------------------------------------------------------------------------------
     const tmp = new THREE.Vector3()
     const prevHeading: number[] = actors.map((a) => a.heading)
+    const offs = actors.map(() => ({ x: 0, y: 0 })) // each figure's current display offset from its true position
     let lastGround = 0
     let lastKey = ''
     let raf = 0
@@ -302,6 +305,15 @@ export default function Pitch3D(props: Props) {
         }
       }
 
+      // Display positions: players the data puts almost on top of each other are drawn apart (smoothly).
+      const sep = relax(f.players, MIN_SEP, carrier ? f.players.findIndex((q) => q.id === carrier) : -1, 3.4, 6, p.cam === 'bc' ? [1, 0.55] : p.cam === 'end' ? [0.55, 1] : [1, 1])
+      const shown = f.players.map((q, i) => {
+        const o = offs[q.slot] ?? { x: 0, y: 0 }
+        o.x += (sep[i].x - q.x - o.x) * 0.4
+        o.y += (sep[i].y - q.y - o.y) * 0.4
+        return { x: q.x + o.x, y: q.y + o.y }
+      })
+
       // Ground texture: repainted when a live graphic is on it, or when something that shapes it changed.
       const live = p.graphics.length > 0 || !!(p.evidence && p.evidence.length) || Object.values(p.layers).some(Boolean)
       const key = `${p.highContrast}|${Object.entries(p.layers).filter(([, v]) => v).map(([k]) => k).join()}|${p.graphics.length}|${p.evidence?.length ?? 0}`
@@ -320,12 +332,12 @@ export default function Pitch3D(props: Props) {
 
       // Players: place, face the way they are moving, mark the followed one.
       const seen = new Set<number>()
-      for (const q of f.players) {
+      f.players.forEach((q, i) => {
         const a = actors[q.slot]
-        if (!a) continue
+        if (!a) return
         seen.add(q.slot)
         a.group.visible = true
-        a.group.position.set(q.x - L / 2, 0, q.y - W / 2)
+        a.group.position.set(shown[i].x - L / 2, 0, shown[i].y - W / 2)
         const pq = prevById.get(q.id)
         if (pq) {
           const dx = q.x - pq.x
@@ -341,7 +353,7 @@ export default function Pitch3D(props: Props) {
         const isFocus = p.focusPlayer === q.id
         a.focus.visible = isFocus
         if (isFocus) a.focus.scale.setScalar(p.reducedMotion ? 1 : 1 + 0.12 * Math.sin(now / 260))
-      }
+      })
       actors.forEach((a, i) => {
         if (!seen.has(i)) a.group.visible = false
       })
@@ -367,14 +379,14 @@ export default function Pitch3D(props: Props) {
       const { w, h } = size
       lctx.clearRect(0, 0, w, h)
       const tags: { x: number; y: number; text: string; color: string; strong: boolean }[] = []
-      for (const q of f.players) {
+      f.players.forEach((q, i) => {
         const team = teamOf(q.id)
         const gk = q.slot % 11 === 0
-        tmp.set(q.x - L / 2, 2.1 * SCALE, q.y - W / 2).project(camera)
-        if (tmp.z > 1) continue
+        tmp.set(shown[i].x - L / 2, 2.1 * SCALE, shown[i].y - W / 2).project(camera)
+        if (tmp.z > 1) return
         const sx = (tmp.x * 0.5 + 0.5) * w
         const sy = (-tmp.y * 0.5 + 0.5) * h
-        const dist = camera.position.distanceTo(a3(q.x - L / 2, q.y - W / 2))
+        const dist = camera.position.distanceTo(a3(shown[i].x - L / 2, shown[i].y - W / 2))
         const ppm = h / 2 / (Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * dist)
         const r = Math.min(10, Math.max(5.5, ppm * 1.0))
         lctx.beginPath()
@@ -398,11 +410,11 @@ export default function Pitch3D(props: Props) {
           const nm = info(q.id)?.name?.split(' ').slice(-1)[0] ?? q.id
           tags.push({ x: sx, y: sy - r - 6, text: kmh >= SPRINT_TAG_KMH ? `${nm}  ${kmh.toFixed(0)} km/h` : nm, color: team.colors.primary, strong: isFocus })
         }
-      }
+      })
       for (const b of p.badges) {
-        const q = f.players.find((z) => z.id === b.playerId)
-        if (!q) continue
-        tmp.set(q.x - L / 2, 2.1 * SCALE + 1.2, q.y - W / 2).project(camera)
+        const bi = f.players.findIndex((z) => z.id === b.playerId)
+        if (bi < 0) continue
+        tmp.set(shown[bi].x - L / 2, 2.1 * SCALE + 1.2, shown[bi].y - W / 2).project(camera)
         if (tmp.z > 1) continue
         tags.push({ x: (tmp.x * 0.5 + 0.5) * w, y: (-tmp.y * 0.5 + 0.5) * h - 18, text: b.text, color: '#ffb454', strong: true })
       }

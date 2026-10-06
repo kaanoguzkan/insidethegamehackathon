@@ -61,7 +61,9 @@ offside line, passing options, run trails).
 
 The pitch can also be watched in **3D**: a WebGL scene with the same live graphics drawn on the grass, three cameras
 (broadcast, behind the goal, from above), drag to turn and scroll to zoom, and a camera that follows the ball. It loads
-only when used, and falls back to the flat pitch when a browser has no WebGL.
+only when used, and falls back to the flat pitch when a browser has no WebGL. Players that the data puts almost on
+top of each other are drawn a little apart (display only, never more than a few metres, the ball carrier stays put),
+so two figures never overlap.
 
 ![The same moment in 3D, with pitch control and team shape on the grass](docs/img/pitch-3d.png)
 
@@ -93,7 +95,7 @@ uv run matchmind build-pdf                          # the printable match report
 uv run matchmind fit-models                         # win probability, possession value, post-shot xG
 uv run matchmind build-season                       # the league's simulated history
 uv run pytest -m "not slow"                         # the fast suite
-cd web && pnpm install && pnpm dev                  # the match center (46 tests: pnpm test)
+cd web && pnpm install && pnpm dev                  # the match center (51 tests: pnpm test)
 ```
 
 No keys, network or GPU needed: the default model client answers from the template engine so the real
@@ -177,7 +179,7 @@ web/             React + TypeScript match center (replay player, overlays, evide
 data/            league, scenarios (3 stories), replay packages (3 matches, ~10 MB)
 infra/           Bicep + azure.yaml          schemas/   JSON Schemas of the public contracts
 docs/            architecture, tactics, analytics, metrics, agents, overlay contract, data card, responsible AI, Azure
-tests/ evals/    528 + 46 tests              SOLUTION PLAN.md   design, schedule, status
+tests/ evals/    528 + 51 tests              SOLUTION PLAN.md   design, schedule, status
 ```
 
 ## Honest limits

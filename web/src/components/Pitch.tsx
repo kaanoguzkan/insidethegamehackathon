@@ -1,6 +1,7 @@
 import { useEffect, useRef, type MutableRefObject } from 'react'
 import type { Replay } from '../lib/data'
 import { drawGraphic, drawLayers, type Labels, type Layers } from '../lib/layers'
+import { relax } from '../lib/spacing'
 import type { MatchEvent, Overlay, TeamMeta } from '../lib/types'
 
 export const L = 105
@@ -96,13 +97,16 @@ export function Pitch({ replay, msRef, focusPlayer, evidence, badges, layers, gr
       if (p.evidence && p.evidence.length) drawEvidence(ctx, p.evidence, meta.home.id, meta, X, Y, s)
 
       const r = Math.min(14, Math.max(8.5, s * 1.0))
+      // Markers the data puts almost on top of each other are drawn apart, display only.
+      const minSep = Math.min(2.4, Math.max(1.2, (2 * r - 1) / s))
+      const sep = relax(f.players, minSep, carrier ? f.players.findIndex((q) => q.id === carrier) : -1, 2.0)
       const tags: { x: number; y: number; text: string; color: string; strong: boolean }[] = []
-      for (const q of f.players) {
+      f.players.forEach((q, qi) => {
         const team = teamOf(q.id)
         const isHome = team.id === meta.home.id
         const gk = q.slot % 11 === 0
-        const px = X(q.x)
-        const py = Y(q.y)
+        const px = X(sep[qi].x)
+        const py = Y(sep[qi].y)
         const isFocus = p.focusPlayer === q.id
         if (isFocus) {
           const pulse = p.reducedMotion ? 0 : (Math.sin(now / 260) + 1) / 2
@@ -135,10 +139,10 @@ export function Pitch({ replay, msRef, focusPlayer, evidence, badges, layers, gr
           const text = kmh >= SPRINT_TAG_KMH ? `${nm}  ${kmh.toFixed(0)} km/h` : nm
           tags.push({ x: px, y: py - r - 6, text, color: team.colors.primary, strong: isFocus })
         }
-      }
+      })
       for (const b of p.badges) {
-        const q = f.players.find((z) => z.id === b.playerId)
-        if (q) tags.push({ x: X(q.x), y: Y(q.y) - r - 26, text: b.text, color: '#ffb454', strong: true })
+        const bi = f.players.findIndex((z) => z.id === b.playerId)
+        if (bi >= 0) tags.push({ x: X(sep[bi].x), y: Y(sep[bi].y) - r - 26, text: b.text, color: '#ffb454', strong: true })
       }
       for (const t of tags) drawTag(ctx, t.x, t.y, t.text, t.color, t.strong, w)
 

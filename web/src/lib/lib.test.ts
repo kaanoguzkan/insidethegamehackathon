@@ -11,6 +11,7 @@ import { attackDir, fade } from './layers'
 import { activeAt, isShown, visibleOverlays } from './overlays'
 import { isNarrative, overlaysFor, SAFE_ID, type Replay } from './data'
 import { recapFor, recapReady } from './recap'
+import { relax } from './spacing'
 import { formationAt, setPieceCounts, tagKeys, totalCorners } from './tactics'
 import { maybeGunzip, Tracking, type Frame } from './tracking'
 import { DEFAULT_PROFILE, type Cohort, type MatchEvent, type Meta, type Overlay, type Profile } from './types'
@@ -355,5 +356,36 @@ describe('the pitch view lives in the URL', () => {
     expect(buildHash(parseHash('#/?cam=top'))).toContain('cam=top')
     expect(buildHash(parseHash('#/?match=x'))).not.toContain('cam=')
     expect(buildHash(parseHash('#/?cam=2d&follow=1'))).toContain('follow=1')
+  })
+})
+
+describe('spacing players that stand on top of each other', () => {
+  const minDist = (pts: { x: number; y: number }[]) => Math.min(...pts.flatMap((a, i) => pts.slice(i + 1).map((b) => Math.hypot(a.x - b.x, a.y - b.y))))
+  it('leaves players who are far enough apart exactly where they are', () => {
+    const pts = [{ x: 10, y: 10 }, { x: 20, y: 10 }, { x: 30, y: 40 }]
+    expect(relax(pts, 1.7)).toEqual(pts)
+  })
+  it('separates a cluster, coincident players included, and moves nobody far', () => {
+    const pts = [{ x: 50, y: 30 }, { x: 50, y: 30 }, { x: 50.4, y: 30.2 }, { x: 51, y: 29.5 }, { x: 70, y: 30 }]
+    const out = relax(pts, 1.7)
+    expect(minDist(out.slice(0, 4))).toBeGreaterThan(1.7 * 0.9)
+    out.forEach((p, i) => expect(Math.hypot(p.x - pts[i].x, p.y - pts[i].y)).toBeLessThanOrEqual(2.4 + 1e-9))
+    expect(out[4]).toEqual(pts[4])
+  })
+  it('keeps the pinned player (the ball carrier) in place', () => {
+    const pts = [{ x: 50, y: 30 }, { x: 50.3, y: 30 }, { x: 50, y: 30.4 }]
+    const out = relax(pts, 1.7, 0)
+    expect(out[0]).toEqual(pts[0])
+    expect(minDist(out)).toBeGreaterThan(1.7 * 0.85)
+  })
+  it('keeps players further apart across a squashed direction when asked to', () => {
+    const pts = [{ x: 50, y: 30 }, { x: 50, y: 30.5 }]
+    const flat = relax(pts, 2.4)
+    const tilted = relax(pts, 2.4, -1, 3.4, 6, [1, 0.55])
+    expect(Math.hypot(tilted[0].x - tilted[1].x, tilted[0].y - tilted[1].y)).toBeGreaterThan(Math.hypot(flat[0].x - flat[1].x, flat[0].y - flat[1].y))
+  })
+  it('gives the same answer every time', () => {
+    const pts = [{ x: 5, y: 5 }, { x: 5, y: 5 }, { x: 5, y: 5 }]
+    expect(relax(pts, 1.7)).toEqual(relax(pts, 1.7))
   })
 })
