@@ -195,6 +195,7 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
               </div>
             </Popover>
           )}
+          <a className="btn" href={`${import.meta.env.BASE_URL}replays/${replay.id}/report.pdf`} target="_blank" rel="noreferrer" title={t(lang, 'reportHint')}>{t(lang, 'report')}</a>
           <a className="btn" href={broadcastHref} target="_blank" rel="noreferrer">{t(lang, 'broadcastLink')}</a>
         </div>
       </header>

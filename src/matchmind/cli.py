@@ -156,6 +156,23 @@ def cmd_build_replay(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_build_pdf(args: argparse.Namespace) -> int:
+    """Write report.pdf into replay packages (every committed one unless ids are given)."""
+    from .core.paths import replays_dir
+    from .report import build_report
+
+    root = Path(args.root) if args.root else replays_dir()
+    ids = args.ids or sorted(p.name for p in root.iterdir() if (p / "meta.json").exists())
+    for match_id in ids:
+        pkg = root / match_id
+        if not (pkg / "meta.json").exists():
+            print(f"no replay package at {pkg}; build it with: matchmind build-replay {match_id}", file=sys.stderr)
+            return 1
+        out = build_report(pkg, Path(args.out) / f"{match_id}.pdf" if args.out else None)
+        print(f"{match_id}: {out} ({out.stat().st_size // 1024} KB)")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="matchmind", description="MatchMind: explainable football match intelligence")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -205,6 +222,12 @@ def main(argv: list[str] | None = None) -> int:
     r2.add_argument("--llm", default=None, help="offline (default), openai or foundry")
     r2.add_argument("--out", default=None)
     r2.set_defaults(fn=cmd_build_replay)
+
+    pdf = sub.add_parser("build-pdf", help="write the printable match report (report.pdf) for replay packages")
+    pdf.add_argument("ids", nargs="*", help="replay ids; default: every package in data/replays")
+    pdf.add_argument("--root", default=None, help="folder holding the packages")
+    pdf.add_argument("--out", default=None, help="write <id>.pdf into this folder instead of the package")
+    pdf.set_defaults(fn=cmd_build_pdf)
 
     args = p.parse_args(argv)
     return args.fn(args)

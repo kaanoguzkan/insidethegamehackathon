@@ -148,3 +148,11 @@ def test_the_analytics_endpoint_matches_the_replay_package(reg):
         d = c.get("/api/matches/t0001/analytics").json()
     assert {"winProbability", "shots", "players", "season", "radars", "teamRadars"} <= set(d)
     assert d["season"]["prediction"]["home"] + d["season"]["prediction"]["draw"] + d["season"]["prediction"]["away"] == pytest.approx(1.0, abs=0.01)
+
+
+def test_the_report_pdf_is_served_for_committed_matches_only(client):
+    r = client.get("/api/matches/pressing-collapse/report.pdf")
+    assert r.status_code == 200 and r.headers["content-type"] == "application/pdf" and r.content.startswith(b"%PDF")
+    assert client.get("/api/matches/t0001/report.pdf").status_code == 404, "a match with no built report says so"
+    assert client.get("/api/matches/nope/report.pdf").status_code == 404
+    assert client.get("/api/matches/..%2F..%2Fetc%2Fpasswd/report.pdf").status_code == 404

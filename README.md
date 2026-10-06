@@ -59,7 +59,9 @@ offside line, passing options, run trails).
 
 ![Pitch control and team shape over the match](docs/img/pitch-control.png)
 
-Definitions, fitted-model diagnostics and honest limits: [docs/analytics.md](docs/analytics.md).
+Definitions, fitted-model diagnostics and honest limits: [docs/analytics.md](docs/analytics.md). Every replay also has a
+17-page **PDF report** that explains the match, the tactics in each phase, every position and every view
+([docs/report.md](docs/report.md)); the match center links to it.
 
 ## Why you can trust what it says
 
@@ -81,6 +83,7 @@ Definitions, fitted-model diagnostics and honest limits: [docs/analytics.md](doc
 uv sync
 uv run matchmind build-replay pressing-collapse     # simulate, analyze, interpret, run the agents, write a package
 uv run matchmind evals                              # quality gates over the committed packages
+uv run matchmind build-pdf                          # the printable match report for every replay (docs/report.md)
 uv run matchmind fit-models                         # win probability, possession value, post-shot xG
 uv run matchmind build-season                       # the league's simulated history
 uv run pytest -m "not slow"                         # the fast suite
@@ -99,7 +102,7 @@ docker build -t matchmind-brain . && docker run -p 8000:8000 matchmind-brain
 
 ### Ask the match from GitHub Copilot
 
-The Match Data MCP server exposes 24 tools (match state, window stats, event chains, win probability, key actions by possession value,
+The Match Data MCP server exposes 25 tools (match state, window stats, event chains, win probability, key actions by possession value,
 space control, passing networks, measured formations, line breaks, off-ball runs, physical load, transitions, set pieces, shot maps,
 goalkeepers, player profiles, season context and predictions ...). `.vscode/mcp.json` points Copilot's agent mode at a local
 Brain, so you can ask *"who controlled the last 15 minutes of pressing-collapse?"*.
@@ -133,7 +136,7 @@ Details: [docs/architecture.md](docs/architecture.md).
 | Technology | Use | Status |
 |---|---|---|
 | **Microsoft Agent Framework 1.20** | Editor, Explainer, Storyteller, Localizer and Recap Writer as `Agent`s; a `WorkflowBuilder` graph with retry loops and fallbacks | Used and tested (offline model; a fault injector exercises every recovery path) |
-| **Model Context Protocol** | Match Data MCP server, 24 tools, served over streamable HTTP | Used and tested, including a real MCP client over HTTP |
+| **Model Context Protocol** | Match Data MCP server, 25 tools, served over streamable HTTP | Used and tested, including a real MCP client over HTTP |
 | **Microsoft Foundry** | `FoundryChatClient` is wired in as one of three model backends | Wired, **not run against a live Foundry project** (no model access while building) |
 | **GitHub Copilot** | Built with it; `.github/copilot-instructions.md` and the MCP config for agent mode | In use |
 | **Azure Container Apps, Cosmos DB, Storage, SignalR, Key Vault, Static Web Apps, App Insights** | `infra/` Bicep sized for the free tier, identity-only access, a budget with alerts | Bicep **compiles** (`az bicep build`); the container image **builds and runs**; **not deployed** (no Azure access while building) |

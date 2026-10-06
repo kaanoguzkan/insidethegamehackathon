@@ -26,6 +26,7 @@ import time
 from typing import Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from matchmind import __version__
@@ -37,6 +38,7 @@ from matchmind.agents.workflow import Batch, WorkflowDeps, build_workflow, run_b
 from matchmind.analytics.report import MatchAnalytics
 from matchmind.analytics.season import load_season
 from matchmind.core.contracts import Cohort
+from matchmind.core.paths import replays_dir
 from matchmind.mcp_server.registry import MatchRegistry, UnknownMatch
 from matchmind.mcp_server.server import build_server
 from matchmind.runner import build_analytics
@@ -103,6 +105,16 @@ def create_app(
         """The match's Opta-style analytics (what the replay package stores as analytics.json)."""
         ip = _ip(match_id)
         return build_analytics(ip, load_season(), ip.season, ip.meta)
+
+    @app.get("/api/matches/{match_id}/report.pdf")
+    def report(match_id: str) -> FileResponse:
+        """The printable match report of a committed replay package (built with ``matchmind build-pdf``)."""
+        if match_id not in reg.ids():
+            raise HTTPException(404, f"unknown match {match_id!r}")
+        pdf = replays_dir() / match_id / "report.pdf"
+        if not pdf.exists():
+            raise HTTPException(404, "no report built for this match; run: matchmind build-pdf " + match_id)
+        return FileResponse(pdf, media_type="application/pdf", filename=f"{match_id}-report.pdf")
 
     @app.get("/api/matches/{match_id}/win-probability")
     def win_probability(match_id: str) -> dict:

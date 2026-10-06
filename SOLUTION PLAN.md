@@ -31,7 +31,7 @@
 | Agent Framework workflow, offline model, fault injector | Done | Editor, Explainer, Storyteller, Localizer, Recap Writer; levels 0 agent, 1 retry, 2 template, 3 stat graphic |
 | Overlay Producer, JSON Schemas, replay packages | Done | Version 2 packages; 3 matches, about 10 MB; recaps 3 kinds x 8 cohorts; healthy, unreliable and outage variants |
 | Web app | Done | Fit-to-screen pitch, a three-step path (Watch, Understand, Explore), overlays, viewer and model-health menus, match strip with story ribbon, evidence drawer, recaps, Tactics tab, Explore workspace (11 views in 5 groups), win-probability line, pitch lenses, EN/ES/TR UI, accessibility options |
-| MCP server (24 tools) and Brain API | Done | Verified over real HTTP, in tests and in Docker; registry hardened; fault-switch routes now opt-in and key-protected |
+| MCP server (25 tools) and Brain API | Done | Verified over real HTTP, in tests and in Docker; registry hardened; fault-switch routes now opt-in and key-protected |
 | Evals and CI gates | Done | `matchmind evals`; reproducibility check is informational |
 | Dockerfile, Bicep, `azd`, GitHub Actions | Written | Image builds and runs; Bicep compiles; workflows `actionlint`-clean with a test that parses them and checks the SHA pins, third-party actions pinned to commit SHAs; **never deployed to Azure, and CI has not yet passed on GitHub** (its first runs failed on an invalid step name, now fixed) |
 | README and docs/ | Done | Honest "verified vs not" tables |

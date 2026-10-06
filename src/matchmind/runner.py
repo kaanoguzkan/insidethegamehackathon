@@ -252,8 +252,19 @@ def write_replay(replay: Replay, result, outdir: Path) -> Path:
     if replay.analytics:
         dump("analytics.json", replay.analytics)
     size = bundle.write(result, outdir)
-    dump("manifest.json", {**replay.info, "matchId": replay.meta["matchId"], "trackingBytes": size, "files": [*(f"overlays.{n}.json" for n in replay.variants), "meta.json", "moments.json", "snapshots.json", "facts.json", "overlays.json", "recaps.json", "events.json", *(["analytics.json"] if replay.analytics else []), "slots.json", "tracking.bin.gz"]})
+    report = _write_report(outdir)
+    dump("manifest.json", {**replay.info, "matchId": replay.meta["matchId"], "trackingBytes": size, "files": [*(["report.pdf"] if report else []), *(f"overlays.{n}.json" for n in replay.variants), "meta.json", "moments.json", "snapshots.json", "facts.json", "overlays.json", "recaps.json", "events.json", *(["analytics.json"] if replay.analytics else []), "slots.json", "tracking.bin.gz"]})
     return outdir
+
+
+def _write_report(outdir: Path) -> bool:
+    """The printable report, built from the package just written. Optional: needs the ``report`` extra (reportlab)."""
+    try:
+        from .report import build_report
+    except ImportError:
+        return False
+    build_report(outdir)
+    return True
 
 
 _KEEP = ("id", "type", "clock", "team", "player", "receiver", "location", "end", "outcome")
