@@ -18,6 +18,7 @@ from .actions import ActionsMixin
 from .scenarios import Scenario, ScriptItem
 from .setpieces import SetPieceMixin
 from .shape import ShapeMixin
+from .tactics import PHASES as _PHASES
 from .tactics import assign, describe_shapes, layout, roles
 from .teams import GROUP, ROLE_COMPAT, Club, Player, Style, formation_slots
 
@@ -120,10 +121,18 @@ class MatchSim(ShapeMixin, SetPieceMixin, ActionsMixin):
         # player to a slot of the formation, so a mid-match formation change only re-maps it.
         self.slot_idx = [list(range(10)), list(range(10))]
         self.slot_role: list[list[str]] = [[], []]
-        self.phase = [0.5, 0.5]  # 0 = fully in the block, 1 = fully in the attacking shape
+        # Phases of play: each team glides between six layouts (see tactics.py): ``phase_w`` is the weight on
+        # each of PHASES, ``phase_name`` the one it is mainly in (announced with a phase_change event).
+        self.phase_w = [np.array([0.0, 0.5, 0.0, 0.5, 0.0]), np.array([0.0, 0.5, 0.0, 0.5, 0.0])]
+        self.phase_name = ["", ""]
+        self.phase_acc: list[dict[str, list[float]]] = [{}, {}]  # per phase: ticks, line height, length, width sums
+        self.phase_cand: list[tuple[str, float]] = [("", 0.0), ("", 0.0)]
+        self.regroup_until = [-1.0, -1.0]
+        self.press_trigger = [None, None]  # the cue that last set the press off (a wide carrier), for the event
+        self.phase_cause = ["", ""]  # why the team is in its current working phase, announced with phase_change
         self.u, self.fy = [np.zeros(10), np.zeros(10)], [np.zeros(10), np.zeros(10)]
-        self.u_att, self.fy_att = [np.zeros(10), np.zeros(10)], [np.zeros(10), np.zeros(10)]
-        self.u_blk, self.fy_blk = [np.zeros(10), np.zeros(10)], [np.zeros(10), np.zeros(10)]
+        self.lay_u: list[dict[str, np.ndarray]] = [{}, {}]
+        self.lay_fy: list[dict[str, np.ndarray]] = [{}, {}]
         for t in (0, 1):
             self._reindex_shape(t)
 
@@ -189,7 +198,7 @@ class MatchSim(ShapeMixin, SetPieceMixin, ActionsMixin):
     # ----- setup helpers --------------------------------------------------------------------
 
     def _set_physique(self, slot: int, p: Player) -> None:
-        self.vmax[slot] = 7.6 + (p.attrs["pace"] - 35.0) / 60.0 * 2.4
+        self.vmax[slot] = 7.6 + (p.attrs["pace"] - 35.0) / 60.0 * 2.25
         self.fatigue[slot] = 0.0021 * (1.45 - p.attrs["stamina"] / 100.0)
         self.stamina[slot] = 1.0
 
@@ -276,6 +285,7 @@ class MatchSim(ShapeMixin, SetPieceMixin, ActionsMixin):
         self.first_time = None
         self.transition_until = [-1.0, -1.0]
         self.counterpress_until = [-1.0, -1.0]
+        self.regroup_until = [-1.0, -1.0]
         # Line both teams up in their own halves.
         self.ball = np.array([G.CX, G.CY])
         for t in (0, 1):
@@ -460,9 +470,28 @@ class MatchSim(ShapeMixin, SetPieceMixin, ActionsMixin):
         self.advance_ball()
         self.move_players()
         self._update_ball_position()
+        self._sample_phases()
         self._record()
         self.t += DT
         self.tick_i += 1
+
+    def _sample_phases(self) -> None:
+        """Accumulate how each team's shape measures in each phase of play (line height, length and width, in metres)."""
+        if self.mode == "dead":
+            return
+        for t in (0, 1):
+            sl = slice(t * 11 + 1, t * 11 + 11)
+            act = self.active[sl]
+            if act.sum() < 8:
+                continue
+            ax, ay = G.to_att(self.pos[sl][act, 0], self.pos[sl][act, 1], self.dir[t])
+            xs = np.sort(ax)
+            ph = _PHASES[int(np.argmax(self.phase_w[t]))]
+            a = self.phase_acc[t].setdefault(ph, [0, 0.0, 0.0, 0.0])
+            a[0] += 1
+            a[1] += float(xs[:4].mean())
+            a[2] += float(xs[-1] - xs[0])
+            a[3] += float(ay.max() - ay.min())
 
     def run(self) -> MatchResult:
         self._start_period(1)
@@ -517,6 +546,13 @@ class MatchSim(ShapeMixin, SetPieceMixin, ActionsMixin):
             "shapes": describe_shapes(self.clubs[t].style.formation, self.clubs[t].style.tags),
             "style": self.clubs[t].style.to_dict(),
             "lineup": self.lineups[t],
+            "phases": {
+                ph: {
+                    "seconds": round(a[0] * DT, 1), "lineHeightM": round(a[1] / a[0], 1),
+                    "lengthM": round(a[2] / a[0], 1), "widthM": round(a[3] / a[0], 1),
+                }
+                for ph, a in self.phase_acc[t].items() if a[0] > 0
+            },
             "players": {
                 pid: {"name": p.name, "pos": p.pos, "number": p.number, "rating": round(p.overall)}
                 for pid, p in known.items()

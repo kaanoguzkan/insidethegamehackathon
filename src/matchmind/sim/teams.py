@@ -94,6 +94,9 @@ class Style:
     corners: str = "mixed"  # near | far | short | edge | mixed
     corner_defence: str = "zonal"  # zonal | man | mixed
     long_throws: bool = False  # a throw-in specialist hurls it into the box
+    press_scheme: str = "zonal"  # zonal | wide_trap | man
+    on_loss: str = "counterpress"  # counterpress | regroup
+    on_win: str = "counter"  # counter | keep
 
     def to_dict(self) -> dict:
         return asdict(self)

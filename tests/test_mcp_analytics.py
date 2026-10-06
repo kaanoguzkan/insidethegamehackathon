@@ -50,10 +50,10 @@ def test_the_server_advertises_the_analytics_tools(registry):
     names = asyncio.run(go())
     want = {
         "get_win_probability", "get_key_actions", "get_space_control", "get_passing_network", "get_team_shape", "get_line_breaks", "get_off_ball_runs",
-        "get_physical_load", "get_transitions", "get_set_piece_report", "get_shot_map", "get_goalkeeper_report", "get_pressing_report",
+        "get_physical_load", "get_transitions", "get_set_piece_report", "get_shot_map", "get_goalkeeper_report", "get_pressing_report", "get_phases_of_play",
         "get_player_profile", "get_prediction", "get_season_context",
     }
-    assert want <= names and len(names) >= 24
+    assert want <= names and len(names) >= 25
 
 
 def test_win_probability_at_a_minute_and_its_swings(registry, match):
@@ -109,6 +109,10 @@ def test_load_line_breaks_transitions_and_friends(registry):
     assert "teams" in data(call(registry, "get_set_piece_report", {"match_id": "t0001"}))
     assert set(data(call(registry, "get_goalkeeper_report", {"match_id": "t0001"}))) == {"HAR", "NOR"}
     assert set(data(call(registry, "get_pressing_report", {"match_id": "t0001"}))) == {"HAR", "NOR"}
+    ph = data(call(registry, "get_phases_of_play", {"match_id": "t0001", "team": "NOR"}))
+    assert abs(sum(ph["share"].values()) - 1.0) < 0.01 and ph["tags"]["press_scheme"] == "wide_trap"
+    assert set(ph["measured"]) <= {"build", "attack", "press", "block", "low"} and ph["designed"]["press"]
+    assert call(registry, "get_phases_of_play", {"match_id": "t0001", "team": "XXX"}).isError
 
 
 def test_shot_map_filters(registry):
@@ -118,9 +122,10 @@ def test_shot_map_filters(registry):
 
 
 def test_player_profile_has_a_radar_and_peers(registry):
-    key = data(call(registry, "get_key_actions", {"match_id": "t0001", "top": 1}))["players"][0]["id"]
-    d = data(call(registry, "get_player_profile", {"match_id": "t0001", "player_id": key}))
-    assert d["player"]["id"] == key and d["radar"] and len(d["radar"]["similar"]) == 3
+    keys = [p["id"] for p in data(call(registry, "get_key_actions", {"match_id": "t0001", "top": 8}))["players"]]
+    profiles = [data(call(registry, "get_player_profile", {"match_id": "t0001", "player_id": k})) for k in keys]
+    d = next(p for p in profiles if p["radar"])  # goalkeepers have no outfield radar; an outfield player among the top eight does
+    assert d["player"]["id"] in keys and len(d["radar"]["similar"]) == 3
     assert call(registry, "get_player_profile", {"match_id": "t0001", "player_id": "NOPE-1"}).isError
 
 

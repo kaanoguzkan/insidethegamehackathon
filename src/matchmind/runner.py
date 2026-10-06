@@ -261,7 +261,7 @@ _KEEP = ("id", "type", "clock", "team", "player", "receiver", "location", "end",
 
 _TACTICAL_EVENTS = {"corner", "free_kick", "goal_kick", "throw_in", "formation_change", "off_ball_run"}
 _TACTICAL_ATTRS = {"routine", "wall", "formation", "previous", "attack", "block", "kind", "distanceM", "peakKmh", "from", "to", "startMs", "durationMs"}
-_INTERNAL_EVENTS = {"space_control", "shape_profile", "player_load"}  # analyzer inputs; their results live in analytics.json
+_INTERNAL_EVENTS = {"space_control", "shape_profile", "player_load", "phase_change"}  # analyzer inputs; their results live in analytics.json
 
 
 def _slim_event(e: dict) -> dict:

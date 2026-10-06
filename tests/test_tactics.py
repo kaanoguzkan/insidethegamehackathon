@@ -219,7 +219,8 @@ def test_corners_fill_the_box_and_keep_a_counter_attack_screen(restarts):
     for r in cs:
         attackers = sum(_at_box(p) for p in r["att"][1:])
         defenders = sum(_at_box(p) for p in r["def"][1:])
-        assert attackers >= 4, r["routine"]
+        # An edge-of-box routine puts three of its six shooters on the edge, and a runner can still be on the way.
+        assert attackers >= (3 if r["routine"]["delivery"] == "edge" else 4), r["routine"]
         assert defenders >= 6, r["routine"]
         # Two or three players stay upfield so the corner cannot be countered into an open goal.
         assert sum(p[0] < 75.0 for p in r["att"][1:]) >= 2
@@ -303,3 +304,66 @@ def test_formation_change_keeps_every_player_on_a_distinct_slot(clubs):
     assert sorted(m.slot_idx[1]) == list(range(10))
     assert [r for r in m.slot_role[1]].count("CB") == 3
     assert m.formation_name[1] == "3-4-3"
+
+
+# ----- phases of play: build-up, attack, press, mid block and low block, and the tactics that play them ---------------
+
+
+def test_every_formation_has_a_build_up_and_a_press_shape():
+    from matchmind.sim import tactics as TA
+
+    for name in TA.formation_names():
+        for ph in ("build", "press", "low"):
+            lay = TA.layout(name, ph)
+            assert len(lay) == 10 and all(0.0 <= d <= 1.0 and 0.0 <= w <= 1.0 for d, w in lay), (name, ph)
+        shapes = TA.describe_shapes(name, {})
+        assert shapes["build"] and shapes["press"] and shapes["rest"].startswith("CB"), name
+        # The low block is the block squeezed: never deeper-to-higher than the block it comes from.
+        assert max(d for d, _ in TA.layout(name, "low")) <= max(d for d, _ in TA.layout(name, "block"))
+    # A lone pivot dropping into the back line changes the first phase of build-up (a back three).
+    assert TA.describe_shapes("4-3-3", {"pivot": "drop"})["build"] == "3-2-2-3"
+    assert TA.describe_shapes("4-2-3-1", {})["press"] == "4-4-2", "the ten joins the striker in a 4-2-3-1 press"
+
+
+@pytest.fixture(scope="module")
+def phase_match(clubs):
+    """A high-pressing side against a back five that sits deep."""
+    from matchmind.sim.engine import simulate
+
+    return simulate("ph", clubs["NOR"], clubs["ALD"], seed=5)
+
+
+def test_a_pressing_team_and_a_low_block_spend_their_time_differently(phase_match):
+    nor, ald = phase_match.meta["home"]["phases"], phase_match.meta["away"]["phases"]
+    sec = lambda ph, k: ph.get(k, {"seconds": 0.0})["seconds"]  # noqa: E731
+    assert sec(nor, "press") > 2 * sec(ald, "press"), "the gegenpress side presses far more"
+    assert sec(nor, "press") > sec(nor, "low"), "and presses more than it sits"
+    assert sec(ald, "low") > 3 * sec(ald, "press"), "the back five defends low far more than it presses"
+    for ph in (nor, ald):
+        assert ph["low"]["lineHeightM"] < ph["attack"]["lineHeightM"] - 10.0, "a low block really is lower than a settled attack"
+        assert ph["build"]["lineHeightM"] < ph["attack"]["lineHeightM"] - 10.0, "build-up starts deeper than the settled attack"
+    assert nor["press"]["lineHeightM"] > nor["low"]["lineHeightM"] + 3.0, "a press holds a higher line than a low block"
+
+
+def test_phase_changes_are_announced_with_the_reason(phase_match):
+    pcs = [e for e in phase_match.events if e["type"] == "phase_change"]
+    assert len(pcs) > 100
+    allowed = {"own_third", "settled", "counterpress", "regroup", "protecting_lead", "deep_line", "wide_carrier", "press_zone", "ball_beyond_press_line"}
+    assert {e["attributes"]["cause"] for e in pcs} <= allowed
+    for e in pcs:
+        assert e["attributes"]["phase"] != e["attributes"]["previous"]
+    # A team that counter-presses on losing the ball does it often; ALD regroup instead.
+    count = lambda club: sum(1 for e in pcs if e["team"] == club and e["attributes"]["cause"] == "counterpress")  # noqa: E731
+    assert count("NOR") > count("ALD")
+
+
+def test_a_team_that_regroups_does_not_counter_press(clubs):
+    from matchmind.sim.engine import MatchSim
+
+    keep = _club_with(clubs["HAR"], on_loss="regroup")
+    press = _club_with(clubs["HAR"], on_loss="counterpress")
+    a = MatchSim("a", keep, clubs["RED"], seed=9)
+    b = MatchSim("b", press, clubs["RED"], seed=9)
+    ra, rb = a.run(), b.run()
+    n = lambda r: sum(1 for e in r.events if e["type"] == "phase_change" and e["team"] == "HAR" and e["attributes"]["cause"] == "counterpress")  # noqa: E731
+    assert n(rb) > 2 * n(ra), (n(ra), n(rb))

@@ -29,13 +29,13 @@ TUNE: dict[str, float] = {
     "pass_w": 1.00,
     "carry_w": 0.45,
     "dribble_w": 0.10,
-    "shot_w": 0.065,
+    "shot_w": 0.09,
     "shot_k": 3.9,
     "first_time_boost": 3.0,
-    "clear_w": 3.8,
-    "duel_rate": 0.15,
+    "clear_w": 6.0,
+    "duel_rate": 0.18,
     "pressure_base": 0.20,
-    "pressure_gain": 0.72,
+    "pressure_gain": 0.90,
     "foul_share": 0.56,
     "tackle_win": 0.40,
     "yellow_p": 0.14,
@@ -123,7 +123,11 @@ class ActionsMixin:
         if cause in ("tackle", "interception", "loose_ball", "save") and ax < 78.0:
             self.transition_until[team] = self.t + 7.0
         if prev is not None and cause in ("tackle", "interception", "loose_ball"):
-            self.counterpress_until[prev] = self.t + 4.5
+            if self.style[prev].on_loss == "counterpress":
+                self.counterpress_until[prev] = self.t + 4.5
+            else:  # contain for two seconds, then drop into the block
+                self.counterpress_until[prev] = self.t + 2.0
+                self.regroup_until[prev] = self.t + 5.0
 
     def gain_possession(self, slot: int, cause: str) -> None:
         t = self.team_of(slot)
@@ -1036,7 +1040,10 @@ class ActionsMixin:
                 s = pl.attrs["passing"] * 0.6 + pl.attrs["finishing"] * 0.4 - 0.9 * dd
             if s > best_s:
                 best, best_s = j, s
-        return best if best is not None else base + 1
+        if best is None:  # nobody can get there in time: the nearest outfield player walks over
+            near = [base + k for k in range(1, 11) if self.active[base + k]]
+            best = min(near, key=lambda j: float(np.hypot(*(self.pos[j] - spot))), default=base + 1)
+        return best
 
     def _pick_thrower(self, team: int, spot, delay: float) -> int:
         """A long-throw specialist: the strong, aggressive player who can reach the spot in time."""
@@ -1065,6 +1072,8 @@ class ActionsMixin:
         routine = self._plan_routine(kind, team, spot)
         if routine and routine.get("mode") == "long" and kind == "throw_in":
             taker = self._pick_thrower(team, spot, delay)
+        # Give the taker time to walk to the spot rather than appear there (a jog is about 5 m/s).
+        delay = max(delay, float(np.hypot(*(self.pos[taker] - spot))) / 5.0 + 0.5)
         self.restart = {
             "kind": kind, "team": team, "spot": spot, "at": self.t + delay, "taker": taker,
             "setpiece": setpiece, "routine": routine,

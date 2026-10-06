@@ -127,7 +127,7 @@ def build_server(registry: MatchRegistry | None = None, path: str = "/mcp") -> F
         if event_id not in ip.by_id:
             raise ValueError(f"unknown event {event_id!r}")
         before, after = max(0, min(before, 10)), max(0, min(after, 10))
-        evs = [e for e in ip.events if e["type"] not in ("team_shape", "distance_milestone", "possession_change", "space_control", "shape_profile", "player_load")]
+        evs = [e for e in ip.events if e["type"] not in ("team_shape", "distance_milestone", "possession_change", "space_control", "shape_profile", "player_load", "phase_change")]
         i = next(k for k, e in enumerate(evs) if e["id"] == event_id) if any(e["id"] == event_id for e in evs) else None
         if i is None:
             return [_slim(ip.by_id[event_id])]
@@ -230,6 +230,17 @@ def build_server(registry: MatchRegistry | None = None, path: str = "/mcp") -> F
         sh = _an(ip).shapes()[team]
         return {"team": team, "nominal": sh["nominal"], "designed": sh["designed"],
                 "defending": sh["def"]["measured"], "inPossession": sh["ip"]["measured"], "byBlock": sh["blocks"]}
+
+    @mcp.tool()
+    def get_phases_of_play(match_id: str, team: str) -> dict:
+        """How long the team spent in each phase of play (build-up, settled attack, press, mid block, low block), what set each press off, and the shape measured in each (line height, length, width), beside the shapes as designed."""
+        ip = reg.get(match_id)
+        _team(ip, team)
+        ph = _an(ip).phases()[team]
+        side = ip.meta["home" if team == ip.meta["home"]["id"] else "away"]
+        tags = {k: side["style"].get(k) for k in ("press_scheme", "on_loss", "on_win", "pivot", "fullbacks", "striker")}
+        return {"team": team, "designed": side.get("shapes"), "tags": tags, "share": ph["share"], "entries": ph["entries"],
+                "causes": ph["causes"], "measured": ph["measured"]}
 
     @mcp.tool()
     def get_line_breaks(match_id: str, top: int = 5) -> dict:

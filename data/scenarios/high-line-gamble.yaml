@@ -6,7 +6,7 @@ description: >-
   ball, but acres of space behind.
 home: KES
 away: ALD
-seed: 24
+seed: 53
 script:
   - at: "60:00"
     team: ALD

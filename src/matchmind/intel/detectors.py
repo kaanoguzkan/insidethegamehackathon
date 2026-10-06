@@ -56,7 +56,8 @@ def salience(ip: Interpreter, pack: dict, magnitude: float) -> float:
     close = len(score) == 2 and abs(score[0] - score[1]) <= 1
     ctx = 1.0 + (0.15 if clock["minute"] >= 75 else 0.0) + (0.15 if close else 0.0)
     ms = pack["detectedAt"]["matchMs"]
-    repeated = any(
+    # Every goal and sending-off is told; the novelty discount is for the repeated tendencies (tiring, pressing).
+    repeated = t not in ("goal", "red_card") and any(
         m["type"] == t and m["subjectTeam"] == pack["subjectTeam"] and ms - m["detectedAt"]["matchMs"] < 15 * 60000
         for m in ip.recent_moments
     )
@@ -187,6 +188,8 @@ def _pressure_shift(ip, t, now5, prev10, idx_now, idx_prev) -> list[dict]:
         kind, rel, sa, sb = _press_direction(ip, c, t)  # rel is the gap in metres
         if kind is None:
             continue
+        if kind == "pressure_collapse" and t >= 70 * 60_000 and ip.score.get(c, 0) - ip.score.get(o, 0) >= 2:
+            continue  # sitting on a two-goal lead late on is a choice (a low block), not a team running out of legs
         # A one-minute spike is noise; the shift has to hold at the previous evaluation too.
         prev_kind, _, _, _ = _press_direction(ip, c, t - cfg.eval_every_ms)
         if prev_kind != kind:

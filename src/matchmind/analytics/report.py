@@ -16,6 +16,7 @@ import numpy as np
 from ..core import geometry as G
 from .goalkeepers import goalkeeper_report
 from .measured_shape import measured_shapes
+from .phases import phases_report
 from .networks import passing_network
 from .pressing import pressing_report
 from .setpieces import set_piece_report
@@ -272,6 +273,9 @@ class MatchAnalytics:
     def pressing(self) -> dict:
         return pressing_report(self.ip.events, self.clubs)
 
+    def phases(self) -> dict:
+        return phases_report(self.ip.events, self.ip.meta, self.clubs, self.end_ms)
+
     # ----- players ------------------------------------------------------------------------------------------------------------------------
 
     def players_table(self) -> list[dict]:
@@ -362,6 +366,7 @@ class MatchAnalytics:
             "transitions": self.transitions(),
             "goalkeepers": self.goalkeepers(),
             "pressing": self.pressing(),
+            "phases": self.phases(),
             "players": table,
             "playerOfTheMatch": self.player_of_the_match(table),
             "pitch": {"length": G.PITCH_L, "width": G.PITCH_W},

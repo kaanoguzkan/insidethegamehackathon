@@ -25,7 +25,10 @@
     "build_up": "short",
     "corners": "short",
     "corner_defence": "zonal",
-    "long_throws": false
+    "long_throws": false,
+    "press_scheme": "zonal",
+    "on_loss": "counterpress",
+    "on_win": "keep"
    },
    "squad": [
     {
@@ -529,7 +532,10 @@
     "build_up": "mixed",
     "corners": "near",
     "corner_defence": "man",
-    "long_throws": false
+    "long_throws": false,
+    "press_scheme": "wide_trap",
+    "on_loss": "counterpress",
+    "on_win": "counter"
    },
    "squad": [
     {
@@ -1033,7 +1039,10 @@
     "build_up": "long",
     "corners": "far",
     "corner_defence": "man",
-    "long_throws": true
+    "long_throws": true,
+    "press_scheme": "zonal",
+    "on_loss": "regroup",
+    "on_win": "counter"
    },
    "squad": [
     {
@@ -1537,7 +1546,10 @@
     "build_up": "mixed",
     "corners": "mixed",
     "corner_defence": "zonal",
-    "long_throws": false
+    "long_throws": false,
+    "press_scheme": "man",
+    "on_loss": "counterpress",
+    "on_win": "keep"
    },
    "squad": [
     {
@@ -2041,7 +2053,10 @@
     "build_up": "long",
     "corners": "far",
     "corner_defence": "man",
-    "long_throws": false
+    "long_throws": false,
+    "press_scheme": "zonal",
+    "on_loss": "regroup",
+    "on_win": "counter"
    },
    "squad": [
     {
@@ -2545,7 +2560,10 @@
     "build_up": "short",
     "corners": "edge",
     "corner_defence": "mixed",
-    "long_throws": false
+    "long_throws": false,
+    "press_scheme": "wide_trap",
+    "on_loss": "regroup",
+    "on_win": "keep"
    },
    "squad": [
     {

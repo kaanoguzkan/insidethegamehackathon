@@ -7,7 +7,7 @@ description: >-
   notice and explain what happens next.
 home: RED
 away: SAL
-seed: 32
+seed: 75
 script:
   - at: "58:00"
     team: RED

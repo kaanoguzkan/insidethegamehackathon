@@ -8,6 +8,11 @@ A formation is not one shape. Teams change shape with the ball:
              wing-backs as wingers.
 * ``block``  the shape out of possession: a 3-4-3 becomes a 5-4-1 as the wing-backs drop in,
              a 4-3-3 becomes a 4-5-1 as the wingers track back, a 4-2-3-1 a 4-4-1-1.
+* ``build``  the shape of the first phase of build-up, with the ball in the own third: the centre-backs
+             split, the pivot drops, the fullbacks and forwards hold their width (a 4-3-3 starts as a 4-1-2-3).
+* ``press``  the shape when the team presses high: the front line is pushed up and angled to cut passing
+             lanes (a 4-2-3-1 presses as a 4-4-2, the wing-backs of a 3-4-3 jump onto the fullbacks).
+* ``low``    a compact low block, derived from ``block`` (used when protecting a lead or by cautious clubs).
 
 Each layout lists ``(depth, width)`` for the ten outfield slots in the order of ``base``.
 Depth is only an ordering that is stretched between the team's back and front lines each tick
@@ -27,6 +32,12 @@ STRIKER = ("target", "false9")
 BUILD_UP = ("short", "mixed", "long")
 CORNERS = ("mixed", "near", "far", "short", "edge")
 CORNER_DEFENCE = ("zonal", "man", "mixed")
+# How the team presses: by zone, funnelling play to the touchline and jumping on the ball there, or man for man.
+PRESS_SCHEME = ("zonal", "wide_trap", "man")
+# The first five seconds after losing the ball: swarm it, or drop straight back into shape.
+ON_LOSS = ("counterpress", "regroup")
+# The first seven seconds after winning it: break at once, or keep the shape and build.
+ON_WIN = ("counter", "keep")
 
 TAGS: dict[str, tuple[str, ...]] = {
     "fullbacks": FULLBACKS,
@@ -35,6 +46,9 @@ TAGS: dict[str, tuple[str, ...]] = {
     "build_up": BUILD_UP,
     "corners": CORNERS,
     "corner_defence": CORNER_DEFENCE,
+    "press_scheme": PRESS_SCHEME,
+    "on_loss": ON_LOSS,
+    "on_win": ON_WIN,
 }
 
 Slot = tuple[str, float, float]
@@ -189,6 +203,64 @@ FORMATIONS_FULL: dict[str, dict] = {
 }
 
 
+# Build-up and pressing shapes for every formation, in the slot order of ``base``. The depths are only an
+# ordering (see shape.py); what matters is who is level with whom and how wide each line stands.
+PHASE_LAYOUTS: dict[str, dict[str, Layout]] = {
+    "4-3-3": {
+        # 4-1-2-3: split centre-backs, a single pivot, two eights in the half-spaces, the front three pinning
+        "build": [(.28, .08), (.18, .30), (.18, .70), (.28, .92), (.34, .50), (.46, .26), (.46, .74), (.74, .10), (.86, .50), (.74, .90)],
+        # front-three press: the wingers curve in to shadow the fullbacks, the nine screens the pivot
+        "press": [(.30, .12), (.24, .38), (.24, .62), (.30, .88), (.46, .50), (.58, .32), (.58, .68), (.84, .22), (.92, .50), (.84, .78)],
+    },
+    "4-2-3-1": {
+        "build": [(.30, .08), (.18, .32), (.18, .68), (.30, .92), (.36, .38), (.36, .62), (.60, .12), (.58, .50), (.60, .88), (.84, .50)],
+        # the ten steps up beside the striker: a 4-4-2 press
+        "press": [(.28, .12), (.24, .38), (.24, .62), (.28, .88), (.44, .38), (.44, .62), (.62, .16), (.86, .40), (.62, .84), (.88, .60)],
+    },
+    "4-4-2": {
+        "build": [(.30, .06), (.18, .34), (.18, .66), (.30, .94), (.50, .10), (.40, .40), (.40, .60), (.50, .90), (.78, .40), (.78, .60)],
+        # the pair split the centre-backs, the banks step up together
+        "press": [(.28, .18), (.24, .40), (.24, .60), (.28, .82), (.50, .18), (.48, .40), (.48, .60), (.50, .82), (.88, .36), (.88, .64)],
+    },
+    "4-1-4-1": {
+        "build": [(.30, .08), (.18, .34), (.18, .66), (.30, .92), (.34, .50), (.54, .12), (.46, .34), (.46, .66), (.54, .88), (.82, .50)],
+        "press": [(.28, .14), (.24, .38), (.24, .62), (.28, .86), (.44, .50), (.64, .14), (.58, .36), (.58, .64), (.64, .86), (.90, .50)],
+    },
+    "3-5-2": {
+        # a wide back three with the pivot between, the wing-backs level with the eights
+        "build": [(.22, .20), (.18, .50), (.22, .80), (.46, .05), (.50, .30), (.34, .50), (.50, .70), (.46, .95), (.80, .40), (.80, .60)],
+        # the wing-backs jump onto the fullbacks and the back three stays tight behind them
+        "press": [(.24, .28), (.22, .50), (.24, .72), (.58, .06), (.56, .34), (.46, .50), (.56, .66), (.58, .94), (.90, .38), (.90, .62)],
+    },
+    "3-4-3": {
+        "build": [(.22, .22), (.18, .50), (.22, .78), (.40, .05), (.40, .38), (.40, .62), (.40, .95), (.72, .14), (.84, .50), (.72, .86)],
+        # a mirror press: every opposing line is matched by one of ours
+        "press": [(.26, .28), (.22, .50), (.26, .72), (.62, .06), (.54, .36), (.54, .64), (.62, .94), (.86, .18), (.94, .50), (.86, .82)],
+    },
+    "3-4-2-1": {
+        "build": [(.22, .22), (.18, .50), (.22, .78), (.42, .05), (.40, .38), (.40, .62), (.42, .95), (.62, .30), (.62, .70), (.82, .50)],
+        "press": [(.26, .28), (.22, .50), (.26, .72), (.58, .06), (.52, .38), (.52, .62), (.58, .94), (.78, .34), (.78, .66), (.92, .50)],
+    },
+    "5-3-2": {
+        "build": [(.22, .24), (.18, .50), (.22, .76), (.40, .05), (.40, .95), (.34, .50), (.46, .32), (.46, .68), (.78, .40), (.78, .60)],
+        # a trigger press from a back five: the wing-backs hold until the cue
+        "press": [(.24, .32), (.22, .50), (.24, .68), (.40, .08), (.40, .92), (.42, .50), (.52, .34), (.52, .66), (.84, .40), (.84, .60)],
+    },
+    "4-3-1-2": {
+        "build": [(.30, .06), (.18, .34), (.18, .66), (.30, .94), (.34, .50), (.46, .28), (.46, .72), (.64, .50), (.80, .40), (.80, .60)],
+        # a narrow diamond press: it shuts the middle and invites play wide, where the fullbacks jump
+        "press": [(.28, .16), (.24, .40), (.24, .60), (.28, .84), (.44, .50), (.56, .30), (.56, .70), (.76, .50), (.90, .42), (.90, .58)],
+    },
+}
+assert set(PHASE_LAYOUTS) == set(FORMATIONS_FULL)
+
+LAYOUT_PHASES = ("base", "attack", "block", "build", "press", "low")
+# The five phases a team works in: two with the ball (build-up in the own third, then the settled attack)
+# and three without it (press, mid block, low block). Order matters: it indexes the blend weights.
+PHASES = ("build", "attack", "press", "block", "low")
+BUILD_ZONE = 36.0  # metres from the own goal: the ball is still in the first phase of build-up
+
+
 def formation_names() -> list[str]:
     return sorted(FORMATIONS_FULL)
 
@@ -198,6 +270,10 @@ def layout(name: str, phase: str) -> Layout:
     f = FORMATIONS_FULL[name]
     if phase == "base":
         return [(d, w) for _, d, w in f["base"][1:]]
+    if phase in ("build", "press"):
+        return list(PHASE_LAYOUTS[name][phase])
+    if phase == "low":  # the block, squeezed: shorter and narrower, everyone within reach of the box
+        return [(d * 0.82, 0.5 + (w - 0.5) * 0.86) for d, w in f["block"]]
     return list(f[phase])
 
 
@@ -205,8 +281,13 @@ def roles(name: str) -> list[str]:
     return [r for r, _, _ in FORMATIONS_FULL[name]["base"][1:]]
 
 
-def apply_attack_tags(name: str, attack: Layout, tags: dict[str, str]) -> Layout:
-    """Adjust the in-possession layout for how a club plays it (tags are club dials)."""
+def apply_attack_tags(name: str, attack: Layout, tags: dict[str, str], build: bool = False) -> Layout:
+    """Adjust an in-possession layout for how a club plays it (tags are club dials).
+
+    ``build`` is the first phase of build-up, where the same tags read differently: the fullbacks stay deeper
+    (inverted ones tuck in beside the pivot rather than level with the eights) and the false nine has already
+    dropped to link play.
+    """
     out = [list(p) for p in attack]
     rs = roles(name)
     fb = tags.get("fullbacks", "hold")
@@ -214,9 +295,9 @@ def apply_attack_tags(name: str, attack: Layout, tags: dict[str, str]) -> Layout
         left = out[i][1] < 0.5
         if r in ("LB", "RB"):
             if fb == "overlap":
-                out[i] = [max(out[i][0], 0.62), 0.04 if left else 0.96]
+                out[i] = [max(out[i][0], 0.44 if build else 0.62), 0.04 if left else 0.96]
             elif fb == "inverted":
-                out[i] = [0.48, 0.30 if left else 0.70]
+                out[i] = [0.36 if build else 0.48, 0.30 if left else 0.70]
     if fb in ("overlap", "inverted"):
         for i, r in enumerate(rs):
             if r in ("LW", "LM") or r in ("RW", "RM"):
@@ -242,7 +323,7 @@ def apply_attack_tags(name: str, attack: Layout, tags: dict[str, str]) -> Layout
     if tags.get("striker") == "false9":
         sts = [i for i, r in enumerate(rs) if r == "ST"]
         if len(sts) == 1:  # the nine drops into midfield, the wingers attack the space behind
-            out[sts[0]][0] = 0.68
+            out[sts[0]][0] = 0.60 if build else 0.68
             for i, r in enumerate(rs):
                 if r in ("LW", "RW", "LM", "RM"):
                     left = out[i][1] < 0.5
@@ -265,22 +346,51 @@ def describe_shapes(name: str, tags: dict[str, str]) -> dict[str, str]:
     attack = ATTACK_LABEL[name]
     if tags.get("pivot") == "drop":
         attack = ATTACK_LABEL_PIVOT_DROP.get(name, attack)
+    build = BUILD_LABEL[name]
+    if tags.get("pivot") == "drop":
+        build = BUILD_LABEL_PIVOT_DROP.get(name, build)
     return {
         "base": name,
         "attack": attack,
         "block": _line_label(roles(name), layout(name, "block")),
+        "build": build,
+        "press": PRESS_LABEL[name],
+        "rest": rest_defence(name),
         "blurb": f["blurb"],
     }
 
 
-def _line_label(rs: list[str], lay: Layout) -> str:
+# How analysts name the first phase of build-up, and the shape the team presses in. Pressing mostly keeps the
+# nominal shape (what changes is how high it stands and who jumps), except where a player changes line.
+BUILD_LABEL = {
+    "4-3-3": "4-1-2-3", "4-2-3-1": "4-2-3-1", "4-4-2": "4-4-2", "4-1-4-1": "4-1-4-1", "4-3-1-2": "4-1-2-1-2",
+    "3-5-2": "3-1-4-2", "3-4-3": "3-4-3", "3-4-2-1": "3-4-2-1", "5-3-2": "3-1-4-2",
+}  # fmt: skip
+PRESS_LABEL = {
+    "4-3-3": "4-3-3", "4-2-3-1": "4-4-2", "4-4-2": "4-4-2", "4-1-4-1": "4-1-4-1", "4-3-1-2": "4-3-1-2",
+    "3-5-2": "3-5-2", "3-4-3": "3-4-3", "3-4-2-1": "3-4-2-1", "5-3-2": "5-3-2",
+}  # fmt: skip
+# With the lone pivot dropping between the centre-backs the first phase of build-up is a back three.
+BUILD_LABEL_PIVOT_DROP = {"4-3-3": "3-2-2-3", "4-2-3-1": "3-2-1-3-1", "4-1-4-1": "3-2-4-1", "4-3-1-2": "3-2-2-1-2"}
+
+
+def rest_defence(name: str) -> str:
+    """Who stays behind the ball when the team attacks, as role codes (``CB CB DM``): the cover against the counter."""
+    lay = layout(name, "attack")
+    rs = roles(name)
+    deep = sorted(range(10), key=lambda i: lay[i][0])
+    keep = [i for i in deep if lay[i][0] <= 0.30 or (rs[i] == "DM" and lay[i][0] <= 0.47)]
+    return " ".join(rs[i] for i in keep)
+
+
+def _line_label(rs: list[str], lay: Layout, gap: float = 0.10) -> str:
     """Cluster outfield players into lines by depth gaps and write them like '3-2-5'."""
     order = sorted(range(len(lay)), key=lambda i: lay[i][0])
     lines: list[int] = []
     prev = None
     for i in order:
         d = lay[i][0]
-        if prev is None or d - prev > 0.10:
+        if prev is None or d - prev > gap:
             lines.append(0)
         lines[-1] += 1
         prev = d
