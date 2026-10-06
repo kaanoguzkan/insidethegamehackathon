@@ -105,6 +105,9 @@ export interface Shapes {
   base: string
   attack: string
   block: string
+  build?: string
+  press?: string
+  rest?: string // who stays behind the ball when the team attacks, as role codes
   blurb?: string
 }
 

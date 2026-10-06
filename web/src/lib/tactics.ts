@@ -8,6 +8,9 @@ export interface FormationNow {
   name: string
   attack: string | null
   block: string | null
+  build: string | null
+  press: string | null
+  rest: string | null
   changed: boolean
 }
 
@@ -18,6 +21,9 @@ export function formationAt(replay: Replay, team: TeamMeta, ms: number): Formati
     name: team.startFormation ?? team.formation,
     attack: start?.attack ?? null,
     block: start?.block ?? null,
+    build: start?.build ?? null,
+    press: start?.press ?? null,
+    rest: start?.rest ?? null,
     changed: false,
   }
   for (const e of replay.events) {
@@ -28,6 +34,9 @@ export function formationAt(replay: Replay, team: TeamMeta, ms: number): Formati
         name: String(a.formation ?? now.name),
         attack: typeof a.attack === 'string' ? a.attack : null,
         block: typeof a.block === 'string' ? a.block : null,
+        build: typeof a.build === 'string' ? a.build : null,
+        press: typeof a.press === 'string' ? a.press : null,
+        rest: typeof a.rest === 'string' ? a.rest : null,
         changed: true,
       }
     }
@@ -35,7 +44,7 @@ export function formationAt(replay: Replay, team: TeamMeta, ms: number): Formati
   return now
 }
 
-export type TagKey = 'fullbacks' | 'pivot' | 'striker' | 'build_up' | 'corners' | 'corner_defence' | 'long_throws'
+export type TagKey = 'fullbacks' | 'pivot' | 'striker' | 'build_up' | 'corners' | 'corner_defence' | 'long_throws' | 'press_scheme' | 'on_loss' | 'on_win'
 
 const DEFAULTS: Record<TagKey, string | boolean> = {
   fullbacks: 'hold',
@@ -45,6 +54,9 @@ const DEFAULTS: Record<TagKey, string | boolean> = {
   corners: 'mixed',
   corner_defence: 'zonal',
   long_throws: false,
+  press_scheme: 'zonal',
+  on_loss: 'counterpress',
+  on_win: 'counter',
 }
 
 /** The club's notable tactic tags as i18n keys (`tag.fullbacks.overlap` ...). Defaults are not worth showing. */

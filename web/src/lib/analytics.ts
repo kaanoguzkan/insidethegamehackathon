@@ -202,6 +202,18 @@ export interface SeasonContext {
   ratings: Record<string, { att: number; def: number; xgFor: number | null; xgAgainst: number | null }>
 }
 
+/** The five working phases of a team, in the order the simulator indexes them. */
+export const PHASES = ['build', 'attack', 'press', 'block', 'low'] as const
+export type Phase = (typeof PHASES)[number]
+
+export interface PhaseTeam {
+  segments: [number, number][] // [start ms, phase index]
+  share: Record<Phase, number>
+  entries: Record<Phase, number>
+  causes: Partial<Record<Phase, Record<string, number>>>
+  measured: Partial<Record<Phase, { seconds: number; lineHeightM: number; lengthM: number; widthM: number }>>
+}
+
 export interface Analytics {
   version: number
   clubs: string[]
@@ -217,6 +229,7 @@ export interface Analytics {
   setPieces: { teams: Record<string, SetPieceTeam> }
   transitions: Record<string, Transition>
   goalkeepers: Record<string, Keeper>
+  phases?: Record<string, PhaseTeam>
   pressing: Record<string, { pressures: number; ppdaByZone: Record<string, number | null>; zoneShare: Record<string, number>; triggerShare: Record<string, number> }>
   players: PlayerRow[]
   playerOfTheMatch: PlayerRow | null
@@ -245,6 +258,20 @@ export function winProbAt(a: Analytics | null | undefined, ms: number): WinPoint
     draw: a0.p.draw + (a1.p.draw - a0.p.draw) * f,
     away: a0.p.away + (a1.p.away - a0.p.away) * f,
   }
+}
+
+/** The phase a team is in at a match time (the last segment that started by then). */
+export function phaseAt(a: Analytics | null | undefined, club: string, ms: number): Phase | null {
+  const seg = a?.phases?.[club]?.segments
+  if (!seg || !seg.length) return null
+  let lo = 0
+  let hi = seg.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1
+    if (seg[mid][0] <= ms) lo = mid
+    else hi = mid - 1
+  }
+  return PHASES[seg[lo][1]] ?? null
 }
 
 export const pct = (v: number, digits = 0) => `${(v * 100).toFixed(digits)}%`

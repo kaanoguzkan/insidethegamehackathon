@@ -5,6 +5,7 @@ import type { Lang } from '../../lib/types'
 import { DeadBallView } from './DeadBallView'
 import { NetworkView } from './NetworkView'
 import { PhysicalView } from './PhysicalView'
+import { PhasesView } from './PhasesView'
 import { PlayersView } from './PlayersView'
 import { SeasonView } from './SeasonView'
 import { ShapeView } from './ShapeView'
@@ -16,7 +17,7 @@ import { WinProbView } from './WinProb'
 
 const VIEWS = {
   win: WinProbView, shots: ShotsView, value: ValueView, network: NetworkView, shape: ShapeView,
-  space: SpaceView, players: PlayersView, dead: DeadBallView, trans: TransitionsView, physical: PhysicalView, season: SeasonView,
+  space: SpaceView, players: PlayersView, phases: PhasesView, dead: DeadBallView, trans: TransitionsView, physical: PhysicalView, season: SeasonView,
 }
 export type ViewId = keyof typeof VIEWS
 
@@ -25,7 +26,7 @@ export const GROUPS: { id: string; views: ViewId[] }[] = [
   { id: 'match', views: ['win', 'shots', 'value'] },
   { id: 'space', views: ['shape', 'space', 'network'] },
   { id: 'people', views: ['players', 'physical'] },
-  { id: 'phases', views: ['dead', 'trans'] },
+  { id: 'phases', views: ['phases', 'dead', 'trans'] },
   { id: 'context', views: ['season'] },
 ]
 

@@ -471,3 +471,30 @@ body:has(.broadcast) { background: transparent; }
   .ov-bottom-left { max-width: calc(100% - 20px); }
   .overlay-layer > .ov-bottom-right { display: none; }
 }
+
+/* ---------- phases of play: build-up, attack, press, mid block, low block ---------- */
+:root {
+  --ph-build: #7fb4ff;
+  --ph-attack: #4ed19a;
+  --ph-press: #ff9a5c;
+  --ph-block: #98a79d;
+  --ph-low: #6b7280;
+}
+.ph-build { --ph: var(--ph-build); } .ph-attack { --ph: var(--ph-attack); } .ph-press { --ph: var(--ph-press); }
+.ph-block { --ph: var(--ph-block); } .ph-low { --ph: var(--ph-low); }
+.ph-dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px; background: var(--ph); vertical-align: middle; }
+.ph-fill { fill: var(--ph); }
+.phase-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 2px 10px 2px 8px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--ph) 70%, transparent); background: color-mix(in srgb, var(--ph) 16%, transparent); color: var(--text); white-space: nowrap; }
+.phase-chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--ph); }
+.phase-chip small { color: var(--muted); font-weight: 600; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.sh-side { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sh-side.home { align-items: flex-end; } .sh-side.away { align-items: flex-start; }
+.tt-now { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 12.5px; color: var(--muted); }
+.shapes .shape-row { display: contents; }
+.shapes .shape-row.now dt, .shapes .shape-row.now dd { color: var(--text); }
+.shapes .shape-row.now dd { text-shadow: 0 0 0 var(--accent); }
+.ph-timeline { width: 100%; height: 18px; display: block; border-radius: 4px; background: var(--surface-2); }
+.ph-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 4px; padding: 0; font-size: 12px; color: var(--muted); }
+.ph-team { min-width: 0; }
+.ph-team .tt-head { margin-bottom: 8px; }
+@media (max-width: 760px) { .sh-side .phase-chip small { display: none; } }

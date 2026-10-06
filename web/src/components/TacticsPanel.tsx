@@ -1,8 +1,10 @@
 import { t } from '../i18n'
+import { type Phase, phaseAt } from '../lib/analytics'
 import type { Replay } from '../lib/data'
 import { CORNER_ORDER, formationAt, setPieceCounts, tagKeys, totalCorners } from '../lib/tactics'
 import type { Lang, TeamMeta } from '../lib/types'
 import { Crest } from './Crest'
+import { PhaseChip, shapeFor } from './PhaseChip'
 
 function TeamTactics({ replay, team, ms, lang }: { replay: Replay; team: TeamMeta; ms: number; lang: Lang }) {
   const f = formationAt(replay, team, ms)
@@ -14,6 +16,8 @@ function TeamTactics({ replay, team, ms, lang }: { replay: Replay; team: TeamMet
     [t(lang, 'goalKicks'), sp.goalKicks.short + sp.goalKicks.long, `${t(lang, 'gkShort')} ${sp.goalKicks.short} · ${t(lang, 'gkLong')} ${sp.goalKicks.long}`],
   ]
   if (sp.longThrows > 0) rows.push([t(lang, 'longThrows'), sp.longThrows, ''])
+  const now = phaseAt(replay.analytics, team.id, ms)
+  const shapeRows: [Phase, string | null][] = [['build', f.build], ['attack', f.attack], ['press', f.press], ['block', f.block]]
   return (
     <div className="tt">
       <div className="tt-head">
@@ -22,10 +26,23 @@ function TeamTactics({ replay, team, ms, lang }: { replay: Replay; team: TeamMet
         <span className="formation">{f.name}</span>
         {f.changed && <em className="changed">{t(lang, 'changedShape')}</em>}
       </div>
-      {(f.attack || f.block) && (
+      {now && (
+        <p className="tt-now"><span>{t(lang, 'ph.now')}</span><PhaseChip phase={now} shape={shapeFor(now, f)} lang={lang} /></p>
+      )}
+      {shapeRows.some(([, v]) => v) && (
         <dl className="shapes">
-          {f.attack && (<><dt>{t(lang, 'builds')}</dt><dd>{f.attack}</dd></>)}
-          {f.block && (<><dt>{t(lang, 'defends')}</dt><dd>{f.block}</dd></>)}
+          {shapeRows.map(([ph, v]) => v && (
+            <div key={ph} className={`shape-row${now === ph || (ph === 'block' && now === 'low') ? ' now' : ''}`}>
+              <dt><i className={`ph-dot ph-${ph}`} aria-hidden="true" />{t(lang, `phase.${ph}`)}</dt>
+              <dd>{v}</dd>
+            </div>
+          ))}
+          {f.rest && (
+            <div className="shape-row">
+              <dt>{t(lang, 'ph.rest')}</dt>
+              <dd>{f.rest}</dd>
+            </div>
+          )}
         </dl>
       )}
       <ul className="tags">

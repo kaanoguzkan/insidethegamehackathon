@@ -3,7 +3,7 @@ import { gunzipSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
 import { buildHash, parseHash } from '../hooks/useHash'
 import { clockAt, totalMs } from './clock'
-import { winProbAt, type Analytics } from './analytics'
+import { phaseAt, winProbAt, type Analytics } from './analytics'
 import { covers } from './cohort'
 import { homeControl, homeShare, NX, NY } from './control'
 import { convexHull, defensiveLine, laneBlock, offsideLineX, passingLanes, polygonArea } from './geometry'
@@ -328,5 +328,19 @@ describe('the three-step path lives in the URL', () => {
     expect(h).toContain('step=understand')
     expect(h).not.toContain('tab=')
     expect(buildHash(parseHash('#/?match=x'))).not.toContain('step=')
+  })
+})
+
+describe('phases of play', () => {
+  const a = { phases: { KES: { segments: [[0, 1], [10_000, 2], [25_000, 3]], share: {}, entries: {}, causes: {}, measured: {} } } } as unknown as Analytics
+  it('finds the phase a team is in at any time', () => {
+    expect(phaseAt(a, 'KES', 0)).toBe('attack')
+    expect(phaseAt(a, 'KES', 9_999)).toBe('attack')
+    expect(phaseAt(a, 'KES', 10_000)).toBe('press')
+    expect(phaseAt(a, 'KES', 999_999)).toBe('block')
+  })
+  it('says nothing when the package has no phases', () => {
+    expect(phaseAt(a, 'ALD', 5_000)).toBeNull()
+    expect(phaseAt(null, 'KES', 5_000)).toBeNull()
   })
 })

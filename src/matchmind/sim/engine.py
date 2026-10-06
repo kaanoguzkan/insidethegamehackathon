@@ -393,7 +393,7 @@ class MatchSim(ShapeMixin, SetPieceMixin, ActionsMixin):
         shapes = describe_shapes(name, self.style[team].tags)
         self.emit(
             "formation_change", team=team, formation=name, previous=old,
-            attack=shapes["attack"], block=shapes["block"], outcome=None,
+            attack=shapes["attack"], block=shapes["block"], build=shapes["build"], press=shapes["press"], rest=shapes["rest"], outcome=None,
         )  # fmt: skip
 
     def _substitute(self, team: int) -> None:

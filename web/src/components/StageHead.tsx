@@ -1,9 +1,11 @@
-import { winProbAt } from '../lib/analytics'
+import { phaseAt, winProbAt } from '../lib/analytics'
 import { clockAt } from '../lib/clock'
 import type { Replay } from '../lib/data'
 import type { Lang } from '../lib/types'
 import { t } from '../i18n'
+import { formationAt } from '../lib/tactics'
 import { Crest } from './Crest'
+import { PhaseChip, shapeFor } from './PhaseChip'
 
 export function scoreAt(replay: Replay, ms: number): Record<string, number> {
   const s: Record<string, number> = { [replay.meta.home.id]: 0, [replay.meta.away.id]: 0 }
@@ -20,11 +22,18 @@ export function StageHead({ replay, ms, lang }: { replay: Replay; ms: number; la
   const score = scoreAt(replay, ms)
   const clock = clockAt(replay.meta, ms)
   const wp = winProbAt(replay.analytics, ms)
+  const chip = (team: typeof home) => {
+    const ph = phaseAt(replay.analytics, team.id, ms)
+    return <PhaseChip phase={ph} shape={ph ? shapeFor(ph, formationAt(replay, team, ms)) : null} lang={lang} />
+  }
   return (
     <header className="stage-head" aria-label={`${home.name} ${score[home.id]}, ${away.name} ${score[away.id]}, ${clock.label}`}>
-      <div className="sh-team home">
-        <span className="sh-name">{home.short}</span>
-        <Crest team={home} size={28} />
+      <div className="sh-side home">
+        <div className="sh-team home">
+          <span className="sh-name">{home.short}</span>
+          <Crest team={home} size={28} />
+        </div>
+        {chip(home)}
       </div>
       <div className="sh-mid">
         <div className="sh-score" aria-hidden="true">
@@ -37,9 +46,12 @@ export function StageHead({ replay, ms, lang }: { replay: Replay; ms: number; la
           <small>{clock.period === 1 ? t(lang, 'firstHalf') : t(lang, 'secondHalf')}</small>
         </div>
       </div>
-      <div className="sh-team away">
-        <Crest team={away} size={28} />
-        <span className="sh-name">{away.short}</span>
+      <div className="sh-side away">
+        <div className="sh-team away">
+          <Crest team={away} size={28} />
+          <span className="sh-name">{away.short}</span>
+        </div>
+        {chip(away)}
       </div>
       {wp && (
         <div className="sh-wp" role="img" aria-label={`${t(lang, 'winShort')}: ${home.short} ${Math.round(wp.home * 100)}%, ${t(lang, 'wp.draw')} ${Math.round(wp.draw * 100)}%, ${away.short} ${Math.round(wp.away * 100)}%`}>
