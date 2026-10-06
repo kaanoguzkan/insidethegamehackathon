@@ -16,8 +16,8 @@ import numpy as np
 from ..core import geometry as G
 from .goalkeepers import goalkeeper_report
 from .measured_shape import measured_shapes
-from .phases import phases_report
 from .networks import passing_network
+from .phases import phases_report
 from .pressing import pressing_report
 from .setpieces import set_piece_report
 from .shots import shot_list, xg_race

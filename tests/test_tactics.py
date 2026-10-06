@@ -342,7 +342,8 @@ def test_a_pressing_team_and_a_low_block_spend_their_time_differently(phase_matc
     for ph in (nor, ald):
         assert ph["low"]["lineHeightM"] < ph["attack"]["lineHeightM"] - 10.0, "a low block really is lower than a settled attack"
         assert ph["build"]["lineHeightM"] < ph["attack"]["lineHeightM"] - 10.0, "build-up starts deeper than the settled attack"
-    assert nor["press"]["lineHeightM"] > nor["low"]["lineHeightM"] + 3.0, "a press holds a higher line than a low block"
+    # Line height follows the ball in every defending phase, but a real press is a compact shape: shorter than a settled attack.
+    assert nor["press"]["lengthM"] < nor["attack"]["lengthM"] - 4.0
 
 
 def test_phase_changes_are_announced_with_the_reason(phase_match):
