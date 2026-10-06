@@ -293,7 +293,10 @@ def test_a_scripted_formation_change_reassigns_players_and_is_recorded(clubs):
     fc = [e for e in res.events if e["type"] == "formation_change"]
     shapes = TA.describe_shapes("5-3-2", clubs["NOR"].style.tags)
     assert len(fc) == 1
-    assert fc[0]["attributes"] == {"formation": "5-3-2", "previous": "4-2-3-1", "attack": shapes["attack"], "block": "5-3-2"}
+    assert fc[0]["attributes"] == {
+        "formation": "5-3-2", "previous": "4-2-3-1", "attack": shapes["attack"], "block": "5-3-2",
+        "build": shapes["build"], "press": shapes["press"], "rest": shapes["rest"],
+    }
     assert res.meta["away"]["formation"] == "5-3-2" and res.meta["away"]["startFormation"] == "4-2-3-1"
     assert res.meta["away"]["shapes"]["block"] == "4-4-1-1"  # the start formation's shapes are kept for the team sheet
 
