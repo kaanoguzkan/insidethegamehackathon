@@ -498,3 +498,12 @@ body:has(.broadcast) { background: transparent; }
 .ph-team { min-width: 0; }
 .ph-team .tt-head { margin-bottom: 8px; }
 @media (max-width: 760px) { .sh-side .phase-chip small { display: none; } }
+
+/* ---------- 3D pitch ---------- */
+.pitch-3d { position: relative; }
+.pitch-3d .p3d-gl, .pitch-3d .p3d-labels { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.pitch-3d .p3d-gl { cursor: grab; touch-action: none; }
+.pitch-3d .p3d-gl:active { cursor: grabbing; }
+.pitch-3d .p3d-labels { pointer-events: none; }
+.check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.seg button:disabled { opacity: 0.4; cursor: not-allowed; }

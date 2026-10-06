@@ -12,6 +12,7 @@ import { buildHash, STEPS, type Step, useRoute } from './hooks/useHash'
 import { t } from './i18n'
 import { totalMs } from './lib/clock'
 import { LAYER_KEYS, NO_LAYERS, type Layers } from './lib/layers'
+import type { Cam } from './lib/webgl'
 import { type Health, loadIndex, loadReplay, loadVariant, overlaysFor, type Replay } from './lib/data'
 import { DEFAULT_PROFILE, type Overlay, type Profile, type ReplayIndexEntry } from './lib/types'
 
@@ -78,6 +79,7 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
   const [layers, setLayers] = useState<Layers>(NO_LAYERS)
   const [railTab, setRailTab] = useState<RailTab>('story')
   const step = route.step
+  const cam: Cam = route.cam ?? (typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches ? '2d' : 'bc')
   const exploreTab: ViewId = isViewId(route.tab) ? route.tab : 'win'
   const [health, setHealth] = useState<Health>('healthy')
   const [variants, setVariants] = useState<Partial<Record<Health, Overlay[]>>>({})
@@ -135,7 +137,7 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
     )
   }
 
-  const broadcastHref = buildHash({ view: 'broadcast', match: replay.id, profile, split: false, t: Math.round(ms / 60000), step: 'watch', tab: null })
+  const broadcastHref = buildHash({ view: 'broadcast', match: replay.id, profile, split: false, t: Math.round(ms / 60000), step: 'watch', tab: null, cam: null, follow: false })
   const onLayer = (k: (typeof LAYER_KEYS)[number]) => setLayers((l) => ({ ...l, [k]: !l[k] }))
   const onLens = (keys: (keyof Layers)[], on: boolean) => setLayers((l) => ({ ...l, ...Object.fromEntries(keys.map((k) => [k, on])) }))
   const screens = route.split
@@ -206,7 +208,7 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
           <div className="stage-slot">
             {screens.map((sc, i) => (
               <div className="cell" key={i}>
-                <Screen replay={replay} ms={ms} msRef={msRef} profile={sc.profile} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} layers={layers} title={sc.title} />
+                <Screen replay={replay} ms={ms} msRef={msRef} profile={sc.profile} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} layers={layers} title={sc.title} cam={cam} follow={route.follow} />
               </div>
             ))}
           </div>
@@ -218,7 +220,7 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
         )}
       </main>
 
-      <MatchStrip replay={replay} ms={ms} playing={playing} speed={speed} lang={lang} layers={layers} selected={selected} toggle={toggle} setSpeed={setSpeed} seek={seek} onPick={pick} onLayer={onLayer} onClearLayers={() => setLayers(NO_LAYERS)} />
+      <MatchStrip replay={replay} ms={ms} playing={playing} speed={speed} lang={lang} layers={layers} selected={selected} cam={cam} follow={route.follow} onCam={(c) => setRoute({ cam: c })} onFollow={(on) => setRoute({ follow: on })} toggle={toggle} setSpeed={setSpeed} seek={seek} onPick={pick} onLayer={onLayer} onClearLayers={() => setLayers(NO_LAYERS)} />
       <EvidenceDrawer moment={moment} replay={replay} lang={lang} onClose={() => setSelected(null)} onSeek={seek} showOnPitch={showOnPitch} setShowOnPitch={setShowOnPitch} health={health} />
       <footer className="foot">
         <span>{t(lang, 'synthetic')}</span>

@@ -22,7 +22,7 @@ The pitch always fits the screen. Depth comes from three steps in the top bar (k
 | **2 Understand** | Why did it happen? | The recap in your language and tone, the tactics of both teams, the moments; **Why?** on any graphic opens the evidence drawer (explanation, caveats, before/after numbers, agent trace). |
 | **3 Explore** | What do the numbers say? | Eleven analytics views grouped by question (the match, shape and space, players, phases of play, context). Views that have a pitch drawing offer **Show on pitch**. |
 
-The match strip at the bottom never goes away: play, speed, **Lenses** (pitch control, team shape, offside line, passing options, runs) and a draggable ribbon of win probability, momentum, chaos and pressure with the key moments marked. Viewer settings (analyst or casual, language, club, followed player, accessibility, two viewers side by side) and the model-health switch live in menus in the top bar. The whole view is in the URL, so any state can be shared.
+The match strip at the bottom never goes away: play, speed, **View** (2D or 3D, camera angle, follow the ball), **Lenses** (pitch control, team shape, offside line, passing options, runs) and a draggable ribbon of win probability, momentum, chaos and pressure with the key moments marked. Viewer settings (analyst or casual, language, club, followed player, accessibility, two viewers side by side) and the model-health switch live in menus in the top bar. The whole view is in the URL, so any state can be shared.
 
 ## The pipeline
 
@@ -59,6 +59,12 @@ offside line, passing options, run trails).
 
 ![Pitch control and team shape over the match](docs/img/pitch-control.png)
 
+The pitch can also be watched in **3D**: a WebGL scene with the same live graphics drawn on the grass, three cameras
+(broadcast, behind the goal, from above), drag to turn and scroll to zoom, and a camera that follows the ball. It loads
+only when used, and falls back to the flat pitch when a browser has no WebGL.
+
+![The same moment in 3D, with pitch control and team shape on the grass](docs/img/pitch-3d.png)
+
 Definitions, fitted-model diagnostics and honest limits: [docs/analytics.md](docs/analytics.md). Every replay also has a
 17-page **PDF report** that explains the match, the tactics in each phase, every position and every view
 ([docs/report.md](docs/report.md)); the match center links to it.
@@ -87,7 +93,7 @@ uv run matchmind build-pdf                          # the printable match report
 uv run matchmind fit-models                         # win probability, possession value, post-shot xG
 uv run matchmind build-season                       # the league's simulated history
 uv run pytest -m "not slow"                         # the fast suite
-cd web && pnpm install && pnpm dev                  # the match center (42 tests: pnpm test)
+cd web && pnpm install && pnpm dev                  # the match center (46 tests: pnpm test)
 ```
 
 No keys, network or GPU needed: the default model client answers from the template engine so the real
@@ -171,7 +177,7 @@ web/             React + TypeScript match center (replay player, overlays, evide
 data/            league, scenarios (3 stories), replay packages (3 matches, ~10 MB)
 infra/           Bicep + azure.yaml          schemas/   JSON Schemas of the public contracts
 docs/            architecture, tactics, analytics, metrics, agents, overlay contract, data card, responsible AI, Azure
-tests/ evals/    528 + 42 tests              SOLUTION PLAN.md   design, schedule, status
+tests/ evals/    528 + 46 tests              SOLUTION PLAN.md   design, schedule, status
 ```
 
 ## Honest limits

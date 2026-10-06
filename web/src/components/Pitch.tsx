@@ -3,10 +3,10 @@ import type { Replay } from '../lib/data'
 import { drawGraphic, drawLayers, type Labels, type Layers } from '../lib/layers'
 import type { MatchEvent, Overlay, TeamMeta } from '../lib/types'
 
-const L = 105
-const W = 68
-const PAD = 3 // metres of grass around the touchlines
-const SPRINT_TAG_KMH = 25 // a speed chip appears on a tagged player above this speed
+export const L = 105
+export const W = 68
+export const PAD = 3 // metres of grass around the touchlines
+export const SPRINT_TAG_KMH = 25 // a speed chip appears on a tagged player above this speed
 
 export interface PitchBadge {
   playerId: string
@@ -179,7 +179,7 @@ export function Pitch({ replay, msRef, focusPlayer, evidence, badges, layers, gr
   )
 }
 
-function drawPitch(ctx: CanvasRenderingContext2D, w: number, h: number, s: number, hc: boolean) {
+export function drawPitch(ctx: CanvasRenderingContext2D, w: number, h: number, s: number, hc: boolean) {
   const g = ctx.createLinearGradient(0, 0, 0, h)
   g.addColorStop(0, hc ? '#0b3d1f' : '#0e4a2f')
   g.addColorStop(1, hc ? '#08301a' : '#0a3a25')
@@ -223,7 +223,7 @@ function drawPitch(ctx: CanvasRenderingContext2D, w: number, h: number, s: numbe
   ctx.fill()
 }
 
-function drawTag(ctx: CanvasRenderingContext2D, x: number, y: number, text: string, color: string, strong: boolean, canvasW: number) {
+export function drawTag(ctx: CanvasRenderingContext2D, x: number, y: number, text: string, color: string, strong: boolean, canvasW: number) {
   ctx.font = `700 ${strong ? 12 : 11}px system-ui, sans-serif`
   const padX = 7
   const tw = ctx.measureText(text).width + padX * 2
@@ -244,7 +244,7 @@ function drawTag(ctx: CanvasRenderingContext2D, x: number, y: number, text: stri
   ctx.fillText(text, cx, top + th / 2 + 0.5)
 }
 
-function drawEvidence(
+export function drawEvidence(
   ctx: CanvasRenderingContext2D,
   events: MatchEvent[],
   homeId: string,

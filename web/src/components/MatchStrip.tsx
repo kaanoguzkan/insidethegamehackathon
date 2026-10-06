@@ -5,6 +5,7 @@ import { clockAt, totalMs } from '../lib/clock'
 import type { Replay } from '../lib/data'
 import { LAYER_KEYS, type Layers } from '../lib/layers'
 import type { Lang } from '../lib/types'
+import { CAMS, type Cam, webglSupported } from '../lib/webgl'
 import { Popover } from './Popover'
 
 const SPEEDS = [1, 5, 10, 30, 60]
@@ -36,6 +37,10 @@ interface Props {
   lang: Lang
   layers: Layers
   selected: string | null
+  cam: Cam
+  follow: boolean
+  onCam: (c: Cam) => void
+  onFollow: (on: boolean) => void
   toggle: () => void
   setSpeed: (s: number) => void
   seek: (ms: number) => void
@@ -48,7 +53,7 @@ interface Props {
  * Everything about time in one place: play, speed, the pitch lenses, and a story ribbon you can drag.
  * The ribbon stacks win probability, momentum, chaos and pressure so the shape of the match is visible at a glance.
  */
-export function MatchStrip({ replay, ms, playing, speed, lang, layers, selected, toggle, setSpeed, seek, onPick, onLayer, onClearLayers }: Props) {
+export function MatchStrip({ replay, ms, playing, speed, lang, layers, selected, cam, follow, onCam, onFollow, toggle, setSpeed, seek, onPick, onLayer, onClearLayers }: Props) {
   const total = totalMs(replay.meta)
   const { home, away } = replay.meta
   const snaps = replay.snapshots
@@ -141,6 +146,24 @@ export function MatchStrip({ replay, ms, playing, speed, lang, layers, selected,
             ))}
           </ul>
           {active > 0 && <button type="button" className="btn quiet" onClick={onClearLayers}>{t(lang, 'clearLenses')}</button>}
+        </Popover>
+        <Popover label={<><span className="pop-key">{t(lang, 'view')}</span><span className="pop-val">{cam === '2d' ? t(lang, 'view2d') : t(lang, 'view3d')}</span></>} title={t(lang, 'view')} align="start" placement="above">
+          <p className="pop-title">{t(lang, 'view')}</p>
+          <div className="seg" role="radiogroup" aria-label={t(lang, 'view')}>
+            <button type="button" role="radio" aria-checked={cam === '2d'} className={cam === '2d' ? 'on' : ''} onClick={() => onCam('2d')}>{t(lang, 'view2d')}</button>
+            <button type="button" role="radio" aria-checked={cam !== '2d'} className={cam !== '2d' ? 'on' : ''} disabled={!webglSupported()} onClick={() => onCam(cam === '2d' ? 'bc' : cam)}>{t(lang, 'view3d')}</button>
+          </div>
+          {cam !== '2d' && (
+            <>
+              <div className="seg" role="radiogroup" aria-label={t(lang, 'view3d')}>
+                {CAMS.filter((c) => c !== '2d').map((c) => (
+                  <button key={c} type="button" role="radio" aria-checked={cam === c} className={cam === c ? 'on' : ''} onClick={() => onCam(c)}>{t(lang, `cam.${c}`)}</button>
+                ))}
+              </div>
+              <label className="check-row"><input type="checkbox" checked={follow} onChange={(e) => onFollow(e.target.checked)} />{t(lang, 'follow')}</label>
+              <p className="hint">{t(lang, 'viewHint')}</p>
+            </>
+          )}
         </Popover>
         <button type="button" className={`btn${tall ? ' on' : ''}`} aria-pressed={tall} onClick={() => setTall(!tall)} title={t(lang, 'stripTallerHint')}>
           {t(lang, tall ? 'stripShorter' : 'stripTaller')}

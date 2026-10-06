@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { DEFAULT_PROFILE, type Lang, type Mode, type Profile } from '../lib/types'
+import { CAMS, type Cam } from '../lib/webgl'
 
 export interface Route {
   view: 'center' | 'broadcast'
@@ -9,6 +10,8 @@ export interface Route {
   t: number | null
   step: Step
   tab: string | null // the open view in the Explore workspace
+  cam: Cam | null // the pitch view: '2d' or a 3D camera; null picks 3D on a big screen and 2D on a phone
+  follow: boolean // the 3D camera follows the ball
 }
 
 /** Watch the match, Understand why it happened, Explore the numbers: the three depths of the app. */
@@ -43,6 +46,8 @@ export function parseHash(hash: string): Route {
     t: t ? Number(t) * 60_000 : null,
     step,
     tab: q.get('tab'),
+    cam: CAMS.find((c) => c === q.get('cam')) ?? null,
+    follow: q.get('follow') === '1',
   }
 }
 
@@ -60,6 +65,8 @@ export function buildHash(r: Omit<Route, 't'> & { t?: number | null }): string {
   if (r.split) q.set('split', '1')
   if (r.step !== 'watch') q.set('step', r.step)
   if (r.step === 'explore' && r.tab) q.set('tab', r.tab)
+  if (r.cam) q.set('cam', r.cam)
+  if (r.follow) q.set('follow', '1')
   return `#/${r.view === 'broadcast' ? 'broadcast' : ''}?${q.toString()}`
 }
 

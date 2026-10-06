@@ -344,3 +344,16 @@ describe('phases of play', () => {
     expect(phaseAt(null, 'KES', 5_000)).toBeNull()
   })
 })
+
+describe('the pitch view lives in the URL', () => {
+  it('reads the camera and the follow switch, and ignores unknown cameras', () => {
+    expect(parseHash('#/?cam=end&follow=1')).toMatchObject({ cam: 'end', follow: true })
+    expect(parseHash('#/?cam=fisheye').cam).toBeNull()
+    expect(parseHash('#/?match=x')).toMatchObject({ cam: null, follow: false })
+  })
+  it('writes them back only when set', () => {
+    expect(buildHash(parseHash('#/?cam=top'))).toContain('cam=top')
+    expect(buildHash(parseHash('#/?match=x'))).not.toContain('cam=')
+    expect(buildHash(parseHash('#/?cam=2d&follow=1'))).toContain('follow=1')
+  })
+})
