@@ -6,6 +6,6 @@
     "location": { "value": "${AZURE_LOCATION}" },
     "foundryProjectEndpoint": { "value": "${FOUNDRY_PROJECT_ENDPOINT=}" },
     "modelName": { "value": "${MATCHMIND_LLM_MODEL=}" },
-    "budgetContacts": { "value": [] }
+    "budgetContact": { "value": "${BUDGET_CONTACT=}" }
   }
 }

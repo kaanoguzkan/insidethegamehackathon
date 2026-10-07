@@ -30,8 +30,8 @@ param modelName string = ''
 @description('Monthly budget in USD. Alerts fire at 25%, 50% and 90% of it.')
 param budgetUsd int = 20
 
-@description('Email addresses that receive budget alerts.')
-param budgetContacts array = []
+@description('Email address that receives budget alerts. Leave empty to skip creating the budget.')
+param budgetContact string = ''
 
 @description('Create the budget (needs permission at subscription scope).')
 param createBudget bool = true
@@ -39,6 +39,7 @@ param createBudget bool = true
 @description('First day of the budget period. utcNow is only allowed as a parameter default.')
 param budgetStartDate string = '${utcNow('yyyy-MM')}-01'
 
+var budgetContacts = empty(budgetContact) ? [] : [budgetContact]
 var tags = { 'azd-env-name': environmentName, app: 'matchmind' }
 
 resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
