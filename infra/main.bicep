@@ -84,6 +84,7 @@ resource budget 'Microsoft.Consumption/budgets@2023-05-01' = if (createBudget &&
 
 output AZURE_LOCATION string = location
 output AZURE_RESOURCE_GROUP string = rg.name
+output AZURE_CONTAINER_REGISTRY_ENDPOINT string = resources.outputs.registryEndpoint
 output BRAIN_URI string = resources.outputs.brainUri
 output WEB_URI string = resources.outputs.webUri
 output COSMOS_ENDPOINT string = resources.outputs.cosmosEndpoint

@@ -19,6 +19,15 @@ resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' 
   tags: tags
 }
 
+// The image registry the Brain's image is built into (azd builds remotely and pushes here). Basic is the cheapest SKU.
+resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
+  name: 'cr${prefix}${take(token, 8)}'
+  location: location
+  tags: tags
+  sku: { name: 'Basic' }
+  properties: { adminUserEnabled: false }
+}
+
 resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: 'log-${environmentName}'
   location: location
@@ -205,6 +214,16 @@ resource roleVault 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
+resource rolePull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(registry.id, identity.id, 'acrpull')
+  scope: registry
+  properties: {
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull
+  }
+}
+
 resource roleSignalr 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(signalr.id, identity.id, roles.signalr)
   scope: signalr
@@ -233,6 +252,7 @@ resource env 'Microsoft.App/managedEnvironments@2024-03-01' = {
 }
 
 resource brain 'Microsoft.App/containerApps@2024-03-01' = {
+  dependsOn: [ rolePull ] // the identity must be allowed to pull before the app is created
   name: 'ca-${environmentName}-brain'
   location: location
   tags: union(tags, { 'azd-service-name': 'brain' })
@@ -244,6 +264,7 @@ resource brain 'Microsoft.App/containerApps@2024-03-01' = {
     managedEnvironmentId: env.id
     configuration: {
       ingress: { external: true, targetPort: 8000, transport: 'auto', allowInsecure: false }
+      registries: [ { server: registry.properties.loginServer, identity: identity.id } ]
     }
     template: {
       containers: [
@@ -287,6 +308,7 @@ resource web 'Microsoft.Web/staticSites@2023-12-01' = {
   properties: {}
 }
 
+output registryEndpoint string = registry.properties.loginServer
 output brainUri string = 'https://${brain.properties.configuration.ingress.fqdn}'
 output webUri string = 'https://${web.properties.defaultHostname}'
 output cosmosEndpoint string = cosmos.properties.documentEndpoint
