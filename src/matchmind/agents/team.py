@@ -20,6 +20,7 @@ from pydantic import BaseModel, ValidationError
 from ..core.contracts import Cohort, EditorOut, Explanation, Recap, StoryOut, StoryVariant
 from . import prompts
 from .llm import task_message
+from .verify import valid_refs
 
 M = TypeVar("M", bound=BaseModel)
 
@@ -134,7 +135,7 @@ class AgentTeam:
         return await self._ask(self.editor, "edit", payload, EditorOut, 0.1)
 
     async def explain(self, pack: dict, feedback: str = "") -> Explanation:
-        payload = {"pack": pack, "feedback": feedback}
+        payload = {"pack": pack, "validRefs": sorted(valid_refs(pack)), "feedback": feedback}
         return await self._ask(self.explainer, "explain", payload, Explanation, self.settings.explain_temperature)
 
     async def tell(self, pack: dict, explanation: Explanation, cohorts: list[Cohort], feedback: str = "") -> StoryOut:

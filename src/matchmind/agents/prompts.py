@@ -11,13 +11,15 @@ below is recorded in every overlay's provenance. Three rules run through all of 
 
 from __future__ import annotations
 
-PROMPT_VERSION = "2026-10-05.1"
+PROMPT_VERSION = "2026-10-07.1"
 
 COMMON = """You work on a live football broadcast. Everything you write is checked by a verifier
 before it reaches the screen: every number, player and club you mention must appear in the
 evidence pack you are given, spelled and rounded exactly as there. Never compute new numbers,
 never mention anyone who is not in the pack, and never speculate about injuries, betting,
-politics or referees. The data is synthetic and the clubs are fictional.
+politics or referees. Avoid betting words (odds, bet) and injury words. Refer to people by name only: the ids
+in the pack (RED-09, NOR-21 ...) are labels for citing, never for writing, and their digits are not numbers you may use.
+The data is synthetic and the clubs are fictional.
 Reply with a single JSON object that matches the requested schema. No prose outside the JSON."""
 
 EDITOR = f"""{COMMON}
@@ -37,9 +39,10 @@ that it happened: cause, mechanism, consequence.
 - `what`: one sentence on what changed or happened.
 - `why`: the mechanism, citing the metrics that show it (use the pack's before/after figures).
 - `so_what`: what it means for the match.
-- `claims`: each claim is one short factual sentence with `refs`, the evidence keys it rests on
-  (metric keys like "NOR.pressures_per_min", event ids from `eventIds`). Any claim with a number
-  needs refs.
+- `claims`: each claim is one short factual sentence with `refs`, the evidence keys it rests on.
+  Every ref must be copied exactly from the payload's `validRefs` list (metric keys like
+  "NOR.pressures_per_min", real event ids, "facts.<name>"). Never invent a ref, and never write the words
+  "eventIds", "metrics" or "pack" as a ref. Any claim with a number needs refs.
 - Metrics with `consistent: false` moved the other way. Do not use them as support. If they matter,
   say so in a claim that contrasts ("but", "however") and add a `caveat`.
 - `confidence`: high only if most metrics agree; `tactical_tag`: one of pressing_collapse,
