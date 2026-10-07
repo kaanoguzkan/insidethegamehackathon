@@ -9,6 +9,8 @@ validated pydantic model back or an :class:`AgentFailure`. Orchestration lives i
 from __future__ import annotations
 
 import asyncio
+import os
+import re
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
@@ -30,6 +32,11 @@ class AgentFailure(RuntimeError):
         self.agent, self.reason = agent, reason
 
 
+# Models that think before they answer (OpenAI's GPT-5 and GPT-6 families and the o-series). They refuse a custom
+# temperature, count their hidden reasoning against the output cap, and take seconds rather than a second to answer.
+_REASONING_MODEL = re.compile(r"^(gpt-5|gpt-6|o\d)", re.IGNORECASE)
+
+
 @dataclass
 class AgentSettings:
     timeout_s: float = 8.0
@@ -37,6 +44,35 @@ class AgentSettings:
     max_tokens: int = 700
     explain_temperature: float = 0.2
     story_temperature: float = 0.6
+    send_temperature: bool = True  # a reasoning model rejects the parameter outright
+    reasoning_effort: str | None = None  # "minimal" | "low" | "medium" | "high" for reasoning models
+    beat_budget_s: float | None = None  # wall-clock time a beat has to become overlays (None: the caller's default)
+
+    @classmethod
+    def from_env(cls) -> AgentSettings:
+        """Settings for the configured model: a reasoning model needs different options and far more time.
+
+        ``MATCHMIND_AGENT_TIMEOUT_S``, ``MATCHMIND_MAX_TOKENS``, ``MATCHMIND_BEAT_BUDGET_S`` and
+        ``MATCHMIND_REASONING_EFFORT`` override what is chosen from the model name.
+        """
+        env = os.environ
+        s = cls()
+        model = env.get("MATCHMIND_LLM_MODEL", "").split("/")[-1]
+        if env.get("MATCHMIND_LLM", "offline").lower() != "offline" and _REASONING_MODEL.match(model):
+            s.send_temperature = False
+            s.max_tokens = 4000  # reasoning tokens count against the cap
+            s.timeout_s = 60.0
+            s.beat_budget_s = 300.0
+            s.reasoning_effort = "low"
+        if v := env.get("MATCHMIND_AGENT_TIMEOUT_S"):
+            s.timeout_s = float(v)
+        if v := env.get("MATCHMIND_MAX_TOKENS"):
+            s.max_tokens = int(v)
+        if v := env.get("MATCHMIND_BEAT_BUDGET_S"):
+            s.beat_budget_s = float(v)
+        if v := env.get("MATCHMIND_REASONING_EFFORT"):
+            s.reasoning_effort = None if v.lower() == "none" else v
+        return s
 
 
 class AgentTeam:
@@ -47,7 +83,7 @@ class AgentTeam:
         explainer_tools: Any = None,
     ) -> None:
         self.client = client
-        self.settings = settings or AgentSettings()
+        self.settings = settings or AgentSettings.from_env()
         self.editor = Agent(client, prompts.EDITOR, name="editor")
         self.explainer = Agent(client, prompts.EXPLAINER, name="explainer", tools=explainer_tools)
         self.storyteller = Agent(client, prompts.STORYTELLER, name="storyteller")
@@ -56,9 +92,18 @@ class AgentTeam:
 
     # ----- one call ----------------------------------------------------------------------------
 
+    def _options(self, model: type[M], temperature: float) -> dict:
+        """The chat options for one call, leaving out what the configured model refuses."""
+        opts: dict = {"response_format": model, "max_tokens": self.settings.max_tokens}
+        if self.settings.send_temperature:
+            opts["temperature"] = temperature
+        if self.settings.reasoning_effort:
+            opts["reasoning"] = {"effort": self.settings.reasoning_effort}
+        return opts
+
     async def _ask(self, agent: Agent, task: str, payload: dict, model: type[M], temperature: float) -> M:
         name = agent.name or task
-        options = {"response_format": model, "temperature": temperature, "max_tokens": self.settings.max_tokens}
+        options = self._options(model, temperature)
         try:
             resp = await asyncio.wait_for(
                 agent.run(task_message(task, payload), options=options), timeout=self.settings.timeout_s

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -129,7 +130,7 @@ def build_replay(
     llm: str | None = None,
     faults: Faults | None = None,
     cohorts: tuple[Cohort, ...] | None = None,
-    budget_s: float = 30.0,
+    budget_s: float | None = None,
     settings: AgentSettings | None = None,
 ) -> Replay:
     meta = result.meta
@@ -144,6 +145,9 @@ def build_replay(
         season=ctx,
         models=load_models(),
     )
+    settings = settings or AgentSettings.from_env()
+    budget_s = budget_s or settings.beat_budget_s or 30.0
+    kind = (llm or os.environ.get("MATCHMIND_LLM", "offline")).lower()
     client = make_chat_client(llm, faults=faults)
     store = InMemoryMomentStore()
     registry = Registry.from_meta(meta)
@@ -155,10 +159,10 @@ def build_replay(
     recaps = asyncio.run(_write_recaps(deps.team, ip, cohorts, by_id, registry, meta))
 
     variants: dict[str, dict] = {}
-    if llm in (None, "offline"):
+    if kind == "offline":  # the model-health variants (unreliable, outage) are fault-injected offline runs, never real calls
         for name, vf in health_variants().items():
             vstore = InMemoryMomentStore()
-            vclient = make_chat_client(llm, faults=vf)
+            vclient = make_chat_client("offline", faults=vf)
             vdeps = WorkflowDeps(team=AgentTeam(vclient, settings), registry=registry, store=vstore)
             vbeats = asyncio.run(_run_agents(out.moments, cohorts, vdeps, budget_s))
             variants[name] = {

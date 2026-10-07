@@ -8,7 +8,7 @@ from matchmind.agents.llm import Faults, OfflineChatClient
 from matchmind.agents.store import InMemoryMomentStore
 from matchmind.agents.team import AgentSettings, AgentTeam
 from matchmind.agents.workflow import Batch, WorkflowDeps, build_workflow, run_batch
-from matchmind.core.contracts import Cohort, Overlay
+from matchmind.core.contracts import Cohort, Explanation, Overlay
 from packs import packs
 from test_verify import REG
 
@@ -189,3 +189,30 @@ def test_verified_flag_is_earned_not_assumed():
     assert verify.verify_variant(good, P["goal"], COHORTS[0], REG).ok
     assert not verify.verify_variant(bad, P["goal"], COHORTS[0], REG).ok
     assert W.verify is verify
+
+
+def test_a_reasoning_model_gets_no_temperature_more_tokens_and_more_time(monkeypatch):
+    for k in ("MATCHMIND_AGENT_TIMEOUT_S", "MATCHMIND_MAX_TOKENS", "MATCHMIND_BEAT_BUDGET_S", "MATCHMIND_REASONING_EFFORT"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("MATCHMIND_LLM", "foundry")
+    monkeypatch.setenv("MATCHMIND_LLM_MODEL", "gpt-5-mini")
+    s = AgentSettings.from_env()
+    assert (s.send_temperature, s.reasoning_effort) == (False, "low") and s.max_tokens >= 4000 and s.timeout_s >= 30
+    team = AgentTeam(OfflineChatClient(), s)
+    opts = team._options(Explanation, 0.2)
+    assert "temperature" not in opts and opts["reasoning"] == {"effort": "low"}
+
+    monkeypatch.setenv("MATCHMIND_LLM_MODEL", "gpt-4.1-mini")  # an ordinary model keeps the temperature and the short limits
+    s = AgentSettings.from_env()
+    assert s.send_temperature and s.timeout_s == 8.0 and s.max_tokens == 700
+    assert AgentTeam(OfflineChatClient(), s)._options(Explanation, 0.2)["temperature"] == 0.2
+
+    monkeypatch.setenv("MATCHMIND_LLM", "offline")  # the offline client is never treated as a reasoning model
+    monkeypatch.setenv("MATCHMIND_LLM_MODEL", "gpt-5-mini")
+    assert AgentSettings.from_env().send_temperature
+
+    monkeypatch.setenv("MATCHMIND_LLM", "foundry")
+    monkeypatch.setenv("MATCHMIND_MAX_TOKENS", "2500")
+    monkeypatch.setenv("MATCHMIND_REASONING_EFFORT", "none")
+    s = AgentSettings.from_env()
+    assert s.max_tokens == 2500 and s.reasoning_effort is None

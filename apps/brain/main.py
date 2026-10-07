@@ -128,8 +128,9 @@ def create_app(
         if missing:
             raise HTTPException(404, f"unknown moments: {missing}")
         store = InMemoryMomentStore()
-        deps = WorkflowDeps(team=AgentTeam(client, AgentSettings(timeout_s=8.0)), registry=Registry.from_meta(ip.meta), store=store)
-        batch = Batch(moments=tuple(by_id[m] for m in req.moment_ids), cohorts=tuple(req.cohorts), budget=req.budget, budget_s=15.0)
+        settings = AgentSettings.from_env()
+        deps = WorkflowDeps(team=AgentTeam(client, settings), registry=Registry.from_meta(ip.meta), store=store)
+        batch = Batch(moments=tuple(by_id[m] for m in req.moment_ids), cohorts=tuple(req.cohorts), budget=req.budget, budget_s=min(settings.beat_budget_s or 15.0, 90.0))
         t0 = time.monotonic()
         results = await run_batch(build_workflow(deps), batch)
         return {
