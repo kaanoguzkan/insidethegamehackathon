@@ -247,9 +247,13 @@ resource env 'Microsoft.App/managedEnvironments@2024-03-01' = {
   }
 }
 
+// The Brain's public name is its app name plus the environment's default domain, known before the app exists.
+var brainName = 'ca-${environmentName}-brain'
+var brainHost = '${brainName}.${env.properties.defaultDomain}'
+
 resource brain 'Microsoft.App/containerApps@2024-03-01' = {
   dependsOn: [ rolePull ] // the identity must be allowed to pull before the app is created
-  name: 'ca-${environmentName}-brain'
+  name: brainName
   location: appsRegion
   tags: union(tags, { 'azd-service-name': 'brain' })
   identity: {
@@ -278,6 +282,8 @@ resource brain 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'SIGNALR_ENDPOINT', value: 'https://${signalr.properties.hostName}' }
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: insights.properties.ConnectionString }
             { name: 'MATCHMIND_DATA', value: '/app/data' }
+            { name: 'MATCHMIND_ALLOWED_HOSTS', value: brainHost } // MCP's DNS-rebinding guard answers to this name
+            { name: 'MATCHMIND_ALLOWED_ORIGINS', value: 'https://${web.properties.defaultHostname}' }
           ]
           probes: [
             { type: 'Liveness', httpGet: { path: '/health', port: 8000 }, initialDelaySeconds: 10, periodSeconds: 30 }

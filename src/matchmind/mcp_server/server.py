@@ -12,9 +12,11 @@ returns small, rounded JSON.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from ..analytics.report import MatchAnalytics, jsonable
 from ..analytics.season import context_for, load_season, radars
@@ -64,11 +66,32 @@ def _round(v: Any) -> Any:
     return round(v, 2) if isinstance(v, float) else v
 
 
+def transport_security() -> TransportSecuritySettings | None:
+    """DNS-rebinding protection that also accepts the service's own public name.
+
+    The MCP library only accepts requests addressed to localhost unless told otherwise, which turns away every
+    request through a public ingress (421). ``MATCHMIND_ALLOWED_HOSTS`` lists the host names the service answers to
+    (comma separated, no scheme) and ``MATCHMIND_ALLOWED_ORIGINS`` the browser origins; localhost stays allowed.
+    Unset, the library's localhost-only default applies.
+    """
+    split = lambda v: [x.strip() for x in v.split(",") if x.strip()]  # noqa: E731
+    hosts = split(os.environ.get("MATCHMIND_ALLOWED_HOSTS", ""))
+    if not hosts:
+        return None
+    origins = split(os.environ.get("MATCHMIND_ALLOWED_ORIGINS", ""))
+    local = ["127.0.0.1:*", "localhost:*", "[::1]:*"]
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=[*hosts, *local],
+        allowed_origins=[*(f"https://{h}" for h in hosts), *origins, *(f"http://{h}" for h in local)],
+    )
+
+
 def build_server(registry: MatchRegistry | None = None, path: str = "/mcp") -> FastMCP:
     reg = registry or MatchRegistry()
     mcp = FastMCP(
         "matchmind-match-data", instructions=INSTRUCTIONS, stateless_http=True, json_response=True,
-        streamable_http_path=path,
+        streamable_http_path=path, transport_security=transport_security(),
     )
 
     @mcp.tool()

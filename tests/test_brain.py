@@ -156,3 +156,20 @@ def test_the_report_pdf_is_served_for_committed_matches_only(client):
     assert client.get("/api/matches/t0001/report.pdf").status_code == 404, "a match with no built report says so"
     assert client.get("/api/matches/nope/report.pdf").status_code == 404
     assert client.get("/api/matches/..%2F..%2Fetc%2Fpasswd/report.pdf").status_code == 404
+
+
+INIT = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "t", "version": "0"}}}
+MCP_HEADERS = {"accept": "application/json, text/event-stream", "content-type": "application/json"}
+
+
+def test_mcp_answers_on_the_public_host_name_only_when_told_to(reg, monkeypatch):
+    """Behind a public ingress the Host header is the service's own name; the library refuses it (421) unless allowed."""
+    monkeypatch.delenv("MATCHMIND_ALLOWED_HOSTS", raising=False)
+    with TestClient(create_app(reg), base_url="https://brain.example.net") as c:
+        assert c.post("/mcp/", json=INIT, headers=MCP_HEADERS).status_code == 421
+    monkeypatch.setenv("MATCHMIND_ALLOWED_HOSTS", "brain.example.net")
+    with TestClient(create_app(reg), base_url="https://brain.example.net") as c:
+        assert c.post("/mcp/", json=INIT, headers=MCP_HEADERS).status_code == 200
+    with TestClient(create_app(reg), base_url="https://evil.example.org") as c:
+        assert c.post("/mcp/", json=INIT, headers=MCP_HEADERS).status_code == 421, "other names stay refused"

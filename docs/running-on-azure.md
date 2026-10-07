@@ -25,6 +25,10 @@ The Static Web App has its own region (`WEB_LOCATION`, default `eastus2`): it on
 
 If the Container Apps environment fails with `ManagedEnvironmentNoAvailableCapacityInRegion`, keep the data where it is and put only the apps elsewhere: `azd env set APPS_LOCATION northeurope` (any region with capacity) and run `azd up` again.
 
+Locally built image: ACR cloud builds (Tasks) are refused on new subscriptions (`TasksOperationsNotAllowed`), so `azure.yaml` builds the Brain image on your machine (Docker running) for `linux/amd64`.
+
+The Brain's MCP endpoint (`/mcp/`) refuses any Host header the library does not know (421), so the Bicep sets `MATCHMIND_ALLOWED_HOSTS` to the app's public name.
+
 Without a Foundry endpoint the Brain keeps the offline model. `azd down --purge` removes everything.
 
 ## Cost notes (verify on the pricing pages)
