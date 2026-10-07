@@ -3,11 +3,14 @@ targetScope = 'resourceGroup'
 param environmentName string
 param location string
 param webLocation string
+param appsLocation string
 param tags object
 param brainImage string
 param foundryProjectEndpoint string
 param modelName string
 
+// Container Apps capacity differs by region and by subscription; the apps can sit in another region from the data.
+var appsRegion = empty(appsLocation) ? location : appsLocation
 var token = toLower(uniqueString(subscription().id, environmentName))
 var prefix = take(replace(environmentName, '-', ''), 10)
 
@@ -130,7 +133,7 @@ resource cosmosContainerResources 'Microsoft.DocumentDB/databaseAccounts/sqlData
     resource: {
       id: c.name
       partitionKey: { paths: [ c.pk ], kind: 'Hash' }
-      defaultTtl: c.name == 'events' ? 604800 : -1 // demo matches expire after a week
+      defaultTtl: c.name == 'events' ? 604800 : (c.name == 'state' ? null : -1) // demo events expire after a week; a container with indexing off cannot have a TTL at all
       indexingPolicy: c.name == 'state' ? { indexingMode: 'none', automatic: false } : { indexingMode: 'consistent' }
     }
   }
@@ -238,7 +241,7 @@ resource roleSignalr 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 
 resource env 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: 'cae-${environmentName}'
-  location: location
+  location: appsRegion
   tags: tags
   properties: {
     appLogsConfiguration: {
@@ -254,7 +257,7 @@ resource env 'Microsoft.App/managedEnvironments@2024-03-01' = {
 resource brain 'Microsoft.App/containerApps@2024-03-01' = {
   dependsOn: [ rolePull ] // the identity must be allowed to pull before the app is created
   name: 'ca-${environmentName}-brain'
-  location: location
+  location: appsRegion
   tags: union(tags, { 'azd-service-name': 'brain' })
   identity: {
     type: 'UserAssigned'

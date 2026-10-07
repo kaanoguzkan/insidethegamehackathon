@@ -23,6 +23,8 @@ azd up
 
 The Static Web App has its own region (`WEB_LOCATION`, default `eastus2`): it only exists in a few regions and is served from a CDN, so it does not need to match. Some new subscriptions are refused in popular regions (West Europe returned `locationineligible` for one); pick another region for `AZURE_LOCATION`.
 
+If the Container Apps environment fails with `ManagedEnvironmentNoAvailableCapacityInRegion`, keep the data where it is and put only the apps elsewhere: `azd env set APPS_LOCATION northeurope` (any region with capacity) and run `azd up` again.
+
 Without a Foundry endpoint the Brain keeps the offline model. `azd down --purge` removes everything.
 
 ## Cost notes (verify on the pricing pages)
