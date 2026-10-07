@@ -2,6 +2,7 @@ targetScope = 'resourceGroup'
 
 param environmentName string
 param location string
+param webLocation string
 param tags object
 param brainImage string
 param foundryProjectEndpoint string
@@ -280,7 +281,7 @@ resource brain 'Microsoft.App/containerApps@2024-03-01' = {
 
 resource web 'Microsoft.Web/staticSites@2023-12-01' = {
   name: 'swa-${environmentName}'
-  location: location
+  location: webLocation
   tags: union(tags, { 'azd-service-name': 'web' })
   sku: { name: 'Free', tier: 'Free' }
   properties: {}

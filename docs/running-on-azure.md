@@ -13,13 +13,15 @@
 
 ```bash
 azd auth login
-azd env new matchmind && azd env set AZURE_LOCATION westeurope
+azd env new matchmind && azd env set AZURE_LOCATION swedencentral   # any region open to your subscription; try azd provision --preview first
 azd env set BUDGET_CONTACT you@example.com    # alerts at 25%, 50% and 90% of a $20 monthly budget
 # Optional: a Foundry project (portal) and a model deployment, then
 azd env set FOUNDRY_PROJECT_ENDPOINT https://<account>.services.ai.azure.com/api/projects/<project>
 azd env set MATCHMIND_LLM_MODEL <deployment-name>
 azd up
 ```
+
+The Static Web App has its own region (`WEB_LOCATION`, default `eastus2`): it only exists in a few regions and is served from a CDN, so it does not need to match. Some new subscriptions are refused in popular regions (West Europe returned `locationineligible` for one); pick another region for `AZURE_LOCATION`.
 
 Without a Foundry endpoint the Brain keeps the offline model. `azd down --purge` removes everything.
 

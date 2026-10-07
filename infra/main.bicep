@@ -24,6 +24,9 @@ param brainImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:
 @description('Microsoft Foundry project endpoint, e.g. https://<account>.services.ai.azure.com/api/projects/<project>. Empty keeps the offline model.')
 param foundryProjectEndpoint string = ''
 
+@description('Region for the Static Web App. It is served from a CDN and only exists in a few regions (West US 2, Central US, East US 2, West Europe, East Asia).')
+param webLocation string = 'eastus2'
+
 @description('Model deployment name in the Foundry project.')
 param modelName string = ''
 
@@ -54,6 +57,7 @@ module resources 'resources.bicep' = {
   params: {
     environmentName: environmentName
     location: location
+    webLocation: webLocation
     tags: tags
     brainImage: brainImage
     foundryProjectEndpoint: foundryProjectEndpoint
