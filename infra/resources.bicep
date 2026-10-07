@@ -133,8 +133,8 @@ resource cosmosContainerResources 'Microsoft.DocumentDB/databaseAccounts/sqlData
     resource: {
       id: c.name
       partitionKey: { paths: [ c.pk ], kind: 'Hash' }
-      defaultTtl: c.name == 'events' ? 604800 : (c.name == 'state' ? null : -1) // demo events expire after a week; a container with indexing off cannot have a TTL at all
-      indexingPolicy: c.name == 'state' ? { indexingMode: 'none', automatic: false } : { indexingMode: 'consistent' }
+      defaultTtl: c.name == 'events' ? 604800 : -1 // demo events expire after a week
+      indexingPolicy: { indexingMode: 'consistent' }
     }
   }
 }]
@@ -183,7 +183,6 @@ resource signalr 'Microsoft.SignalRService/signalR@2023-02-01' = {
 var roles = {
   storageBlob: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe' // Storage Blob Data Contributor
   storageQueue: '974c5e8b-45b9-4653-ba55-5f855dd0fb88' // Storage Queue Data Contributor
-  keyVaultSecrets: '4633458b-17de-408a-b874-0f2e9d3e7d4e' // Key Vault Secrets User
   signalr: '8cf5e20a-e4b2-4e9d-b3a1-5ceb692c2761' // SignalR Service Owner
 }
 
@@ -207,15 +206,9 @@ resource roleQueue 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-resource roleVault 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(vault.id, identity.id, roles.keyVaultSecrets)
-  scope: vault
-  properties: {
-    principalId: identity.properties.principalId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.keyVaultSecrets)
-  }
-}
+// The vault is provisioned for secrets the app will need (a model key, if one is ever used instead of identity),
+// but nothing reads it yet. Add the "Key Vault Secrets User" role (4633458b-17de-408a-b874-0f2e9d3e7d4e) for the
+// identity when something does: ARM refused that role in a brand-new subscription on the first deployments.
 
 resource rolePull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(registry.id, identity.id, 'acrpull')
