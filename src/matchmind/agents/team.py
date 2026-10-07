@@ -9,6 +9,7 @@ validated pydantic model back or an :class:`AgentFailure`. Orchestration lives i
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 from dataclasses import dataclass
@@ -36,6 +37,19 @@ class AgentFailure(RuntimeError):
 # Models that think before they answer (OpenAI's GPT-5 and GPT-6 families and the o-series). They refuse a custom
 # temperature, count their hidden reasoning against the output cap, and take seconds rather than a second to answer.
 _REASONING_MODEL = re.compile(r"^(gpt-5|gpt-6|o\d)", re.IGNORECASE)
+# Models whose endpoint enforces a JSON schema. Others (Phi, Llama, Mistral ...) get the schema in the prompt instead
+# and may wrap their answer in a markdown fence.
+_STRICT_JSON_MODEL = re.compile(r"^(gpt-|o\d)", re.IGNORECASE)
+_FENCE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.DOTALL | re.IGNORECASE)
+
+
+def _json_text(text: str) -> str:
+    """The JSON object in a model's answer, without a markdown fence or chatter around it."""
+    m = _FENCE.match(text)
+    if m:
+        text = m.group(1)
+    start, end = text.find("{"), text.rfind("}")
+    return text[start : end + 1] if 0 <= start < end else text
 
 
 @dataclass
@@ -46,6 +60,7 @@ class AgentSettings:
     explain_temperature: float = 0.2
     story_temperature: float = 0.6
     send_temperature: bool = True  # a reasoning model rejects the parameter outright
+    structured_output: bool = True  # ask the endpoint to enforce the JSON schema; off: the schema goes in the prompt
     reasoning_effort: str | None = None  # "minimal" | "low" | "medium" | "high" for reasoning models
     beat_budget_s: float | None = None  # wall-clock time a beat has to become overlays (None: the caller's default)
 
@@ -59,12 +74,16 @@ class AgentSettings:
         env = os.environ
         s = cls()
         model = env.get("MATCHMIND_LLM_MODEL", "").split("/")[-1]
+        if env.get("MATCHMIND_LLM", "offline").lower() != "offline" and not _STRICT_JSON_MODEL.match(model):
+            s.structured_output = False
         if env.get("MATCHMIND_LLM", "offline").lower() != "offline" and _REASONING_MODEL.match(model):
             s.send_temperature = False
             s.max_tokens = 4000  # reasoning tokens count against the cap
             s.timeout_s = 60.0
             s.beat_budget_s = 300.0
             s.reasoning_effort = "low"
+        if v := env.get("MATCHMIND_STRUCTURED_OUTPUT"):
+            s.structured_output = v.lower() not in ("0", "false", "no")
         if v := env.get("MATCHMIND_AGENT_TIMEOUT_S"):
             s.timeout_s = float(v)
         if v := env.get("MATCHMIND_MAX_TOKENS"):
@@ -95,7 +114,9 @@ class AgentTeam:
 
     def _options(self, model: type[M], temperature: float) -> dict:
         """The chat options for one call, leaving out what the configured model refuses."""
-        opts: dict = {"response_format": model, "max_tokens": self.settings.max_tokens}
+        opts: dict = {"max_tokens": self.settings.max_tokens}
+        if self.settings.structured_output:
+            opts["response_format"] = model
         if self.settings.send_temperature:
             opts["temperature"] = temperature
         if self.settings.reasoning_effort:
@@ -106,20 +127,22 @@ class AgentTeam:
         name = agent.name or task
         options = self._options(model, temperature)
         try:
-            resp = await asyncio.wait_for(
-                agent.run(task_message(task, payload), options=options), timeout=self.settings.timeout_s
-            )
+            message = task_message(task, payload)
+            if not self.settings.structured_output:
+                schema = json.dumps(model.model_json_schema(), ensure_ascii=False)
+                message += f"\nReply with one JSON object only, no markdown fence, matching this JSON schema:\n{schema}"
+            resp = await asyncio.wait_for(agent.run(message, options=options), timeout=self.settings.timeout_s)
         except TimeoutError as e:
             raise AgentFailure(name, f"no answer within {self.settings.timeout_s:g}s") from e
         except AgentFailure:
             raise
         except Exception as e:  # network, auth, content filter, injected outage ...
             raise AgentFailure(name, f"{type(e).__name__}: {e}") from e
-        value = resp.value
+        value = resp.value if self.settings.structured_output else None
         if isinstance(value, model):
             return value
         try:
-            return model.model_validate_json(resp.text)
+            return model.model_validate_json(_json_text(resp.text))
         except (ValidationError, ValueError) as e:
             raise AgentFailure(name, "the answer was not valid JSON for the schema") from e
 
