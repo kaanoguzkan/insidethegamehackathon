@@ -13,7 +13,10 @@ services:
     docker:
       path: ./Dockerfile
       context: .
-      remoteBuild: true
+      # ACR cloud builds (Tasks) are refused on new and free subscriptions, so build locally. Azure runs amd64, so force it
+      # on Apple Silicon too.
+      remoteBuild: false
+      platform: linux/amd64
   web:
     project: ./web
     host: staticwebapp
