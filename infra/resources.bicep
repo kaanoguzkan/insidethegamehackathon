@@ -10,6 +10,9 @@ param foundryProjectEndpoint string
 param modelName string
 param corsOrigins string
 param agentsMode string
+param appInsightsConnectionString string
+@secure()
+param adminKey string
 
 // Container Apps capacity differs by region and by subscription; the apps can sit in another region from the data.
 var appsRegion = empty(appsLocation) ? location : appsLocation
@@ -40,6 +43,8 @@ resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   properties: {
     sku: { name: 'PerGB2018' }
     retentionInDays: 30
+    // A cap, so that verbose logs can never turn into a bill: ingestion stops for the day at 0.5 GB (normal use is a few MB).
+    workspaceCapping: { dailyQuotaGb: json('0.5') }
     features: { disableLocalAuth: false }
   }
 }
@@ -123,6 +128,7 @@ var cosmosContainers = [
   { name: 'state', pk: '/matchId' }
   { name: 'moments', pk: '/matchId' }
   { name: 'overlays', pk: '/matchId' }
+  { name: 'beats', pk: '/matchId' } // the Brain's shared cache of verified model text (documents expire by their own ttl)
   { name: 'profiles', pk: '/profileId' }
   { name: 'players', pk: '/clubId' }
   { name: 'leases', pk: '/id' }
@@ -267,6 +273,7 @@ resource brain 'Microsoft.App/containerApps@2024-03-01' = {
     configuration: {
       ingress: { external: true, targetPort: 8000, transport: 'auto', allowInsecure: false }
       registries: [ { server: registry.properties.loginServer, identity: identity.id } ]
+      secrets: empty(adminKey) ? [] : [ { name: 'admin-key', value: adminKey } ]
     }
     template: {
       containers: [
@@ -274,15 +281,17 @@ resource brain 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'brain'
           image: brainImage
           resources: { cpu: json('1.0'), memory: '2Gi' }
-          env: [
+          env: concat([
             { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
             { name: 'MATCHMIND_LLM', value: empty(foundryProjectEndpoint) ? 'offline' : 'foundry' }
             { name: 'FOUNDRY_PROJECT_ENDPOINT', value: foundryProjectEndpoint }
             { name: 'MATCHMIND_LLM_MODEL', value: modelName }
             { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
+            { name: 'MATCHMIND_SHARED_CACHE', value: '1' } // verified model text is also kept in Cosmos DB: it survives restarts and is shared
             { name: 'STORAGE_ACCOUNT', value: storage.name }
             { name: 'SIGNALR_ENDPOINT', value: 'https://${signalr.properties.hostName}' }
-            { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: insights.properties.ConnectionString }
+            // Traces go to the Foundry project's own Application Insights when given, so they appear in the Foundry portal's tracing view.
+            { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: empty(appInsightsConnectionString) ? insights.properties.ConnectionString : appInsightsConnectionString }
             { name: 'MATCHMIND_DATA', value: '/app/data' }
             { name: 'MATCHMIND_ALLOWED_HOSTS', value: brainHost } // MCP's DNS-rebinding guard answers to this name
             { name: 'MATCHMIND_ALLOWED_ORIGINS', value: 'https://${web.properties.defaultHostname}' }
@@ -290,7 +299,7 @@ resource brain 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'MATCHMIND_CORS_ORIGINS', value: corsOrigins } // other sites that call the API from the browser (GitHub Pages)
             { name: 'MATCHMIND_AGENT_TIMEOUT_S', value: '30' } // a model call may use up to this long, never more than the request has left
             { name: 'MATCHMIND_BEAT_BUDGET_S', value: '90' } // the five-agent workflow (mode "full") needs far more than the 15 s default
-          ]
+          ], empty(adminKey) ? [] : [ { name: 'MATCHMIND_ADMIN_KEY', secretRef: 'admin-key' } ])
           probes: [
             { type: 'Liveness', httpGet: { path: '/health', port: 8000 }, initialDelaySeconds: 10, periodSeconds: 30 }
           ]

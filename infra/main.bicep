@@ -36,6 +36,13 @@ param modelName string = ''
 @description('Where the agents run: "foundry" calls the ones registered in the Foundry project (matchmind foundry-register), empty uses local ones.')
 param agentsMode string = ''
 
+@description('Application Insights connection string for the Brain. Empty uses the one this template creates; set it to the Foundry project\'s own resource so traces show in the Foundry portal.')
+param appInsightsConnectionString string = ''
+
+@secure()
+@description('Operator key for the Brain\'s expensive options (mode full, useCache false, long deadlines). Empty leaves them open.')
+param adminKey string = ''
+
 @description('Extra browser origins allowed to call the Brain API, comma separated (the GitHub Pages site).')
 param corsOrigins string = ''
 
@@ -74,6 +81,8 @@ module resources 'resources.bicep' = {
     modelName: modelName
     corsOrigins: corsOrigins
     agentsMode: agentsMode
+    appInsightsConnectionString: appInsightsConnectionString
+    adminKey: adminKey
   }
 }
 

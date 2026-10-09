@@ -253,3 +253,60 @@ def test_beats_for_a_recorded_match_never_load_the_interpreter():
 def test_beats_on_an_unknown_match_are_a_404(client):
     r = client.post("/api/beats", json={"match_id": "no-such-match", "moment_ids": ["x"], "cohorts": COHORTS})
     assert r.status_code == 404
+
+
+def _serve(app) -> int:
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error"))
+    threading.Thread(target=server.run, daemon=True).start()
+    for _ in range(100):
+        if server.started:
+            return port
+        time.sleep(0.05)
+    raise AssertionError("the server did not start")
+
+
+def test_a_slow_mcp_tool_does_not_freeze_the_server(reg, monkeypatch):
+    """A tool on a match nobody has loaded re-simulates it (seconds). It must wait in a thread, not on the event loop."""
+    import httpx
+
+    real_get = reg.get
+
+    def slow_get(match_id):
+        time.sleep(2.0)
+        return real_get(match_id)
+
+    monkeypatch.setattr(reg, "get", slow_get)
+    port = _serve(create_app(reg))
+    call = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "get_match_state", "arguments": {"match_id": "t0001"}}}
+    answer: dict = {}
+
+    def tool_call():
+        t0 = time.monotonic()
+        r = httpx.post(f"http://127.0.0.1:{port}/mcp/", json=call, headers={"accept": "application/json, text/event-stream"}, timeout=30)
+        answer.update(status=r.status_code, took=time.monotonic() - t0, body=r.json())
+
+    t = threading.Thread(target=tool_call)
+    t.start()
+    time.sleep(0.4)  # the tool is now inside slow_get
+    t0 = time.monotonic()
+    assert httpx.get(f"http://127.0.0.1:{port}/health", timeout=10).status_code == 200
+    health_took = time.monotonic() - t0
+    t.join(timeout=30)
+    assert answer["status"] == 200 and "result" in answer["body"] and answer["took"] >= 1.9, "the slow tool really ran"
+    assert health_took < 0.8, f"/health waited {health_took:.1f}s behind a slow MCP tool: the event loop was blocked"
+
+
+def test_read_endpoints_use_the_recorded_package_without_loading_the_interpreter():
+    fresh = MatchRegistry()
+    with TestClient(create_app(fresh)) as c:
+        t0 = time.monotonic()
+        assert c.get("/api/matches/red-card-drama/analytics").json()["winProbability"]
+        assert c.get("/api/matches/red-card-drama/win-probability").json()["series"]
+        assert c.get("/api/matches/red-card-drama/moments?min_salience=0").json()
+        assert time.monotonic() - t0 < 2
+        assert c.get("/api/matches/no-such-match/analytics").status_code == 404
+    assert not fresh._cache, "a read endpoint loaded the interpreter"

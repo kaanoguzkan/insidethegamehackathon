@@ -1186,6 +1186,10 @@ brain = [
     { name = "httpx" },
     { name = "uvicorn" },
 ]
+cosmos = [
+    { name = "azure-cosmos" },
+    { name = "azure-identity" },
+]
 foundry = [
     { name = "agent-framework-foundry" },
     { name = "azure-identity" },
@@ -1218,8 +1222,10 @@ requires-dist = [
     { name = "agent-framework-foundry", marker = "extra == 'foundry'", specifier = ">=1.14" },
     { name = "agent-framework-openai", marker = "extra == 'openai'", specifier = ">=1.15" },
     { name = "azure-cosmos", marker = "extra == 'azure'", specifier = ">=4.7" },
+    { name = "azure-cosmos", marker = "extra == 'cosmos'", specifier = ">=4.7" },
     { name = "azure-functions", marker = "extra == 'azure'", specifier = ">=1.20" },
     { name = "azure-identity", marker = "extra == 'azure'", specifier = ">=1.19" },
+    { name = "azure-identity", marker = "extra == 'cosmos'", specifier = ">=1.19" },
     { name = "azure-identity", marker = "extra == 'foundry'", specifier = ">=1.19" },
     { name = "azure-monitor-opentelemetry", marker = "extra == 'azure'", specifier = ">=1.6" },
     { name = "azure-monitor-opentelemetry", marker = "extra == 'telemetry'", specifier = ">=1.6" },
@@ -1234,7 +1240,7 @@ requires-dist = [
     { name = "reportlab", marker = "extra == 'report'", specifier = ">=4.2" },
     { name = "uvicorn", marker = "extra == 'brain'", specifier = ">=0.30" },
 ]
-provides-extras = ["openai", "foundry", "brain", "azure", "telemetry", "report"]
+provides-extras = ["openai", "foundry", "brain", "azure", "telemetry", "cosmos", "report"]
 
 [package.metadata.requires-dev]
 dev = [

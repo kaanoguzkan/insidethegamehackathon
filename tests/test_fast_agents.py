@@ -177,3 +177,137 @@ def test_a_real_match_id_still_loads():
 
     packs, names = load_recorded(replays_dir(), "red-card-drama")
     assert packs and names
+
+
+class FakeCosmos:
+    """A stand-in for a Cosmos container client: documents in a dict, with switches for slowness and failure."""
+
+    def __init__(self) -> None:
+        self.docs: dict = {}
+        self.delay = 0.0
+        self.fail = False
+        self.reads = 0
+
+    async def read_item(self, item, partition_key):  # noqa: ANN001
+        import asyncio
+
+        self.reads += 1
+        await asyncio.sleep(self.delay)
+        if self.fail:
+            raise RuntimeError("cosmos is down")
+        if item not in self.docs:
+            raise KeyError("not found")
+        return self.docs[item]
+
+    async def upsert_item(self, doc):  # noqa: ANN001
+        import asyncio
+
+        await asyncio.sleep(self.delay)
+        if self.fail:
+            raise RuntimeError("cosmos is down")
+        self.docs[doc["id"]] = doc
+
+
+def _shared(cos, **kw):  # noqa: ANN001, ANN202
+    from matchmind.agents.cache import BeatCache, SharedBeatCache
+
+    async def open_container():
+        return cos
+
+    return SharedBeatCache(BeatCache(), open_container, **kw)
+
+
+KEY = ("m", "mo-1", "casual/en/neutral/-", "gpt-4.1-mini", "v1")
+
+
+def test_the_shared_cache_writes_through_and_a_new_replica_reads_it_back():
+    import asyncio
+
+    from matchmind.agents.cache import Cached
+
+    async def go():
+        cos = FakeCosmos()
+        a = _shared(cos)
+        await a.put(KEY, Cached(StoryVariant(cohort="c", headline="h", body="b"), 0, ("composer", "verifier")))
+        await asyncio.gather(*a._pending)
+        assert len(cos.docs) == 1
+        b = _shared(cos)  # another replica, or this one after a restart: empty memory
+        hit = await b.get(KEY)
+        return hit, len(b.local), cos.reads, await b.get(KEY), cos.reads
+
+    hit, kept, reads, again, reads_after = asyncio.run(go())
+    assert hit.variant.headline == "h" and hit.level == 0 and hit.agents == ("composer", "verifier")
+    assert kept == 1 and again is not None and reads_after == reads, "the second read is served from memory"
+
+
+def test_the_shared_cache_never_stores_templates_and_never_serves_another_keys_text():
+    import asyncio
+
+    from matchmind.agents.cache import Cached, doc_id
+
+    async def go():
+        cos = FakeCosmos()
+        c = _shared(cos)
+        await c.put(KEY, Cached(StoryVariant(cohort="c", headline="h", body="b"), 2, ("template",)))
+        await asyncio.gather(*c._pending)
+        cos.docs[doc_id(KEY)] = {"key": ["other"], "level": 0, "agents": [], "variant": {"cohort": "c", "headline": "x", "body": "y"}}
+        return len(cos.docs), await _shared(cos).get(KEY)
+
+    n, served = asyncio.run(go())
+    assert n == 1 and served is None  # only the planted, mismatching document exists, and it is refused
+
+
+def test_a_slow_or_failing_cosmos_is_only_a_miss_and_is_left_alone_for_a_while():
+    import asyncio
+    import time
+
+    async def go():
+        cos = FakeCosmos()
+        cos.delay = 2.0
+        c = _shared(cos, timeout_s=0.1, cooldown_s=30)
+        t0 = time.monotonic()
+        first = await c.get(KEY)
+        took = time.monotonic() - t0
+        reads = cos.reads
+        t1 = time.monotonic()
+        second = await c.get(KEY)  # inside the cooldown: not even tried
+        return first, took, second, time.monotonic() - t1, cos.reads - reads
+
+    first, took, second, took2, extra_reads = asyncio.run(go())
+    assert first is None and second is None
+    assert took < 0.5, "the time box held"
+    assert took2 < 0.05 and extra_reads == 0, "after a failure the shared layer is skipped for the cooldown"
+
+    async def failing():
+        cos = FakeCosmos()
+        cos.fail = True
+        return await _shared(cos).get(KEY)
+
+    assert asyncio.run(failing()) is None
+
+
+def test_a_cache_hit_from_the_shared_layer_makes_the_fast_path_skip_the_model(goal_pack):
+    import asyncio
+
+
+    async def go():
+        from matchmind.agents.fast import run_fast
+        from matchmind.agents.llm import make_chat_client
+        from matchmind.agents.team import AgentTeam
+        from matchmind.agents.workflow import Batch
+
+        cos = FakeCosmos()
+        cache = _shared(cos)
+        team = AgentTeam(make_chat_client("offline"))
+        batch = Batch(moments=(goal_pack,), cohorts=(CASUAL,), budget=3)
+        s1: dict = {}
+        await run_fast(team, batch, deadline_s=2.0, stats=s1, model_id="offline", cache=cache)
+        await asyncio.gather(*cache._pending)
+        fresh = _shared(cos)  # a restarted replica
+        s2: dict = {}
+        await run_fast(team, batch, deadline_s=2.0, stats=s2, model_id="offline", cache=fresh)
+        return s1, s2
+
+    s1, s2 = asyncio.run(go())
+    assert s1["modelCalls"] == 1 and s1["cacheHits"] == 0
+    assert s2["modelCalls"] == 0 and s2["cacheHits"] == 1

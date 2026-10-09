@@ -23,18 +23,19 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import hmac
+import logging
 import os
 import time
-from typing import Literal
+from typing import Any, Literal
 
 from agent_framework import Content, Message
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from matchmind import __version__
-from matchmind.agents.cache import BeatCache
+from matchmind.agents.cache import BeatCache, SharedBeatCache
 from matchmind.agents.llm import Faults, make_chat_client
 from matchmind.agents.service import (  # noqa: F401
     MAX_COHORTS,
@@ -42,6 +43,7 @@ from matchmind.agents.service import (  # noqa: F401
     BeatRequest,
     UnknownMoments,
     load_recorded,
+    read_recorded,
     serve_beats,
 )
 from matchmind.agents.team import AgentSettings, AgentTeam
@@ -49,6 +51,7 @@ from matchmind.agents.verify import Registry
 from matchmind.analytics.report import MatchAnalytics
 from matchmind.analytics.season import load_season
 from matchmind.core.paths import replays_dir
+from matchmind.guards import ADMIN_HEADER, PUBLIC_MAX_DEADLINE_MS, RateLimitMiddleware, is_admin
 from matchmind.mcp_server.registry import MatchRegistry, UnknownMatch
 from matchmind.mcp_server.server import build_server
 from matchmind.runner import build_analytics
@@ -72,6 +75,22 @@ def cors_origins() -> list[str]:
     return list(dict.fromkeys([*LOCAL_ORIGINS, *split(env.get("MATCHMIND_CORS_ORIGINS", "")), *split(env.get("MATCHMIND_ALLOWED_ORIGINS", ""))]))
 
 
+def make_beat_cache() -> BeatCache | SharedBeatCache:
+    """The in-memory cache, with Cosmos DB behind it (shared by replicas, kept across restarts) when asked for."""
+    local = BeatCache()
+    if os.environ.get("MATCHMIND_SHARED_CACHE") != "1" or not os.environ.get("COSMOS_ENDPOINT"):
+        return local
+
+    async def open_container():  # noqa: ANN202
+        from azure.cosmos.aio import CosmosClient
+        from azure.identity.aio import DefaultAzureCredential
+
+        client = CosmosClient(os.environ["COSMOS_ENDPOINT"], credential=DefaultAzureCredential())
+        return client.get_database_client("matchmind").get_container_client("beats")
+
+    return SharedBeatCache(local, open_container)
+
+
 def create_app(
     registry: MatchRegistry | None = None, llm: str | None = None, director: bool | None = None
 ) -> FastAPI:
@@ -79,22 +98,28 @@ def create_app(
     faults = Faults()
     kind = (llm or os.environ.get("MATCHMIND_LLM", "offline")).lower()
     client = make_chat_client(kind, faults=faults)
-    beat_cache = BeatCache()  # verified model text, shared by every request this replica serves
+    beat_cache = make_beat_cache()  # verified model text: in memory, and in Cosmos DB when MATCHMIND_SHARED_CACHE=1
     mcp = build_server(reg, path="/")
 
     # MATCHMIND_AGENTS=foundry: the agents are the ones registered in the Foundry project (`matchmind foundry-register`),
     # called by name, instead of local ones built from the same prompts. They are built once and shared.
-    use_foundry_agents = kind == "foundry" and os.environ.get("MATCHMIND_AGENTS", "").lower() == "foundry"
-    shared_team: list[AgentTeam] = []
+    want_foundry_agents = kind == "foundry" and os.environ.get("MATCHMIND_AGENTS", "").lower() == "foundry"
+    team_cache: list[AgentTeam] = []
+    agents_mode = ["foundry" if want_foundry_agents else "local"]  # what /health reports
 
     def get_team() -> AgentTeam:
-        if not use_foundry_agents:
-            return AgentTeam(client, AgentSettings.from_env())
-        if not shared_team:
-            from matchmind.foundry_agents import foundry_team
+        """Built once and shared. With Foundry agents wanted but stale or missing, the local agents answer and /health says so."""
+        if not team_cache:
+            team = None
+            if want_foundry_agents:
+                from matchmind.foundry_agents import foundry_team
 
-            shared_team.append(foundry_team(client))
-        return shared_team[0]
+                team, problems = foundry_team(client)
+                if team is None:
+                    agents_mode[0] = "local (Foundry agents stale or missing: run `matchmind foundry-register`)"
+                    print(f"WARN Foundry agents not used: {'; '.join(problems)}", flush=True)
+            team_cache.append(team or AgentTeam(client, AgentSettings.from_env()))
+        return team_cache[0]
 
     warm_up: list[asyncio.Task] = []
 
@@ -134,18 +159,33 @@ def create_app(
         finally:
             watcher.cancel()
 
+    for noisy in ("azure", "httpx", "httpcore"):  # the Azure SDK logs every request and its headers at INFO: ingestion cost, no value
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     setup_tracing()  # before the app object exists, so its requests are instrumented
     app = FastAPI(title="MatchMind Brain", version=__version__, lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware, allow_origins=cors_origins(), allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["content-type", "x-director-key"], allow_credentials=False, max_age=600,
+        allow_headers=["content-type", "x-director-key", ADMIN_HEADER], allow_credentials=False, max_age=600,
     )  # the web app on Azure Static Web Apps and GitHub Pages calls this API from the browser
+    app.add_middleware(
+        RateLimitMiddleware,
+        rules=[("/api/beats", "POST", int(os.environ.get("MATCHMIND_BEATS_PER_MIN", "20")), 60.0), ("/mcp", None, int(os.environ.get("MATCHMIND_MCP_PER_MIN", "60")), 60.0)],
+    )
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):  # noqa: ANN202
+        resp = await call_next(request)
+        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+        resp.headers.setdefault("Referrer-Policy", "no-referrer")
+        resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+        return resp
+
     app.mount("/mcp", mcp.streamable_http_app())
 
     @app.get("/health")
     async def health() -> dict:
         start_warm_up()
-        return {"status": "ok", "llm": kind, "agents": "foundry" if use_foundry_agents else "local", "version": __version__, "matches": len(reg.ids())}
+        return {"status": "ok", "llm": kind, "agents": agents_mode[0], "version": __version__, "matches": len(reg.ids())}
 
     @app.get("/api/matches")
     def matches() -> list[str]:
@@ -158,6 +198,7 @@ def create_app(
             raise HTTPException(404, str(e)) from e
 
     beat_data: dict[str, tuple[dict[str, dict], Registry]] = {}
+    recorded_files: dict[tuple[str, str], Any] = {}
 
     def beat_inputs(match_id: str) -> tuple[dict[str, dict], Registry]:
         """The moment packs and the name registry /api/beats needs, without loading the match's interpreter.
@@ -178,17 +219,33 @@ def create_app(
         beat_data[match_id] = out
         return out
 
+    def recorded(match_id: str, name: str) -> Any | None:
+        """A file of the match's replay package, parsed once. None when the match has no package (then the interpreter
+        answers). The package is identical to what the interpreter computes (checked), and reading it takes
+        milliseconds where the interpreter takes seconds to load."""
+        if match_id not in reg.ids():
+            raise HTTPException(404, f"unknown match {match_id!r}")
+        key = (match_id, name)
+        if key not in recorded_files:
+            recorded_files[key] = read_recorded(reg.root, match_id, name)
+        return recorded_files[key]
+
     @app.get("/api/matches/{match_id}/moments")
     def moments(match_id: str, min_salience: float = 0.0) -> list[dict]:
-        ip = _ip(match_id)
+        packs = recorded(match_id, "moments.json")
+        if packs is None:
+            packs = _ip(match_id).all_moments
         return [
             {"id": m["id"], "type": m["type"], "label": m["detectedAt"]["label"], "salience": m["salience"], "team": m["subjectTeam"]}
-            for m in ip.all_moments if m["salience"] >= min_salience
+            for m in packs if m["salience"] >= min_salience
         ]  # fmt: skip
 
     @app.get("/api/matches/{match_id}/analytics")
     def analytics(match_id: str) -> dict:
         """The match's Opta-style analytics (what the replay package stores as analytics.json)."""
+        rec = recorded(match_id, "analytics.json")
+        if rec is not None:
+            return rec
         ip = _ip(match_id)
         return build_analytics(ip, load_season(), ip.season, ip.meta)
 
@@ -204,16 +261,30 @@ def create_app(
 
     @app.get("/api/matches/{match_id}/win-probability")
     def win_probability(match_id: str) -> dict:
+        rec = recorded(match_id, "analytics.json")
+        if rec is not None and "winProbability" in rec:
+            return rec["winProbability"]
         return MatchAnalytics(_ip(match_id)).win_probability()
 
+    max_inflight = int(os.environ.get("MATCHMIND_MAX_INFLIGHT", "8"))
+    inflight = [0]
+
     @app.post("/api/beats")
-    async def beats(req: BeatRequest) -> dict:
-        packs, names = await asyncio.to_thread(beat_inputs, req.match_id)
-        team = await asyncio.to_thread(get_team)
+    async def beats(req: BeatRequest, x_admin_key: str | None = Header(None, alias=ADMIN_HEADER)) -> dict:
+        # The workflow, bypassing the cache and long deadlines cost operators' money or hold a worker: key-protected.
+        if (req.mode == "full" or not req.useCache or req.deadlineMs > PUBLIC_MAX_DEADLINE_MS) and not is_admin(x_admin_key):
+            raise HTTPException(403, f"mode 'full', useCache false and deadlineMs over {PUBLIC_MAX_DEADLINE_MS} need the {ADMIN_HEADER} header")
+        if inflight[0] >= max_inflight:  # turn a burst away at once rather than queue it behind slow model calls
+            raise HTTPException(503, "busy, retry shortly", headers={"Retry-After": "2"})
+        inflight[0] += 1
         try:
+            packs, names = await asyncio.to_thread(beat_inputs, req.match_id)
+            team = await asyncio.to_thread(get_team)
             return await serve_beats(req, packs=packs, registry=names, team=team, cache=beat_cache, settings=AgentSettings.from_env())
         except UnknownMoments as e:
             raise HTTPException(404, str(e)) from e
+        finally:
+            inflight[0] -= 1
 
     # The fault switch degrades the model for every caller, so it is off unless explicitly enabled
     # (MATCHMIND_DIRECTOR=1 or director=True) and, when MATCHMIND_DIRECTOR_KEY is set, key-protected.

@@ -64,14 +64,39 @@ def register(endpoint: str | None = None, model: str | None = None) -> list[dict
     return out
 
 
-def foundry_team(chat_client: Any, endpoint: str | None = None) -> AgentTeam:
-    """An :class:`AgentTeam` whose agents are the ones registered in Foundry (called by name, latest version)."""
+def stale_agents(project: Any) -> list[str]:
+    """Names of registered agents whose stored prompt version differs from this code's, or that are missing.
+
+    A registered agent carries its own instructions. If ``prompts.py`` changed and ``foundry-register`` was not run again,
+    the service would keep answering with the old prompts while its cache is keyed on the new version.
+    """
+    stale = []
+    for sp in SPECS:
+        try:
+            latest = project.agents.get(agent_name=sp.name)["versions"]["latest"]
+            registered = (latest.get("metadata") or {}).get("promptVersion")
+        except Exception:  # noqa: BLE001 - missing, forbidden or unreachable all mean "cannot trust it"
+            registered = None
+        if registered != prompts.PROMPT_VERSION:
+            stale.append(f"{sp.name} (registered {registered}, code {prompts.PROMPT_VERSION})")
+    return stale
+
+
+def foundry_team(chat_client: Any, endpoint: str | None = None) -> tuple[AgentTeam | None, list[str]]:
+    """An :class:`AgentTeam` whose agents are the ones registered in Foundry (called by name, latest version).
+
+    Returns ``(None, problems)`` when any registered agent is stale or missing, so the caller can fall back to local agents.
+    """
     from agent_framework.foundry import FoundryAgent
+    from azure.ai.projects import AIProjectClient
     from azure.identity import DefaultAzureCredential
 
     endpoint = endpoint or os.environ["FOUNDRY_PROJECT_ENDPOINT"]
     cred = DefaultAzureCredential()
+    problems = stale_agents(AIProjectClient(endpoint=endpoint, credential=cred))
+    if problems:
+        return None, problems
     agents = {sp.role: FoundryAgent(project_endpoint=endpoint, agent_name=sp.name, credential=cred) for sp in SPECS}
     settings = AgentSettings.from_env()
     settings.agent_side_options = True
-    return AgentTeam(chat_client, settings, agents=agents)
+    return AgentTeam(chat_client, settings, agents=agents), []

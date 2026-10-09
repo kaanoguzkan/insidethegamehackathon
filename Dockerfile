@@ -8,7 +8,7 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 # Dependencies first, so code changes do not invalidate the layer.
 COPY pyproject.toml uv.lock README.md LICENSE.md ./
 COPY src ./src
-RUN uv sync --frozen --no-dev --extra brain --extra openai --extra foundry --extra telemetry --no-editable
+RUN uv sync --frozen --no-dev --extra brain --extra openai --extra foundry --extra telemetry --extra cosmos --no-editable
 
 FROM ghcr.io/astral-sh/uv:0.8-python3.12-bookworm-slim
 RUN useradd --create-home --uid 10001 app

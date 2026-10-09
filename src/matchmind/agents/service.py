@@ -11,7 +11,7 @@ import json
 import re
 import time
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -62,6 +62,14 @@ def load_recorded(root: Path, match_id: str) -> tuple[dict[str, dict], Registry]
         return None
     packs = {m["id"]: {k: v for k, v in m.items() if k not in RECORDED_ONLY} for m in json.loads((d / "moments.json").read_text())}
     return packs, Registry.from_meta(json.loads((d / "meta.json").read_text()))
+
+
+def read_recorded(root: Path, match_id: str, name: str) -> Any | None:
+    """A JSON file of a replay package (analytics.json, moments.json ...), or None if there is none or the id is not a slug."""
+    if not SAFE_MATCH_ID.fullmatch(match_id) or "/" in name or name.startswith("."):
+        return None
+    p = root / match_id / name
+    return json.loads(p.read_text()) if p.is_file() else None
 
 
 async def serve_beats(

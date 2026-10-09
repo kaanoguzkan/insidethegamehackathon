@@ -20,6 +20,7 @@ seconds. This path trades the chain for one call per cohort, and puts rule-based
 from __future__ import annotations
 
 import asyncio
+import inspect
 import os
 import time
 from collections.abc import Awaitable, Callable
@@ -43,7 +44,23 @@ def _wound_down(t: asyncio.Future) -> None:
         t.exception()  # retrieved, so a late failure is not reported as never retrieved
 
 
-HEDGE_AFTER_S = float(os.environ.get("MATCHMIND_HEDGE_S", "2.2"))  # 0 turns hedging off
+# Measured on the live Brain: a call takes about 2.0 s (median) and 3.7 s (95th percentile). Hedging at 2.2 s duplicated about half of
+# all calls (about 50% more tokens); at 3.2 s only the slow tail is hedged and a second call still has time to finish.
+HEDGE_AFTER_S = float(os.environ.get("MATCHMIND_HEDGE_S", "3.2"))  # 0 turns hedging off
+
+
+async def _cache_get(cache, key):  # noqa: ANN001, ANN202
+    """A hit from either kind of cache: the in-memory one answers directly, the shared one is awaited."""
+    if cache is None:
+        return None
+    r = cache.get(key)
+    return await r if inspect.isawaitable(r) else r
+
+
+async def _cache_put(cache, key, value) -> None:  # noqa: ANN001
+    r = cache.put(key, value)
+    if inspect.isawaitable(r):
+        await r
 
 
 async def _hedged(call: Callable[[float], Awaitable[StoryVariant]], first_budget: float, hedge_after_s: float, deadline: float, clock: Callable[[], float], stats: dict) -> StoryVariant:
@@ -116,7 +133,8 @@ async def _run_fast(
         mk = (m["id"], c.key)
         start = clock()
         ck = BeatCache.key(match_id, m["id"], c.key, model_id, PROMPT_VERSION)
-        if cache is not None and (hit := cache.get(ck)):
+        hit = await _cache_get(cache, ck)
+        if hit is not None:
             final[mk], level[mk], made_by[mk] = hit.variant, hit.level, ["cache", *hit.agents]
             stats["cacheHits"] += 1
             store.trace(m["id"], "cache", f"hit: {c.key}", (clock() - start) * 1000.0)
@@ -146,7 +164,7 @@ async def _run_fast(
             store.trace(m["id"], "repairer", f"mended: {c.key}: {', '.join(fixed.actions)}"[:240], 0.0)
         final[mk], level[mk], made_by[mk] = v, lv, agents
         if cache is not None:
-            cache.put(ck, Cached(v, lv, tuple(agents)))
+            await _cache_put(cache, ck, Cached(v, lv, tuple(agents)))
 
     tasks = [asyncio.ensure_future(compose(m, c)) for m in kept for c in cohorts.values() if routes[m["id"], c.key].model]
     if tasks:
