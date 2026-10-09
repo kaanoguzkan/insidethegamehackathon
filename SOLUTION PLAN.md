@@ -30,13 +30,14 @@
 | Verifier | Done | Deterministic, adversarially tested, wired into the workflow and the Producer (the `verified` flag is earned, not asserted) |
 | Agent Framework workflow, offline model, fault injector | Done | Editor, Explainer, Storyteller, Localizer, Recap Writer; levels 0 agent, 1 retry, 2 template, 3 stat graphic |
 | **Live fast path** (`POST /api/beats`) | **Done, measured live** | Rule-based Editor and Router, one Composer call per cohort in parallel, Verifier, rule-based Repairer, template-first fallback, memory and Cosmos DB cache, hedged calls; `docs/agents.md`, `docs/brain-api.md` |
+| **Ask the match** (`POST /api/ask`, Ask tab) | **Done, run live** | Planner (model or keywords) chooses from an allow-list of the MCP tools, code runs them, an answerer writes from the results only, the Verifier checks every number and name, each answer reports its tools, time, tokens and cost; off-topic questions are refused; repeated questions are cached (`docs/agents.md`). Found live: the Verifier cannot check the logic joining facts |
 | **Public-API guards** | **Done, checked live** | Per-client rate limit, in-flight cap, admin key for expensive options, cohort validation, security headers, token and log ceilings (`docs/running-on-azure.md`) |
 | Overlay Producer, JSON Schemas, replay packages | Done | Version 2 packages; 3 matches, about 10 MB; recaps 3 kinds x 8 cohorts; healthy, unreliable and outage variants |
 | Web app | Done | Fit-to-screen pitch, a three-step path (Watch, Understand, Explore), overlays, viewer and model-health menus, match strip with story ribbon, evidence drawer, recaps, Tactics tab, Explore workspace (11 views in 5 groups), win-probability line, pitch lenses, EN/ES/TR UI, accessibility options, **Live AI switch** |
 | MCP server (25 tools) and Brain API | Done | Verified over real HTTP, in tests, in Docker and live; tools run in worker threads and matches preload so a cold call no longer freezes the service |
 | Evals and CI gates | Done | `matchmind evals`; reproducibility check is informational; CI runs tests in parallel |
 | Dockerfile, Bicep, `azd`, GitHub Actions | **Done, deployed** | Image builds from `ghcr.io` (Docker Hub rate-limited it) and runs on Container Apps; Bicep provisions repeatedly; CI and the Pages mirror pass on GitHub |
-| **Microsoft Foundry** | **Done, run live** | Model deployment; six agents registered as versioned prompt agents that the Brain calls (with a stale-prompt check); a hosted agent (`matchmind-newsroom`); evaluations; traces in the project's Application Insights (`docs/foundry.md`) |
+| **Microsoft Foundry** | **Done, run live** | Model deployment; eight agents registered as versioned prompt agents that the Brain calls (with a stale-prompt check); a hosted agent (`matchmind-newsroom`); evaluations; traces in the project's Application Insights (`docs/foundry.md`) |
 | README and docs/ | Done | Updated 10 October; honest "verified vs not" tables, API and configuration references |
 | Opta-style analytics | Done | Win probability, possession value (VAEP style), xGOT, pitch control, packing and line breaks, networks, measured formations, runs, load, transitions, set-piece review; models fitted from simulated matches (`docs/analytics.md`) |
 | Season history, milestones, prediction, radars | Done | 42 simulated matches; table, form, head-to-head, records, Poisson prediction, goal milestones, player radars and "plays like" |
@@ -46,7 +47,7 @@
 | Live streaming mode | Not built | Replay and on-demand only |
 | Demo video | Not recorded | Required: under two minutes, public link |
 
-597 Python tests (3 slow; all pass, 4.5 minutes in full, 112 seconds for the 594 fast ones in parallel) plus 63 web tests; ruff clean. About 15,600 lines of Python in `src`, `apps` and `foundry`, 3,800 of Python tests and 6,500 of web code.
+597 Python tests (3 slow; all pass, 4.5 minutes in full, 112 seconds for the 594 fast ones in parallel) plus 67 web tests; ruff clean. About 15,600 lines of Python in `src`, `apps` and `foundry`, 3,800 of Python tests and 6,500 of web code.
 
 ### Measured results
 

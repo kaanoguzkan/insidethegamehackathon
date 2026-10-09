@@ -35,9 +35,16 @@ On Azure the Bicep sets the Brain's variables from `azd env` values (names in th
 | `MATCHMIND_BEATS_PER_MIN` | 20 | `POST /api/beats` requests a minute per client |
 | `MATCHMIND_MCP_PER_MIN` | 60 | `/mcp` requests a minute per client |
 | `MATCHMIND_MAX_INFLIGHT` | 8 | `/api/beats` requests served at once; more get 503 |
+| `MATCHMIND_ASK_PER_MIN`, `MATCHMIND_MAX_ASK_INFLIGHT` | 10, 4 | `POST /api/ask` questions a minute per client, and questions answered at once |
 | `MATCHMIND_CORS_ORIGINS` | none | Extra browser origins that may call the API (comma separated, no trailing slash); `localhost` dev servers and `MATCHMIND_ALLOWED_ORIGINS` are always allowed |
 | `MATCHMIND_ALLOWED_HOSTS`, `MATCHMIND_ALLOWED_ORIGINS` | none | The MCP library's DNS-rebinding guard: the host names the service answers to and the browser origins it accepts. Without hosts it accepts only localhost |
 | `MATCHMIND_DIRECTOR`, `MATCHMIND_DIRECTOR_KEY` | off | `1` exposes the model-fault switch of the resilience demo; the key, if set, must be sent as `X-Director-Key` |
+
+## Cost reporting
+
+| Variable | Default | Effect |
+|---|---|---|
+| `MATCHMIND_PRICE_IN_PER_M`, `MATCHMIND_PRICE_OUT_PER_M` | the list price of the model in use | US dollars per million input and output tokens. They only feed the `costUsd` that `/api/ask` and `/api/beats` report; set them to the list price of whatever model you deploy (see `pricing.py`) |
 
 ## Telemetry
 

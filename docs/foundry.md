@@ -5,7 +5,7 @@ MatchMind uses Foundry for four things beyond hosting the model. Each is a comma
 
 | What | Command / setting | What you see |
 |---|---|---|
-| **Agents registered in Foundry** | `matchmind foundry-register` | Six versioned prompt agents in the project: `matchmind-editor`, `-explainer`, `-storyteller`, `-localizer`, `-composer`, `-recap-writer` |
+| **Agents registered in Foundry** | `matchmind foundry-register` | Eight versioned prompt agents in the project (the six of the overlay pipeline plus `-planner` and `-answerer` for Ask the match): `matchmind-editor`, `-explainer`, `-storyteller`, `-localizer`, `-composer`, `-recap-writer` |
 | **The Brain calls them** | `MATCHMIND_AGENTS=foundry` (set in `infra/`) | `/health` reports `"agents":"foundry"`; traces show `invoke_agent matchmind-composer` |
 | **Evaluations** | `matchmind foundry-evals --samples 30` | A run in the Foundry portal with groundedness, relevance, coherence and fluency per overlay |
 | **A hosted agent** | `matchmind foundry-host` | `matchmind-newsroom`, the whole fast path, served by Foundry at the project's agent endpoint |

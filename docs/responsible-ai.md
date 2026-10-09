@@ -21,6 +21,13 @@
 * **Untrusted input.** The model only ever sees evidence packs and values the server controls. The two request fields that reach the prompt,
   a cohort's `perspective` and `focusPlayer`, must be one of the match's club and player ids, so a caller cannot put instructions into them (and
   the Verifier would check the output anyway). Prompts and answers are not written to traces unless `MATCHMIND_TRACE_CONTENT=1`.
+* **Ask the match treats the question as untrusted.** A viewer's question goes to a planner that can only choose from an allow-list of match-data tools; its
+  choice is validated by code (unknown tools, undeclared arguments and any other match are dropped), so an instruction hidden in a question cannot make the service run
+  anything else or read another match. The answer is written from the tool results alone and checked by the same Verifier as the overlays; off-topic questions are refused
+  without further model calls. When no verified text can be produced, the user gets the plain numbers and is told that.
+* **What checking cannot do.** The Verifier proves that numbers and names come from the data; it cannot prove that the logic joining them is right (which event came first,
+  what caused what). The prompts forbid inventing such links, and an answer's tools and numbers are shown so a reader can look, but a fluent sentence made only of real facts can still
+  mislead. This was observed once in a live test of Ask the match.
 * **A public service that guards itself.** The live endpoint is open to the internet and spends model tokens, so it has a per-client rate limit, a cap on
   simultaneous requests, an admin key for the expensive options and a ceiling on the model deployment's tokens a minute
   ([running-on-azure.md](running-on-azure.md)). Budgets alert but do not stop spending; these guards are what bound it.

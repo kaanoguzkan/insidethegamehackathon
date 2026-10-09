@@ -13,6 +13,7 @@ after idle takes about 20 seconds, so call `/health` first). Interactive docs ar
 | `GET /api/matches/{id}/win-probability` | The win-probability series, swings and pre-match prediction |
 | `GET /api/matches/{id}/report.pdf` | The printable 17-page match report |
 | `POST /api/beats` | **Overlays for chosen moments and viewer cohorts, written now** (below) |
+| `POST /api/ask` | **Ask the match a question**: an answer written from the match-data tools only, checked by the Verifier (below) |
 | `/mcp/` | The Match Data MCP server, streamable HTTP, stateless, 25 tools |
 | `GET/POST /api/director/faults` | The model-fault switch of the resilience demo. Only exists when `MATCHMIND_DIRECTOR=1`; key-protected by `X-Director-Key` |
 
@@ -65,6 +66,7 @@ The request names a match, one to six moments and one to twelve viewer cohorts. 
 
 * `level` is the worst fallback level among the beat's overlays: 0 written by the model and verified first time, 1 mended by the Repairer
   (or retried, in full mode), 2 template text. Each overlay carries its own `provenance.fallbackLevel`, `provenance.agents` and `provenance.verified`.
+* `stats` also reports `inputTokens`, `outputTokens` and `costUsd` for the model calls of the request (hedged and cut-off calls included).
 * `stats` counts what happened: `cacheHits`, `modelCalls`, `hedged` (second, duplicate calls started because the first was slow), `repaired`,
   `rejected` (model text the Verifier refused and the Repairer could not mend), `missedDeadline` (calls cut off), `cacheSize`.
 * `trace` has one entry per step with its duration in milliseconds. Agents that appear: `editor`, `router`, `cache`, `composer`, `verifier`, `repairer`, `producer`.
@@ -86,6 +88,37 @@ Fast mode answers inside `deadlineMs` whatever the model does. Template text is 
 if it arrives in time and the Verifier accepts it (a rejected text is first mended by the Repairer, which cuts out only what failed). A model call that
 is slower than 3.2 s is hedged with a second identical call and the first answer wins. Measured on the deployed Brain: median 2.6 s, 95th percentile
 4.2 s, no missed deadline in 45 calls ([agents.md](agents.md)). The browser's own limit in the match center is 12 s, a safety net only. The match center sends only a club and a followed player that belong to the match on screen (they survive a change of match in the URL, and the Brain refuses a foreign one).
+
+## `POST /api/ask`
+
+```json
+{"match_id": "pressing-collapse", "question": "How did the pressing change?", "language": "en", "mode": "casual", "minute": 54}
+```
+
+`question` is 2 to 280 characters (longer is refused, control characters are stripped); `language` is `en`, `es` or `tr`; `mode` is `analyst` or `casual`;
+`minute` (optional, 0 to 130) tells the planner where the viewer is, but answers may use the whole match.
+
+```json
+{
+  "answer": "Harbour City pressed higher after the 55th minute ...",
+  "level": 0, "verified": true, "refused": false, "cached": false,
+  "tools": [{"name": "get_pressing_report", "args": {}}],
+  "elapsedMs": 2600,
+  "usage": {"inputTokens": 2283, "outputTokens": 100, "costUsd": 0.001},
+  "trace": [{"agent": "planner", "outcome": "ok: get_pressing_report", "ms": 1457.7}, {"agent": "tools", "outcome": "1 of 1 gave data", "ms": 1.7}, {"agent": "answerer", "outcome": "ok", "ms": 1109.9}]
+}
+```
+
+How it works ([agents.md](agents.md#ask-the-match)): a **planner** chooses up to three tools from an allow-list of the MCP tools (or keyword rules do, if the model is
+unavailable or its choice does not run); code runs them against this match; an **answerer** writes the reply from the results only; the **Verifier** checks every number and name
+against those results.
+
+* `level`: 0 a model answer that passed the checks, 1 mended by cutting out the sentences the data did not support, 2 only the numbers the data gives (no model text could be
+  verified), 3 refused (off topic) or nothing found.
+* `tools` are the tools that were run, never including `match_id`, which is always the request's.
+* `usage` is the tokens the answer used and what they cost at the configured price (`costUsd`); a `cached` answer costs nothing.
+* An off-topic question is refused after the planner, with no tools run and no answerer call.
+* Errors: 404 unknown match, 422 a bound broken, 429 more than 10 questions a minute from one client (`MATCHMIND_ASK_PER_MIN`), 503 more than 4 questions being answered at once.
 
 ## MCP
 

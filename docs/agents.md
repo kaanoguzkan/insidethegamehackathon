@@ -12,6 +12,8 @@ shared beat cache, below.
 | **Verifier** | Code, not a model: numbers, names, citations, honesty, policy, language, format | pass, or an error list for the retry |
 | **Storyteller** | English variants per audience (analyst, casual, club side, followed player) | `StoryOut` |
 | **Localizer** | Native Spanish or Turkish versions, numbers unchanged | `StoryVariant` |
+| **Planner** | Ask the match: chooses which match-data tools answer a viewer's question, or refuses an off-topic one | `Plan` |
+| **Answerer** | Ask the match: answers the question from what the tools returned, and nothing else | `ChatAnswer` |
 | **Composer** | The fast path's one call: explains and writes a single cohort's story, natively in its language | `StoryVariant` |
 | **Recap Writer** | Preview, half-time and full-time recaps from a recap evidence pack | `Recap` |
 | **Router, Cache, Repairer** | Rules, no model: who gets a model call, what has been written before, how to mend rejected text (fast path, below) | |
@@ -109,6 +111,33 @@ fall back to templates when calls crept past four seconds; the answer was still 
 the first live runs, and what fixed it: the model cited evidence keys that do not exist (the prompt now carries the exact list of valid references),
 it wrote player ids such as `NOR-21` into the text so their digits failed the number check (the model now sees names, never ids), and a few
 sentences used words the policy bans.
+
+## Ask the match (`agents/ask.py`)
+
+`POST /api/ask` ([brain-api.md](brain-api.md#post-apiask)) lets a viewer ask a question and get an answer written from the match data, with the same rule as everywhere else: *code gets the
+evidence, the model only phrases it*.
+
+1. **Planner** (model, with a keyword fallback). It sees the question, a compact catalogue of the tools and the two teams, and returns at most three tools. Whatever it returns is
+   **validated by code**: only tools on an allow-list of the MCP tools run, only arguments the tool declares are kept, `match_id` is always the request's, a team must be one of the
+   match's, and a tool missing a required argument is skipped. The question is treated as data: an instruction inside it cannot choose a tool, change the match or reach the answer.
+   An off-topic question is refused here, with no tools run and no further call.
+2. **Tools** (code). The Match Data MCP server's own tools run in process, in parallel, each bounded; their results are reduced in structure (lists trimmed, floats rounded) to
+   about 2 200 characters each to keep the answer's cost down. If every chosen tool fails, the keyword planner gets one go.
+   Numeric arguments are clamped to their real range (the catalogue shows each range), because a model cannot know a tool's scale: it once asked for `min_salience` 5 on a 0 to 1
+   scale and got no moments at all. A tool that comes back empty is asked again without the filters the model chose.
+3. **Answerer** (model, with a digest fallback). It sees the question and the results only. The reply is then checked by the Verifier against the results: every number must appear in
+   them, every player and club named must belong to the match, and the policy, language and length rules apply. A failing sentence is cut out (level 1); if nothing verifiable is left,
+   the answer is a plain digest of the facts the tools returned (level 2).
+
+Every step has a fallback that needs no model, so a slow or failing model costs the polish, not the answer. Each answer reports its tokens and cost, and identical questions are
+served from an answer cache. Tried against the live model with six questions (English, Spanish, Turkish, and an off-topic one): 1.2 to 5.5 s, the off-topic one refused with a single call.
+
+**What the Verifier cannot check.** It proves that every number and name in an answer comes from the tool results. It cannot prove that a sentence's *logic* is right: in a live
+test an answer said the red card came before a goal that was scored five minutes earlier, with every number and name correct. The answerer's prompt therefore forbids stating an order,
+a cause or a comparison that no result states, and this is reduced, not eliminated; a user can still be misled by a fluent sentence whose facts are all real.
+
+Limits: answers may use the whole match, not only what the viewer has seen so far (the viewer's minute is only passed to the planner); a question that no tool covers gets "I could not find
+that"; the planner's tool arguments are validated but not always sensible, which is why the keyword planner is the second chance.
 
 ## The Verifier
 

@@ -40,6 +40,14 @@ ALLOWED_TOOLS = (
     "get_goalkeeper_report", "get_pressing_report", "get_player_profile", "list_moments", "explain_metric",
 )  # fmt: skip
 
+# Numeric arguments with a real range. The model cannot know a tool's scale (it once asked for min_salience 5 on a 0 to 1 scale and got no moments at all), so the
+# range is shown in the catalogue and every value is clamped to it before the tool runs.
+ARG_RANGES: dict[str, tuple[float, float]] = {
+    "min_salience": (0.0, 1.0), "min_xg": (0.0, 1.0), "top": (1, 15), "min_distance": (0.0, 60.0),
+    "minute": (0, 130), "since_minute": (0, 130), "from_minute": (0, 130), "to_minute": (0, 130),
+    "before_from": (0, 130), "before_to": (0, 130), "after_from": (0, 130), "after_to": (0, 130),
+}
+
 REFUSAL = {
     "en": "I can only answer questions about this match and its numbers. Try asking about the pressing, who had the momentum, the shots or the formations.",
     "es": "Solo puedo responder preguntas sobre este partido y sus números. Prueba con la presión, quién tuvo el impulso, los tiros o las formaciones.",
@@ -101,6 +109,11 @@ def clean_question(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()[:MAX_QUESTION_CHARS]
 
 
+def _range_hint(arg: str) -> str:
+    lo, hi = ARG_RANGES.get(arg, (None, None))
+    return "" if lo is None else f"({lo:g}-{hi:g})"
+
+
 def catalogue(tools: list[Any]) -> list[dict]:
     """The planner's view of the tools: name, arguments (required marked with *) and one sentence. Small on purpose: tokens cost money."""
     out = []
@@ -108,7 +121,7 @@ def catalogue(tools: list[Any]) -> list[dict]:
         if t.name not in ALLOWED_TOOLS:
             continue
         props, req = t.inputSchema.get("properties", {}), t.inputSchema.get("required", [])
-        args = [f"{k}{'*' if k in req else ''}" for k in props if k != "match_id"]
+        args = [f"{k}{'*' if k in req else ''}{_range_hint(k)}" for k in props if k != "match_id"]
         out.append({"name": t.name, "args": args, "returns": (t.description or "").split(".")[0][:110]})
     return out
 
@@ -155,6 +168,9 @@ def validate_plan(tools: list[Any], match_id: str, teams: dict[str, str], tool_i
                     args[k] = match
             if isinstance(v, str) and len(v) > 40:
                 args.pop(k, None)
+            elif k in ARG_RANGES and isinstance(v, (int, float)) and not isinstance(v, bool):
+                lo, hi = ARG_RANGES[k]
+                args[k] = min(max(v, lo), hi)
         if any(r != "match_id" and r not in args for r in schema["required"]):
             continue  # a tool call missing a required argument cannot run
         calls.append({"name": name, "args": {"match_id": match_id, **args}})
@@ -296,7 +312,10 @@ async def ask(
 
     async def run(call: dict) -> tuple[str, Any]:
         try:
-            return call["name"], parse(await asyncio.wait_for(mcp.call_tool(call["name"], call["args"]), min(TOOL_TIMEOUT_S, left())))
+            out = parse(await asyncio.wait_for(mcp.call_tool(call["name"], call["args"]), min(TOOL_TIMEOUT_S, left())))
+            if out in ([], {}, None) and len(call["args"]) > 1:  # nothing came back: the filters the model chose may be what emptied it, so ask again without them
+                out = parse(await asyncio.wait_for(mcp.call_tool(call["name"], {"match_id": call["args"]["match_id"]}), min(TOOL_TIMEOUT_S, left())))
+            return call["name"], out
         except Exception as e:  # noqa: BLE001 - a tool that fails is reported as missing, not fatal
             return call["name"], {"error": str(e)[:120]}
 

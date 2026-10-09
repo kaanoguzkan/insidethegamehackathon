@@ -21,6 +21,9 @@ Read `SOLUTION PLAN.md` (status section first), `docs/architecture.md` and `docs
   read from the replay package. A test (`test_a_slow_mcp_tool_does_not_freeze_the_server`) fails if a tool stalls `/health`.
 - **Whatever reaches a prompt or a path is validated.** Match ids must be plain slugs (`SAFE_MATCH_ID`); a cohort's `perspective` and `focusPlayer` must be
   the match's own club and player ids. The model sees player names, never ids such as `NOR-21` (their digits fail the number check).
+- **Ask the match validates what the model plans.** The planner's tools are checked by code against an allow-list (`agents/ask.py`): unknown tools, undeclared arguments and any
+  `match_id` but the request's are dropped, numeric arguments are clamped to their range, and the answer must pass the Verifier against the tool results. The Verifier cannot check
+  the logic that joins facts, so the answerer's prompt forbids inventing order or cause.
 - **The public API guards itself** (`guards.py`): rate limit, in-flight cap, admin key for `mode: full`, `useCache: false` and long deadlines. Do not
   add an expensive option without putting it behind the key.
 - **Prompts are versioned.** After changing `agents/prompts.py`, bump `PROMPT_VERSION` and run `uv run matchmind foundry-register`; with

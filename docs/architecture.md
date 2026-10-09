@@ -73,7 +73,7 @@ flowchart LR
 ```
 
 Used by the app: Container Apps (the Brain, scales to zero, at most 2 replicas), Static Web Apps, Cosmos DB free tier (the shared cache),
-Application Insights and Log Analytics (daily cap), the Container Registry, a budget with alerts, and the Foundry project (model, six registered
+Application Insights and Log Analytics (daily cap), the Container Registry, a budget with alerts, and the Foundry project (model, eight registered
 agents, the hosted agent, evaluations). Provisioned but not used yet: SignalR (free), Storage and Key Vault, which are the pieces of the event-driven
 pipeline in the plan. A user-assigned managed identity holds every role assignment; there are no keys in configuration. What is deployed, how
 it was verified and what went wrong on a free subscription: [running-on-azure.md](running-on-azure.md). Every setting: [configuration.md](configuration.md).

@@ -29,6 +29,8 @@ The pitch always fits the screen. Depth comes from three steps in the top bar (k
 
 The match strip at the bottom never goes away: play, speed, **View** (2D or 3D, camera angle, follow the ball), **Lenses** (pitch control, team shape, offside line, passing options, runs) and a draggable ribbon of win probability, momentum, chaos and pressure with the key moments marked. Viewer settings (analyst or casual, language, club, followed player, accessibility, two viewers side by side) and the model-health switch live in menus in the top bar. The whole view is in the URL, so any state can be shared.
 
+**Ask the match.** In the Understand step, the **Ask** tab takes a question ("who controlled the match?", "how did the pressing change?") and answers it from the match data: a planner picks match-data tools, code runs them, an answerer writes the reply from their results only, and the Verifier checks every number and name. Each answer shows which tools it looked at, how long it took and what it cost; an off-topic question is politely refused. It works in English, Spanish and Turkish and needs the Brain, like Live AI.
+
 **Live AI.** Switch it on (top bar, or inside the evidence drawer) and select a moment: the page asks the Brain to write that
 moment's story for each viewer on screen, and swaps the model's text in for the recorded one. The drawer shows who wrote it
 (`E R C ✓`: editor, router, composer, verifier), how long it took, and whether it came from the cache. If the Brain is asleep
@@ -106,7 +108,7 @@ uv run matchmind build-pdf                          # the printable match report
 uv run matchmind fit-models                         # win probability, possession value, post-shot xG
 uv run matchmind build-season                       # the league's simulated history
 uv run pytest -m "not slow"                         # the fast suite
-cd web && pnpm install && pnpm dev                  # the match center (63 tests: pnpm test)
+cd web && pnpm install && pnpm dev                  # the match center (67 tests: pnpm test)
 ```
 
 No keys, network or GPU needed: the default model client answers from the template engine so the real
@@ -124,7 +126,7 @@ With a Microsoft Foundry project (see [docs/foundry.md](docs/foundry.md) and [do
 
 ```bash
 export FOUNDRY_PROJECT_ENDPOINT=https://<account>.services.ai.azure.com/api/projects/<project> MATCHMIND_LLM_MODEL=<deployment>
-uv run matchmind foundry-register     # the six agents as versioned Foundry prompt agents
+uv run matchmind foundry-register     # the eight agents as versioned Foundry prompt agents
 uv run matchmind foundry-evals        # Foundry's groundedness, relevance, coherence and fluency evaluators over the overlay text
 uv run matchmind foundry-host         # the fast path as a Foundry hosted agent
 MATCHMIND_LLM=foundry MATCHMIND_AGENTS=foundry uv run uvicorn apps.brain.main:app   # the Brain calls the registered agents
@@ -184,7 +186,7 @@ Details: [docs/architecture.md](docs/architecture.md), the agents in [docs/agent
 |---|---|---|
 | **Microsoft Agent Framework 1.20** | Editor, Explainer, Storyteller, Localizer, Composer and Recap Writer as `Agent`s; a `WorkflowBuilder` graph with retry loops and fallbacks; rule-based Router, Cache and Repairer agents around the live path | Used and tested: offline with a fault injector that exercises every recovery path, and live against `gpt-4.1-mini` on Foundry |
 | **Model Context Protocol** | Match Data MCP server, 25 tools, served over streamable HTTP | Used and tested, including a real MCP client over HTTP |
-| **Microsoft Foundry** | The model (`gpt-4.1-mini`), six agents registered as versioned prompt agents that the Brain calls, a hosted agent (`matchmind-newsroom`), Foundry evaluations, and traces in Application Insights | **Run against a live project** (Oct 2026); the SDK parts are experimental. Results and caveats: [docs/foundry.md](docs/foundry.md) |
+| **Microsoft Foundry** | The model (`gpt-4.1-mini`), eight agents registered as versioned prompt agents that the Brain calls, a hosted agent (`matchmind-newsroom`), Foundry evaluations, and traces in Application Insights | **Run against a live project** (Oct 2026); the SDK parts are experimental. Results and caveats: [docs/foundry.md](docs/foundry.md) |
 | **GitHub Copilot** | Built with it; `.github/copilot-instructions.md` and the MCP config for agent mode | In use |
 | **Azure Container Apps, Static Web Apps, Cosmos DB, Application Insights, Log Analytics, Container Registry** | `infra/` Bicep on the free tier: the Brain, the web app, a shared cache in Cosmos DB (identity only, no keys), traces, a budget with alerts, a daily log cap | **Deployed and verified** (Oct 2026): scale-to-zero cold start, rate limits, the shared cache across a restart, traces. See [docs/running-on-azure.md](docs/running-on-azure.md) |
 | **SignalR, Storage, Key Vault** | Provisioned by the same Bicep | Provisioned only; the app does not use them yet (below) |
@@ -229,7 +231,7 @@ data/            league, scenarios (3 stories), replay packages (3 matches, ~10 
 infra/           Bicep + azure.yaml          schemas/   JSON Schemas of the public contracts
 docs/            architecture, agents, brain-api, configuration, foundry, running-on-azure, tactics, analytics, metrics,
                  overlay contract, data card, responsible AI, report
-tests/ evals/    597 Python tests (3 slow) + 63 web tests      SOLUTION PLAN.md   design, schedule, status
+tests/ evals/    Python tests (3 slow) + 67 web tests      SOLUTION PLAN.md   design, schedule, status
 ```
 
 ## Honest limits

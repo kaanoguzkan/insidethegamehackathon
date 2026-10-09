@@ -9,7 +9,7 @@
 |---|---|---|
 | Container App `ca-matchmind-brain` (1 vCPU, 2 GiB, 0 to 2 replicas, scales on 20 concurrent requests) | North Europe | The Brain: REST, MCP, both agent paths |
 | Static Web App `swa-matchmind` | East US 2 | The match center, built with the Brain's address (`BRAIN_URI`) |
-| Microsoft Foundry account and project `kaanoguzkan-9930` | Sweden Central | The model (`gpt-4.1-mini`, 120 000 tokens a minute), six registered prompt agents, the hosted agent `matchmind-newsroom`, evaluations |
+| Microsoft Foundry account and project `kaanoguzkan-9930` | Sweden Central | The model (`gpt-4.1-mini`, 120 000 tokens a minute), eight registered prompt agents, the hosted agent `matchmind-newsroom`, evaluations |
 | Cosmos DB (free tier), database `matchmind`, container `beats` | Sweden Central | The Brain's shared cache of verified model text (7-day expiry per document); identity only, no keys |
 | Application Insights, Log Analytics (30 days, 0.5 GB a day cap) | Sweden Central | Traces and logs. The Brain exports to the **Foundry project's own** Application Insights so traces show in the Foundry portal |
 | Container Registry (Basic), user-assigned managed identity | Sweden Central | The Brain image; the identity pulls it and calls Cosmos, Storage and the model |
@@ -48,7 +48,7 @@ azd env set MATCHMIND_LLM_MODEL <deployment-name>
 # The Brain's identity needs the "Foundry User" role on the Foundry account (role id 53ca6127-db72-4b80-b1b0-d745d6d5456d):
 az role assignment create --assignee-object-id <principalId of id-matchmind> --assignee-principal-type ServicePrincipal \
    --role 53ca6127-db72-4b80-b1b0-d745d6d5456d --scope <Foundry account resource id>
-uv run matchmind foundry-register              # the six agents, with their prompt version in the metadata
+uv run matchmind foundry-register              # the eight agents, with their prompt version in the metadata
 azd env set MATCHMIND_AGENTS foundry           # the Brain calls the registered agents (falls back to local ones if they are stale)
 azd env set APPINSIGHTS_CONNECTION_STRING_OVERRIDE "$(az monitor app-insights component show --app <project>-appinsights -g <rg> --query connectionString -o tsv)"
 azd env set MATCHMIND_CORS_ORIGINS https://<your-pages-origin>     # other sites that call the Brain from a browser
@@ -116,8 +116,8 @@ and `apps/brain/main.py`, and was checked on the live service.
 
 | Guard | Behaviour |
 |---|---|
-| Rate limit | 20 `POST /api/beats` and 60 `/mcp` requests a minute per client, then HTTP 429 with `Retry-After`. The client is the **last** `X-Forwarded-For` entry (the one the ingress appends), so a forged header does not help. |
-| Concurrency cap | At most 8 `/api/beats` requests are served at once; a burst gets 503 at once instead of queueing behind slow model calls. |
+| Rate limit | 20 `POST /api/beats`, 10 `POST /api/ask` and 60 `/mcp` requests a minute per client, then HTTP 429 with `Retry-After`. The client is the **last** `X-Forwarded-For` entry (the one the ingress appends), so a forged header does not help. |
+| Concurrency cap | At most 8 `/api/beats` and 4 `/api/ask` requests are served at once; a burst gets 503 at once instead of queueing behind slow model calls. |
 | Admin key | `mode: "full"`, `useCache: false` and `deadlineMs` over 10 000 need the `x-admin-key` header. The key is `MATCHMIND_ADMIN_KEY` in the azd environment, stored as a Container Apps secret. Unset (local development), nothing is restricted. |
 | Headers | `X-Content-Type-Options`, `Referrer-Policy`, `Strict-Transport-Security`. |
 | Spend ceiling | The model deployment is capped at 120 000 tokens a minute, and the Log Analytics workspace at 0.5 GB a day. |

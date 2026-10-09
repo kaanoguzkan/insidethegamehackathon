@@ -95,7 +95,7 @@ def test_the_question_is_shaped_before_it_reaches_a_prompt():
 def test_the_catalogue_lists_only_allowed_tools_with_their_arguments():
     cat = {c["name"]: c for c in A.catalogue(TOOLS)}
     assert "list_matches" not in cat and "match_id" not in str(cat)
-    assert cat["get_team_shape"]["args"] == ["team*"] and cat["get_match_state"]["args"] == ["minute"]
+    assert cat["get_team_shape"]["args"] == ["team*"] and cat["get_match_state"]["args"] == ["minute(0-130)"]
 
 
 def test_a_plan_is_reduced_to_what_is_safe_to_run():
@@ -223,3 +223,31 @@ def test_when_every_chosen_tool_fails_the_keyword_planner_gets_one_go():
     assert [n for n, _ in mcp.calls] == ["get_window_stats", "get_shot_map"], "the failed plan, then the keyword plan"
     assert res.level == 0 and "12 shots" in res.answer
     assert any(s["agent"] == "router" and "after a failed plan" in s["outcome"] for s in res.trace)
+
+
+def test_numeric_arguments_are_clamped_to_their_real_range_and_shown_in_the_catalogue():
+    # the model once asked for min_salience 5 on a 0 to 1 scale and the tool returned nothing at all
+    tools = [Tool("list_moments", {"since_minute": {}, "min_salience": {}}, [])]
+    info = {"list_moments": {"properties": tools[0].inputSchema["properties"], "required": ["match_id"]}}
+    calls = A.validate_plan([ToolCall(name="list_moments", args=json.dumps({"since_minute": -4, "min_salience": 5}))], "m1", TEAMS, info)
+    assert calls[0]["args"] == {"match_id": "m1", "since_minute": 0, "min_salience": 1.0}
+    cat = {c["name"]: c for c in A.catalogue(tools)}
+    assert "min_salience(0-1)" in cat["list_moments"]["args"]
+
+
+def test_a_tool_that_comes_back_empty_is_asked_again_without_the_filters_the_model_chose():
+    class Filtering(FakeMCP):
+        async def call_tool(self, name, args):
+            self.calls.append((name, args))
+            if name == "get_shot_map" and len(args) > 1:
+                return []  # the filter emptied it
+            return [SimpleNamespace(text=json.dumps(DATA[name]))]
+
+    team = ScriptedTeam(
+        plan=Plan(tools=[ToolCall(name="get_shot_map", args=json.dumps({"min_xg": 0.9}))]),
+        answer=ChatAnswer(answer="Redmoor had 12 shots.", used=[]),
+    )
+    mcp = Filtering()
+    res = asyncio.run(A.ask(team, mcp, REG, match_id="m1", question="who had the shots?"))
+    assert [a for _, a in mcp.calls] == [{"match_id": "m1", "min_xg": 0.9}, {"match_id": "m1"}]
+    assert res.level == 0 and "12 shots" in res.answer
