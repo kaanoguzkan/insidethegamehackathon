@@ -42,6 +42,7 @@ matchmind = "matchmind.cli:main"
 [dependency-groups]
 dev = [
     "pytest>=8",
+    "pytest-xdist>=3.5",
     "ruff>=0.6",
     "fastapi>=0.115",
     "uvicorn>=0.30",

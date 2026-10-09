@@ -20,7 +20,7 @@ jobs:
       - run: uv run ruff check src tests apps
       - name: Tests (fast)
         if: github.event_name != 'schedule'
-        run: uv run pytest -m "not slow"
+        run: uv run pytest -m "not slow" -n auto
       - name: Tests (everything, including the realism bands)
         if: github.event_name == 'schedule'
         run: uv run pytest

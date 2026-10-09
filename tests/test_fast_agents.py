@@ -311,3 +311,32 @@ def test_a_cache_hit_from_the_shared_layer_makes_the_fast_path_skip_the_model(go
     s1, s2 = asyncio.run(go())
     assert s1["modelCalls"] == 1 and s1["cacheHits"] == 0
     assert s2["modelCalls"] == 0 and s2["cacheHits"] == 1
+
+
+def test_warming_opens_the_connection_so_the_first_request_is_not_the_slow_one():
+    import asyncio
+
+    async def go():
+        cos = FakeCosmos()
+        cos.delay = 0.3  # a slow first call, longer than the per-request time box below
+        c = _shared(cos, timeout_s=0.1)
+        await c.warm(timeout_s=5)
+        cos.delay = 0.0
+        return c.status(), await c.get(KEY)
+
+    status, hit = asyncio.run(go())
+    assert status["connected"] and status["lastError"] is None, "a not-found warm-up probe is the normal answer"
+    assert hit is None  # a miss, but a quick, healthy one
+
+
+def test_a_failure_is_recorded_for_health():
+    import asyncio
+
+    async def go():
+        cos = FakeCosmos()
+        cos.fail = True
+        c = _shared(cos)
+        await c.get(KEY)
+        return c.status()
+
+    assert "cosmos is down" in asyncio.run(go())["lastError"]

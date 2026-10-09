@@ -88,6 +88,24 @@ class SharedBeatCache:
         self._container = None
         self._down_until = 0.0
         self._pending: set[asyncio.Future] = set()
+        self.last_error: str | None = None  # the most recent failure, for /health: a silent cache is hard to debug
+
+    def _note(self, e: BaseException) -> None:
+        self.last_error = f"{type(e).__name__}: {str(e)[:160]}"
+
+    async def warm(self, timeout_s: float = 20.0) -> None:
+        """Open the connection now, with a generous time box. The first Cosmos call has to get an identity token and discover the
+        account, which takes a second or two: inside a request's 0.6 s box that call would always time out and trip the cooldown."""
+        try:
+            c = await asyncio.wait_for(self._open(), timeout_s)
+            self._container = c
+            await asyncio.wait_for(c.read_item(item="warm-up", partition_key="warm-up"), timeout_s)
+        except Exception as e:  # noqa: BLE001
+            if "NotFound" not in type(e).__name__ and not isinstance(e, KeyError):  # not finding the probe document is the expected answer
+                self._note(e)
+
+    def status(self) -> dict:
+        return {"enabled": True, "connected": self._container is not None, "lastError": self.last_error, "entries": len(self.local)}
 
     async def _use(self):  # noqa: ANN202
         if self._clock() < self._down_until:
@@ -95,7 +113,8 @@ class SharedBeatCache:
         if self._container is None:
             try:
                 self._container = await asyncio.wait_for(self._open(), self.timeout_s * 4)
-            except Exception:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001
+                self._note(e)
                 self._down_until = self._clock() + self.cooldown_s
                 return None
         return self._container
@@ -112,10 +131,13 @@ class SharedBeatCache:
             return None
         try:
             doc = await asyncio.wait_for(c.read_item(item=doc_id(key), partition_key=key[0]), self.timeout_s)
-        except TimeoutError:
+        except TimeoutError as e:
+            self._note(e)
             self._fail()
             return None
-        except Exception:  # noqa: BLE001 - not found is the normal miss; anything else is just a miss too
+        except Exception as e:  # noqa: BLE001 - not found is the normal miss; anything else is just a miss too
+            if "NotFound" not in type(e).__name__ and not isinstance(e, KeyError):
+                self._note(e)
             return None
         if tuple(doc.get("key", ())) != key:
             return None  # a hash collision or a stale document: never serve text that belongs to another key
@@ -141,10 +163,11 @@ class SharedBeatCache:
         }
         try:
             await asyncio.wait_for(c.upsert_item(doc), self.timeout_s * 3)
-        except TimeoutError:
+        except TimeoutError as e:
+            self._note(e)
             self._fail()
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as e:  # noqa: BLE001
+            self._note(e)
 
     def __len__(self) -> int:
         return len(self.local)

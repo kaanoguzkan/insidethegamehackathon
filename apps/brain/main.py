@@ -134,6 +134,8 @@ def create_app(
                 await asyncio.wait_for(client.get_response([Message("user", [Content.from_text("ping")])], options={"max_tokens": 16}), 30)
             except Exception:  # noqa: BLE001 - a failed warm-up only means the first request pays for it
                 pass
+            if isinstance(beat_cache, SharedBeatCache):
+                await beat_cache.warm()  # the first Cosmos call is slow (token, account discovery): do it before a request needs it
 
         warm_up.append(asyncio.ensure_future(go()))
 
@@ -185,7 +187,7 @@ def create_app(
     @app.get("/health")
     async def health() -> dict:
         start_warm_up()
-        return {"status": "ok", "llm": kind, "agents": agents_mode[0], "version": __version__, "matches": len(reg.ids())}
+        return {"status": "ok", "llm": kind, "agents": agents_mode[0], "sharedCache": beat_cache.status() if isinstance(beat_cache, SharedBeatCache) else {"enabled": False}, "version": __version__, "matches": len(reg.ids())}
 
     @app.get("/api/matches")
     def matches() -> list[str]:
