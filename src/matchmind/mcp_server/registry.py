@@ -87,3 +87,22 @@ class MatchRegistry:
             res, baselines=load_baselines(), xt=XTGrid.load(league_dir() / "xt_grid.json"), season=ctx, models=load_models()
         )
         return ip
+
+
+async def preload(registry: MatchRegistry, delay_s: float = 10.0) -> list[str]:
+    """Load every listed match in a worker thread, one after another, a little after start-up.
+
+    The first tool call on a match re-simulates it (about 6 s on a laptop, 20 s on the container). Done here, in the
+    background and off the event loop, that wait is gone by the time an agent asks. Returns the ids it loaded.
+    """
+    import asyncio
+
+    await asyncio.sleep(delay_s)
+    loaded = []
+    for match_id in registry.ids():
+        try:
+            await asyncio.to_thread(registry.get, match_id)
+            loaded.append(match_id)
+        except Exception:  # noqa: BLE001 - a match that cannot load is reported by its first real call
+            continue
+    return loaded

@@ -174,3 +174,25 @@ def test_concurrent_requests_load_a_match_once(monkeypatch, match):
     [t.start() for t in threads]
     [t.join() for t in threads]
     assert calls == ["slow"]
+
+
+def test_preload_loads_every_listed_match_off_the_event_loop_and_survives_a_bad_one():
+    import asyncio
+    import threading
+
+    from matchmind.mcp_server.registry import preload
+
+    seen: list[tuple[str, bool]] = []
+
+    class Stub:
+        def ids(self):
+            return ["a", "bad", "c"]
+
+        def get(self, match_id):
+            seen.append((match_id, threading.current_thread() is threading.main_thread()))
+            if match_id == "bad":
+                raise RuntimeError("cannot load")
+
+    loaded = asyncio.run(preload(Stub(), delay_s=0))
+    assert loaded == ["a", "c"] and [m for m, _ in seen] == ["a", "bad", "c"]
+    assert not any(on_main for _, on_main in seen), "the loads ran in worker threads, not on the event loop's thread"

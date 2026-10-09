@@ -287,6 +287,7 @@ resource brain 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'FOUNDRY_PROJECT_ENDPOINT', value: foundryProjectEndpoint }
             { name: 'MATCHMIND_LLM_MODEL', value: modelName }
             { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
+            { name: 'MATCHMIND_PRELOAD', value: '1' } // load the matches the MCP tools use in the background after start-up
             { name: 'MATCHMIND_SHARED_CACHE', value: '1' } // verified model text is also kept in Cosmos DB: it survives restarts and is shared
             { name: 'STORAGE_ACCOUNT', value: storage.name }
             { name: 'SIGNALR_ENDPOINT', value: 'https://${signalr.properties.hostName}' }

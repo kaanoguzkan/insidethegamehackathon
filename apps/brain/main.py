@@ -52,7 +52,7 @@ from matchmind.analytics.report import MatchAnalytics
 from matchmind.analytics.season import load_season
 from matchmind.core.paths import replays_dir
 from matchmind.guards import ADMIN_HEADER, PUBLIC_MAX_DEADLINE_MS, RateLimitMiddleware, is_admin
-from matchmind.mcp_server.registry import MatchRegistry, UnknownMatch
+from matchmind.mcp_server.registry import MatchRegistry, UnknownMatch, preload
 from matchmind.mcp_server.server import build_server
 from matchmind.runner import build_analytics
 from matchmind.telemetry import setup_tracing
@@ -152,6 +152,8 @@ def create_app(
     @contextlib.asynccontextmanager
     async def lifespan(_: FastAPI):
         start_warm_up()
+        if os.environ.get("MATCHMIND_PRELOAD") == "1":  # warm the interpreters the MCP tools use, in the background
+            asyncio.ensure_future(preload(reg, delay_s=float(os.environ.get("MATCHMIND_PRELOAD_DELAY_S", "10"))))
         for mid in reg.ids():  # read the packs now, in a thread, so the first request does not wait for them
             asyncio.ensure_future(asyncio.to_thread(beat_inputs, mid))
         watcher = asyncio.ensure_future(watch_loop())
