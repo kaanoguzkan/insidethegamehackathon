@@ -21,7 +21,8 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-for candidate in (HERE / "src", HERE.parents[1] / "src"):  # packaged zip first, then a repository checkout
+# The packaged zip first (the file sits at /app/main.py, which has no grandparent), then a repository checkout.
+for candidate in (HERE / "src", *(p / "src" for p in HERE.parents[1:2])):
     if (candidate / "matchmind").exists():
         sys.path.insert(0, str(candidate))
         break
