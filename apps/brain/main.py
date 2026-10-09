@@ -108,11 +108,25 @@ def create_app(
 
         warm_up.append(asyncio.ensure_future(go()))
 
+    async def watch_loop() -> None:
+        """Logs when something blocks the event loop (a synchronous call inside async code): every request then waits."""
+        last = time.monotonic()
+        while True:
+            await asyncio.sleep(0.25)
+            now = time.monotonic()
+            if now - last > 1.0:
+                print(f"WARN event loop was blocked for {now - last:.1f}s", flush=True)
+            last = now
+
     @contextlib.asynccontextmanager
     async def lifespan(_: FastAPI):
         start_warm_up()
-        async with mcp.session_manager.run():
-            yield
+        watcher = asyncio.ensure_future(watch_loop())
+        try:
+            async with mcp.session_manager.run():
+                yield
+        finally:
+            watcher.cancel()
 
     app = FastAPI(title="MatchMind Brain", version=__version__, lifespan=lifespan)
     app.add_middleware(

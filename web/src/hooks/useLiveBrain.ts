@@ -48,7 +48,9 @@ export function useLiveBrain(matchId: string): LiveBrain {
 
   const explain = useCallback(
     (momentId: string, cohorts: Cohort[]) => {
-      if (!enabled || status === 'down' || cohorts.length === 0) return
+      // Wait for the wake-up check: a request sent while a scaled-to-zero Brain is still starting would just time out.
+      // The caller's effect runs again when the status becomes 'ready'.
+      if (!enabled || status !== 'ready' || cohorts.length === 0) return
       const key = `${momentId}|${cohorts.map(cohortKey).sort().join(',')}`
       if (asked.current.has(key)) return
       asked.current.add(key)

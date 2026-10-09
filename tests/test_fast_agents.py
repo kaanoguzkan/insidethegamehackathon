@@ -135,3 +135,31 @@ def test_a_fast_call_is_not_hedged(goal_pack):
 
     _, stats = _run_fast(goal_pack, Faults(), deadline_s=2.0, hedge_after_s=0.5)
     assert stats["hedged"] == 0 and stats["modelCalls"] == 1
+
+
+def test_the_deadline_holds_even_when_a_stalled_model_call_ignores_cancellation(goal_pack):
+    import asyncio
+    import time
+    from types import SimpleNamespace
+
+    from matchmind.agents.fast import run_fast
+    from matchmind.agents.workflow import Batch
+
+    async def stubborn(pack, cohort, timeout_s=None):
+        while True:  # swallows every cancellation and keeps going for 3 s, like a call stuck in a retry
+            try:
+                await asyncio.sleep(3.0)
+                raise RuntimeError("late")
+            except asyncio.CancelledError:
+                await asyncio.sleep(3.0)
+                raise
+
+    async def go():
+        stats: dict = {}
+        t0 = time.monotonic()
+        res = await run_fast(SimpleNamespace(compose=stubborn), Batch(moments=(goal_pack,), cohorts=(CASUAL,), budget=3), deadline_s=0.6, stats=stats, model_id="x", hedge_after_s=0)
+        return time.monotonic() - t0, res[0], stats
+
+    took, beat, stats = asyncio.run(go())
+    assert took < 1.5, f"the response was held {took:.1f}s past a 0.6s deadline"
+    assert beat.level == 2 and stats["missedDeadline"] == 1

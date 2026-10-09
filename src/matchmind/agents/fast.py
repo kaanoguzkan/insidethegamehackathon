@@ -34,6 +34,15 @@ from .team import AgentFailure, AgentTeam
 from .workflow import Batch, BeatResult
 
 MIN_CALL_S = 0.3  # a model call with less time than this left cannot finish
+_WINDING_DOWN: set[asyncio.Future] = set()  # cancelled calls still stopping; held so they are not garbage collected
+
+
+def _wound_down(t: asyncio.Future) -> None:
+    _WINDING_DOWN.discard(t)
+    if not t.cancelled():
+        t.exception()  # retrieved, so a late failure is not reported as never retrieved
+
+
 HEDGE_AFTER_S = float(os.environ.get("MATCHMIND_HEDGE_S", "2.2"))  # 0 turns hedging off
 
 
@@ -143,12 +152,14 @@ async def run_fast(
     if tasks:
         _, pending = await asyncio.wait(tasks, timeout=max(deadline - clock(), 0.0))
         stats["missedDeadline"] = len(pending)
+        if pending:
+            print(f"WARN {len(pending)} model call(s) passed the {deadline_s:g}s deadline; template text is served", flush=True)
         for t in pending:  # the deadline passed: these cohorts keep their template text
             t.cancel()
+            _WINDING_DOWN.add(t)  # a stalled model call can be slow to stop: never hold the response for it
+            t.add_done_callback(_wound_down)
         for m in kept:
             store.trace(m["id"], "producer", f"{len(pending)} model calls missed the deadline" if pending else "all model calls in time", 0.0)
-        if pending:
-            await asyncio.gather(*pending, return_exceptions=True)
 
     results: list[BeatResult] = []
     for m in moments:
