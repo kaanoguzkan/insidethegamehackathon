@@ -8,6 +8,7 @@ the agents that made them and a trace of what each did.
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
 from typing import Literal
@@ -24,6 +25,9 @@ from .workflow import Batch, WorkflowDeps, build_workflow, run_batch
 
 MAX_COHORTS = 12  # cost guard: text is generated once per cohort, so bound the number per request
 MAX_MOMENTS = 6
+
+# A match id becomes a folder name, so only plain slugs are accepted (the same rule the web app applies).
+SAFE_MATCH_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 
 # Keys the replay runner adds to a moment after the evidence pack is built (the agents' own recorded answers).
 RECORDED_ONLY = {"status", "level", "explanation", "explanations", "variants", "trace"}
@@ -46,11 +50,13 @@ class UnknownMoments(LookupError):
 
 
 def load_recorded(root: Path, match_id: str) -> tuple[dict[str, dict], Registry] | None:
-    """Moment packs and the name registry from a replay package on disk, or None if it has none.
+    """Moment packs and the name registry from a replay package on disk, or None if it has none (or the id is not a slug).
 
     Reading the package is milliseconds; the alternative, re-simulating the match from its seed, is about 6 s on a laptop
     and about 20 s on a 1-vCPU container.
     """
+    if not SAFE_MATCH_ID.fullmatch(match_id):
+        return None  # never build a path from anything but a plain slug ("../", absolute paths, separators ...)
     d = root / match_id
     if not ((d / "moments.json").exists() and (d / "meta.json").exists()):
         return None

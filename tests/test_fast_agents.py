@@ -163,3 +163,17 @@ def test_the_deadline_holds_even_when_a_stalled_model_call_ignores_cancellation(
     took, beat, stats = asyncio.run(go())
     assert took < 1.5, f"the response was held {took:.1f}s past a 0.6s deadline"
     assert beat.level == 2 and stats["missedDeadline"] == 1
+
+
+@pytest.mark.parametrize("bad", ["../red-card-drama", "..", "/etc", "red-card-drama/../high-line-gamble", "RED", "a" * 65, "", "red card", "x\\y"])
+def test_a_match_id_that_is_not_a_plain_slug_never_reaches_the_filesystem(bad):
+    from matchmind.agents.service import load_recorded
+
+    assert load_recorded(replays_dir(), bad) is None
+
+
+def test_a_real_match_id_still_loads():
+    from matchmind.agents.service import load_recorded
+
+    packs, names = load_recorded(replays_dir(), "red-card-drama")
+    assert packs and names

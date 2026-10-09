@@ -35,7 +35,7 @@ def build_zip(out: Path | None = None) -> Path:
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for src, arc in files:
             info = zipfile.ZipInfo(arc, date_time=(2026, 1, 1, 0, 0, 0))  # a fixed time: the same files give the same hash
-            info.compress_type, info.external_attr = zipfile.ZIP_DEFLATED, 0o644 << 16
+            info.compress_type, info.external_attr = zipfile.ZIP_DEFLATED, 0o100644 << 16  # a regular file, mode 644: the extractor checks the type bits
             z.writestr(info, src.read_bytes())
     return out
 

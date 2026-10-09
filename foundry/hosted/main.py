@@ -87,9 +87,11 @@ class Newsroom(BaseAgent):
             req = BeatRequest.model_validate(raw)
         except ValueError as e:
             return json.dumps({"error": "invalid request", "detail": str(e)[:600], "usage": USAGE})
-        if req.match_id not in self.recorded:
-            self.recorded[req.match_id] = load_recorded(replays_dir(), req.match_id)
-        loaded = self.recorded[req.match_id]
+        loaded = self.recorded.get(req.match_id)
+        if loaded is None:
+            loaded = load_recorded(replays_dir(), req.match_id)  # refuses anything but a plain slug
+            if loaded is not None and len(self.recorded) < 64:
+                self.recorded[req.match_id] = loaded
         if loaded is None:
             return json.dumps({"error": f"unknown match {req.match_id!r}"})
         packs, names = loaded
