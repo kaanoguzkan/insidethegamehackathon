@@ -6,7 +6,7 @@ after idle takes about 20 seconds, so call `/health` first). Interactive docs ar
 
 | Method and path | What it does |
 |---|---|
-| `GET /health` | Liveness plus configuration: `llm`, `agents`, `sharedCache`, `version`, `matches` |
+| `GET /health` | Liveness plus configuration: `llm`, `agents`, `sharedCache`, `loaded`, `version`, `matches`. `?match=<id>` says the match center is open on that match: its data is loaded first, and `loaded` lists the matches whose tools are instant |
 | `GET /api/matches` | The ids of the matches that can be queried |
 | `GET /api/matches/{id}/moments?min_salience=0.6` | The detected moments: `id`, `type`, `label`, `salience`, `team` |
 | `GET /api/matches/{id}/analytics` | The match's Opta-style analytics (what the replay package stores as `analytics.json`) |

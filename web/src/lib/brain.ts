@@ -29,8 +29,28 @@ export interface LiveResult {
 }
 
 /** Fire-and-forget: starts the service if it is asleep, so it is awake by the time someone asks for a live answer. */
-export function prewarm(base = BRAIN_URL): void {
-  if (base) void fetch(`${base}/health`, { mode: 'cors' }).catch(() => undefined)
+export function prewarm(base = BRAIN_URL, matchId?: string): void {
+  if (base) void fetch(`${base}/health${matchId && SAFE_ID.test(matchId) ? `?match=${matchId}` : ''}`, { mode: 'cors' }).catch(() => undefined)
+}
+
+/**
+ * Wait until the Brain has loaded a match's data, so the first tool call on it is instant. A Container App that has just started needs about
+ * half a minute for that, and asking sooner would only wait for it. Resolves true when ready (or when the Brain does not report it) and false on timeout.
+ */
+export async function waitWarm(matchId: string, base = BRAIN_URL, signal?: AbortSignal, pollMs = 2500, maxMs = 100_000): Promise<boolean> {
+  if (!SAFE_ID.test(matchId)) return false
+  const until = Date.now() + maxMs
+  while (Date.now() < until && !signal?.aborted) {
+    try {
+      const res = await fetch(`${base}/health?match=${matchId}`, { signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(20_000)]) : AbortSignal.timeout(20_000) })
+      const h = (await res.json()) as { loaded?: string[] }
+      if (!Array.isArray(h.loaded) || h.loaded.includes(matchId)) return true
+    } catch {
+      /* the Brain may still be starting: try again */
+    }
+    await new Promise((r) => setTimeout(r, pollMs))
+  }
+  return false
 }
 
 /** Waits for the service to answer its health check. True when it is up and uses a model. */

@@ -31,7 +31,7 @@ from .team import AgentFailure, AgentTeam
 MAX_QUESTION_CHARS = 280
 MAX_TOOLS = 3
 MAX_RESULT_CHARS = 2200  # per tool: keeps the answerer's input (and the bill) small
-TOOL_TIMEOUT_S = 25.0
+TOOL_TIMEOUT_S = 45.0  # a tool on a match nobody has loaded yet waits for the interpreter (about 20 s on the container)
 # The tools the planner may choose. `list_matches` and `get_event_chain` are not useful for a question; the rest are.
 ALLOWED_TOOLS = (
     "get_match_state", "get_window_stats", "compare_windows", "get_player_window", "get_season_context", "get_prediction",
@@ -256,7 +256,7 @@ def digest(results: dict[str, Any], lang: str, limit: int = 8) -> str:
 
 async def ask(
     team: AgentTeam, mcp: Any, registry: verify.Registry, *, match_id: str, question: str, language: str = "en", mode: str = "casual",
-    minute: float | None = None, deadline_s: float = 30.0,
+    minute: float | None = None, deadline_s: float = 60.0,
 ) -> AskResult:
     t0 = time.monotonic()
     result = AskResult(answer="", level=3)

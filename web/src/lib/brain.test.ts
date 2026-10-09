@@ -116,3 +116,23 @@ describe('askBrain', () => {
     expect(formatCost(0.0234)).toBe('$0.02')
   })
 })
+
+describe('waitWarm', () => {
+  it('resolves true as soon as the Brain reports the match as loaded', async () => {
+    const answers = [{ loaded: [] }, { loaded: ['pressing-collapse'] }, { loaded: ['pressing-collapse', 'red-card-drama'] }]
+    const fetchMock = vi.fn().mockImplementation(async () => ({ json: async () => answers.shift() }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { waitWarm } = await import('./brain')
+    expect(await waitWarm('red-card-drama', 'https://brain.test', undefined, 1, 5000)).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock.mock.calls[0][0]).toBe('https://brain.test/health?match=red-card-drama')
+  })
+  it('does not wait for a Brain that does not report what is loaded, and gives up at the limit', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: async () => ({ status: 'ok' }) }))
+    const { waitWarm } = await import('./brain')
+    expect(await waitWarm('m1', 'https://brain.test', undefined, 1, 50)).toBe(true)
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('starting')))
+    expect(await waitWarm('m1', 'https://brain.test', undefined, 5, 30)).toBe(false)
+    expect(await waitWarm('../x', 'https://brain.test')).toBe(false)
+  })
+})

@@ -361,3 +361,11 @@ def test_a_repeated_question_is_served_from_the_answer_cache_for_free(client):
     assert again["answer"] == first["answer"] and again["usage"] == {"inputTokens": 0, "outputTokens": 0, "costUsd": 0.0}
     other = client.post("/api/ask", json={**body, "language": "es"}).json()
     assert other["cached"] is False, "another language is another answer"
+
+
+def test_health_reports_which_matches_are_loaded_and_moves_a_wanted_one_to_the_front(reg):
+    with TestClient(create_app(reg)) as c:
+        h = c.get("/health").json()
+        assert "loaded" in h and isinstance(h["loaded"], list)
+        assert "t0001" in h["loaded"], "a match registered in memory is loaded already"
+        assert c.get("/health", params={"match": "../etc"}).status_code == 200, "an invalid match id is ignored, not an error"

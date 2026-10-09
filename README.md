@@ -108,7 +108,7 @@ uv run matchmind build-pdf                          # the printable match report
 uv run matchmind fit-models                         # win probability, possession value, post-shot xG
 uv run matchmind build-season                       # the league's simulated history
 uv run pytest -m "not slow"                         # the fast suite
-cd web && pnpm install && pnpm dev                  # the match center (67 tests: pnpm test)
+cd web && pnpm install && pnpm dev                  # the match center (69 tests: pnpm test)
 ```
 
 No keys, network or GPU needed: the default model client answers from the template engine so the real
@@ -231,7 +231,7 @@ data/            league, scenarios (3 stories), replay packages (3 matches, ~10 
 infra/           Bicep + azure.yaml          schemas/   JSON Schemas of the public contracts
 docs/            architecture, agents, brain-api, configuration, foundry, running-on-azure, tactics, analytics, metrics,
                  overlay contract, data card, responsible AI, report
-tests/ evals/    Python tests (3 slow) + 67 web tests      SOLUTION PLAN.md   design, schedule, status
+tests/ evals/    Python tests (3 slow) + 69 web tests      SOLUTION PLAN.md   design, schedule, status
 ```
 
 ## Honest limits

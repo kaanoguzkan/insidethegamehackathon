@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { t } from '../i18n'
-import { type AskAnswer, askBrain, BRAIN_URL, brainConfigured, wakeBrain } from '../lib/brain'
+import { type AskAnswer, askBrain, BRAIN_URL, brainConfigured, prewarm, waitWarm, wakeBrain } from '../lib/brain'
 import type { Replay } from '../lib/data'
 import type { Profile } from '../lib/types'
 
@@ -22,7 +22,7 @@ export function AskPanel({ replay, profile, ms }: Props) {
   const lang = profile.language
   const [turns, setTurns] = useState<Turn[]>([])
   const [text, setText] = useState('')
-  const [busy, setBusy] = useState<'waking' | 'asking' | null>(null)
+  const [busy, setBusy] = useState<'waking' | 'loading' | 'asking' | null>(null)
   const awake = useRef(false)
   const end = useRef<HTMLDivElement>(null)
   const next = useRef(1)
@@ -30,6 +30,7 @@ export function AskPanel({ replay, profile, ms }: Props) {
   useEffect(() => {
     setTurns([])
     awake.current = false
+    if (brainConfigured) prewarm(BRAIN_URL, replay.id) // opening the tab starts the Brain (if asleep) and loads this match's data while the viewer types
   }, [replay.id])
   useEffect(() => end.current?.scrollIntoView?.({ block: 'nearest' }), [turns, busy])
 
@@ -45,6 +46,8 @@ export function AskPanel({ replay, profile, ms }: Props) {
       if (!awake.current) {
         setBusy('waking')
         awake.current = await wakeBrain(BRAIN_URL)
+        setBusy('loading')
+        await waitWarm(replay.id, BRAIN_URL)
       }
       setBusy('asking')
       const answer = await askBrain({ matchId: replay.id, question: q, language: lang, mode: profile.mode, minute: Math.round(ms / 60000) })
@@ -86,7 +89,7 @@ export function AskPanel({ replay, profile, ms }: Props) {
             {turn.error && <p className="ask-a caveat">{t(lang, turn.error === 'rate' ? 'askRate' : 'askError')}</p>}
           </div>
         ))}
-        {busy && <p role="status" className="hint">{t(lang, busy === 'waking' ? 'askWaking' : 'askThinking')}</p>}
+        {busy && <p role="status" className="hint">{t(lang, busy === 'waking' ? 'askWaking' : busy === 'loading' ? 'askLoading' : 'askThinking')}</p>}
         <div ref={end} />
       </div>
       <form className="ask-form" onSubmit={(e) => { e.preventDefault(); void send(text) }}>

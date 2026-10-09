@@ -76,7 +76,7 @@ Without a Foundry endpoint the Brain keeps the offline model. `azd down --purge`
 | Hosted agent: `Unsupported runtime 'python_3_12'` | Hosted agents run Python 3.13 or 3.14; the protocol version must be `2.0.0` ([foundry.md](foundry.md)). |
 | Cosmos container creation fails | A TTL cannot be set on a container with indexing off; the Bicep uses per-document `ttl` instead. |
 | `docker build` fails with `failed to fetch oauth token ... auth.docker.io` | Docker Hub; the Dockerfile avoids it by using `ghcr.io`. Start Docker Desktop first. |
-| First request after idle takes 20 s and the first `/health` can time out | Scale to zero. Do not pay for `minReplicas: 1` on the free tier; the web page wakes the Brain on load. |
+| First request after idle takes 20 s and the first `/health` can time out | Scale to zero. Do not pay for `minReplicas: 1` on the free tier; the web page wakes the Brain on load with `/health?match=<id>`, which also loads that match's data first (about 20 s per match on the container). The Ask tab waits for that before it sends a question, because a question asked sooner would only wait for the match to load. |
 
 ## Cost notes (verify on the pricing pages)
 

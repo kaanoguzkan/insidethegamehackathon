@@ -133,6 +133,14 @@ def create_app(
             team_cache.append(team or AgentTeam(client, AgentSettings.from_env()))
         return team_cache[0]
 
+    preloading: list[asyncio.Future] = []
+
+    def start_preload(delay_s: float = 0.0) -> None:
+        """Load the matches the tools use, in the background, once. Started at boot and, with no delay, by the first health check."""
+        if preloading or os.environ.get("MATCHMIND_PRELOAD") != "1":
+            return
+        preloading.append(asyncio.ensure_future(preload(reg, delay_s=delay_s)))
+
     warm_up: list[asyncio.Task] = []
 
     def start_warm_up() -> None:
@@ -164,8 +172,7 @@ def create_app(
     @contextlib.asynccontextmanager
     async def lifespan(_: FastAPI):
         start_warm_up()
-        if os.environ.get("MATCHMIND_PRELOAD") == "1":  # warm the interpreters the MCP tools use, in the background
-            asyncio.ensure_future(preload(reg, delay_s=float(os.environ.get("MATCHMIND_PRELOAD_DELAY_S", "10"))))
+        start_preload(float(os.environ.get("MATCHMIND_PRELOAD_DELAY_S", "10")))
         for mid in reg.ids():  # read the packs now, in a thread, so the first request does not wait for them
             asyncio.ensure_future(asyncio.to_thread(beat_inputs, mid))
         watcher = asyncio.ensure_future(watch_loop())
@@ -203,9 +210,14 @@ def create_app(
     app.mount("/mcp", mcp.streamable_http_app())
 
     @app.get("/health")
-    async def health() -> dict:
+    async def health(match: str | None = None) -> dict:
+        """Liveness and configuration. ``?match=<id>`` says the match center is open on that match: its data is loaded first, and ``loaded``
+        tells the page when a tool call on it will be instant."""
         start_warm_up()
-        return {"status": "ok", "llm": kind, "agents": agents_mode[0], "sharedCache": beat_cache.status() if isinstance(beat_cache, SharedBeatCache) else {"enabled": False}, "version": __version__, "matches": len(reg.ids())}
+        if match:
+            reg.want(match)
+        start_preload(0.0)  # a replica that was just woken by this very call starts loading now, not after the boot delay
+        return {"loaded": reg.loaded(), "status": "ok", "llm": kind, "agents": agents_mode[0], "sharedCache": beat_cache.status() if isinstance(beat_cache, SharedBeatCache) else {"enabled": False}, "version": __version__, "matches": len(reg.ids())}
 
     @app.get("/api/matches")
     def matches() -> list[str]:

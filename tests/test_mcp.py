@@ -185,14 +185,55 @@ def test_preload_loads_every_listed_match_off_the_event_loop_and_survives_a_bad_
     seen: list[tuple[str, bool]] = []
 
     class Stub:
+        def __init__(self) -> None:
+            self.done: set[str] = set()
+
         def ids(self):
             return ["a", "bad", "c"]
+
+        def next_to_load(self, skip=frozenset()):
+            return next((m for m in self.ids() if m not in self.done and m not in skip), None)
 
         def get(self, match_id):
             seen.append((match_id, threading.current_thread() is threading.main_thread()))
             if match_id == "bad":
                 raise RuntimeError("cannot load")
+            self.done.add(match_id)
 
     loaded = asyncio.run(preload(Stub(), delay_s=0))
     assert loaded == ["a", "c"] and [m for m, _ in seen] == ["a", "bad", "c"]
     assert not any(on_main for _, on_main in seen), "the loads ran in worker threads, not on the event loop's thread"
+
+
+def test_the_registry_knows_what_is_loaded_and_what_to_load_next():
+    from matchmind.mcp_server.registry import MatchRegistry
+
+    reg = MatchRegistry()
+    ids = reg.ids()
+    assert len(ids) >= 3 and reg.loaded() == []
+    assert reg.next_to_load() == ids[0]
+    reg.want(ids[-1])
+    assert reg.next_to_load() == ids[-1], "a wanted match goes first"
+    reg.want("../etc")
+    reg.want("no-such-match")
+    assert reg._wanted == [ids[-1]], "only real match ids can be wanted"
+
+
+def test_preload_loads_the_wanted_match_before_the_others():
+    import asyncio
+
+    from matchmind.mcp_server.registry import MatchRegistry, preload
+
+    order: list[str] = []
+
+    class Quick(MatchRegistry):
+        def get(self, match_id):
+            order.append(match_id)
+            self._cache[match_id] = object()  # pretend it loaded
+            return self._cache[match_id]
+
+    reg = Quick()
+    last = reg.ids()[-1]
+    reg.want(last)
+    asyncio.run(preload(reg, delay_s=0))
+    assert order[0] == last and sorted(order) == reg.ids() and reg.next_to_load() is None

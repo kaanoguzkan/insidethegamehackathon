@@ -42,11 +42,29 @@ class MatchRegistry:
         self._cache: OrderedDict[str, Interpreter] = OrderedDict()
         self._live: dict[str, Interpreter] = {}  # registered by the Brain; never evicted
         self._lock = threading.Lock()
+        self._wanted: list[str] = []  # matches someone is about to need: the preload loads these first
 
     def _disk_ids(self) -> list[str]:
         if not self.root.exists():
             return []
         return sorted(p.name for p in self.root.iterdir() if SAFE_ID.match(p.name) and (p / "meta.json").exists())
+
+    def loaded(self) -> list[str]:
+        """The matches whose interpreter is in memory, so a tool call on them is instant."""
+        return sorted(set(self._live) | set(self._cache))
+
+    def want(self, match_id: str) -> None:
+        """Say that a match is about to be needed (the match center is open on it): the preload moves it to the front."""
+        if SAFE_ID.match(match_id) and match_id in self.ids() and match_id not in self.loaded() and match_id not in self._wanted:
+            self._wanted.insert(0, match_id)
+
+    def next_to_load(self, skip: set[str] | frozenset[str] = frozenset()) -> str | None:
+        """The next match for the preload: a wanted one first, then the rest in order. ``skip`` are ones that already failed."""
+        done = set(self.loaded()) | set(skip)
+        for match_id in [*self._wanted, *self.ids()]:
+            if match_id not in done:
+                return match_id
+        return None
 
     def ids(self) -> list[str]:
         return sorted(set(self._live) | set(self._disk_ids()))
@@ -98,11 +116,12 @@ async def preload(registry: MatchRegistry, delay_s: float = 10.0) -> list[str]:
     import asyncio
 
     await asyncio.sleep(delay_s)
-    loaded = []
-    for match_id in registry.ids():
+    loaded: list[str] = []
+    failed: set[str] = set()
+    while (match_id := registry.next_to_load(failed)) is not None:  # re-asked each time: a match may become wanted meanwhile
         try:
             await asyncio.to_thread(registry.get, match_id)
             loaded.append(match_id)
         except Exception:  # noqa: BLE001 - a match that cannot load is reported by its first real call
-            continue
+            failed.add(match_id)
     return loaded

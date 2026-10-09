@@ -47,7 +47,7 @@
 | Live streaming mode | Not built | Replay and on-demand only |
 | Demo video | Not recorded | Required: under two minutes, public link |
 
-597 Python tests (3 slow; all pass, 4.5 minutes in full, 112 seconds for the 594 fast ones in parallel) plus 67 web tests; ruff clean. About 15,600 lines of Python in `src`, `apps` and `foundry`, 3,800 of Python tests and 6,500 of web code.
+597 Python tests (3 slow; all pass, 4.5 minutes in full, 112 seconds for the 594 fast ones in parallel) plus 69 web tests; ruff clean. About 15,600 lines of Python in `src`, `apps` and `foundry`, 3,800 of Python tests and 6,500 of web code.
 
 ### Measured results
 
