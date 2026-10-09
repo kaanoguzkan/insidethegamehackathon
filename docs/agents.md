@@ -36,8 +36,31 @@ Select with `MATCHMIND_LLM`:
 * `foundry`: a Microsoft Foundry project. Set `FOUNDRY_PROJECT_ENDPOINT` and `MATCHMIND_LLM_MODEL`;
   authenticates with `DefaultAzureCredential`. Install: `uv sync --extra foundry`.
 
-The real-model paths are wired but have **not** been run against a live model; prompts are versioned in
-`agents/prompts.py` (`PROMPT_VERSION`) and recorded in each overlay's provenance.
+The `foundry` backend has been run against a live Foundry project (gpt-4.1-mini on Azure, Oct 2026); prompts are
+versioned in `agents/prompts.py` (`PROMPT_VERSION`) and recorded in each overlay's provenance.
+
+## The fast path (`agents/fast.py`)
+
+`POST /api/beats` defaults to `mode: "fast"`, which answers inside `deadlineMs` (5 s). The five-call workflow above
+takes tens of seconds with a real model, so the fast path uses one model call per moment and cohort, in parallel, and
+surrounds it with agents that need no model at all:
+
+| Agent | Kind | Job |
+|---|---|---|
+| Editor | rules | picks the moments that become beats (`offline_edit`) |
+| Router | rules | sends beats to the model, stat graphics and tickers to templates, and caps the calls per request |
+| Cache | rules | returns verified model text for a repeated request, keyed by match, moment, cohort, model and prompt version |
+| Composer | model | one call: explains and writes the story for one cohort, natively in its language |
+| Verifier | code | the same deterministic checks as everywhere else |
+| Repairer | rules | cuts failing sentences, headlines and claims out of rejected text and re-verifies; the result is level 1 |
+| Template | rules | the answer that is always ready: rendered first, kept for anything late, failed or unrepairable |
+| Producer | code | builds the timed overlay JSON |
+
+Each agent leaves an entry in the beat's `trace`, and every overlay's `provenance.agents` lists who made it. The
+response carries `stats` (cache hits, model calls, repaired, rejected, calls past the deadline).
+Measured on the live Brain (gpt-4.1-mini, three matches, English/Spanish/Turkish cohorts, 24 narrative overlays per
+run): 20 to 24 of 24 are model text, 0 to 2 are mended by the Repairer, and a repeated request is served from the cache
+in about 0 s.
 
 ## The Verifier
 
