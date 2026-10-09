@@ -25,13 +25,16 @@ export function parseHash(hash: string): Route {
   const q = new URLSearchParams(query)
   const lang = q.get('lang') as Lang | null
   const mode = q.get('mode') as Mode | null
+  const broadcast = path.startsWith('/broadcast')
   const profile: Profile = {
     ...DEFAULT_PROFILE,
     language: lang && LANGS.includes(lang) ? lang : DEFAULT_PROFILE.language,
     mode: mode === 'analyst' || mode === 'casual' ? mode : DEFAULT_PROFILE.mode,
     perspective: q.get('club') || 'neutral',
     focusPlayer: q.get('focus') || null,
-    density: (['low', 'medium', 'high'] as const).find((d) => d === q.get('density')) ?? DEFAULT_PROFILE.density,
+    // The overlay-only page is a clean feed: nothing but graphics that are due. Its default is low density, which hides the always-on
+    // meters (the momentum bar); `density=medium` brings them back.
+    density: (['low', 'medium', 'high'] as const).find((d) => d === q.get('density')) ?? (broadcast ? 'low' : DEFAULT_PROFILE.density),
     audioDescribed: q.get('aria') === '1',
     reducedMotion: q.get('motion') === '0',
     highContrast: q.get('hc') === '1',
@@ -39,7 +42,7 @@ export function parseHash(hash: string): Route {
   const t = q.get('t')
   const step = STEPS.find((x) => x === q.get('step')) ?? 'watch'
   return {
-    view: path.startsWith('/broadcast') ? 'broadcast' : 'center',
+    view: broadcast ? 'broadcast' : 'center',
     match: q.get('match'),
     profile,
     split: q.get('split') === '1',
@@ -58,7 +61,7 @@ export function buildHash(r: Omit<Route, 't'> & { t?: number | null }): string {
   q.set('lang', r.profile.language)
   if (r.profile.perspective !== 'neutral') q.set('club', r.profile.perspective)
   if (r.profile.focusPlayer) q.set('focus', r.profile.focusPlayer)
-  if (r.profile.density !== 'medium') q.set('density', r.profile.density)
+  if (r.profile.density !== (r.view === 'broadcast' ? 'low' : 'medium')) q.set('density', r.profile.density) // only what differs from the page's default
   if (r.profile.audioDescribed) q.set('aria', '1')
   if (r.profile.reducedMotion) q.set('motion', '0')
   if (r.profile.highContrast) q.set('hc', '1')

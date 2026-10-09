@@ -146,7 +146,7 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
     )
   }
 
-  const broadcastHref = buildHash({ view: 'broadcast', match: replay.id, profile, split: false, t: Math.round(ms / 60000), step: 'watch', tab: null, cam: null, follow: false })
+  const broadcastHref = buildHash({ view: 'broadcast', match: replay.id, profile: { ...profile, density: profile.density === 'high' ? 'high' : 'low' }, split: false, t: Math.round(ms / 60000), step: 'watch', tab: null, cam: null, follow: false })
   const onLayer = (k: (typeof LAYER_KEYS)[number]) => setLayers((l) => ({ ...l, [k]: !l[k] }))
   const onLens = (keys: (keyof Layers)[], on: boolean) => setLayers((l) => ({ ...l, ...Object.fromEntries(keys.map((k) => [k, on])) }))
   const screens = route.split

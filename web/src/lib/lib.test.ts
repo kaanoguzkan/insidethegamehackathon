@@ -324,6 +324,16 @@ describe('the three-step path lives in the URL', () => {
     expect(buildHash(r)).toContain('step=explore')
     expect(buildHash(r)).toContain('tab=space')
   })
+
+  it('makes the overlay-only page a clean feed by default and lets the URL ask for the meters', () => {
+    expect(parseHash('#/?match=x').profile.density).toBe('medium')
+    expect(parseHash('#/broadcast?match=x').profile.density).toBe('low')
+    expect(parseHash('#/broadcast?match=x&density=medium').profile.density).toBe('medium')
+    const clean = parseHash('#/broadcast?match=x')
+    expect(buildHash(clean)).not.toContain('density')
+    expect(buildHash({ ...clean, profile: { ...clean.profile, density: 'medium' } })).toContain('density=medium')
+    expect(buildHash(parseHash('#/?match=x'))).not.toContain('density')
+  })
   it('keeps the address short outside Explore', () => {
     const h = buildHash({ ...parseHash('#/?step=understand&tab=space'), t: null })
     expect(h).toContain('step=understand')
