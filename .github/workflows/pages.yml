@@ -25,6 +25,9 @@ jobs:
         with: { node-version: 22, cache: pnpm, cache-dependency-path: web/pnpm-lock.yaml }
       - run: pnpm install --frozen-lockfile
       - run: pnpm build # base './' keeps asset URLs relative, so it works under /<repo>/
+        env:
+          # The Brain API the Live AI mode calls. Set the repository variable BRAIN_URL to point somewhere else.
+          VITE_BRAIN_URL: ${{ vars.BRAIN_URL || 'https://ca-matchmind-brain.ambitiouswave-e3f38943.northeurope.azurecontainerapps.io' }}
       - uses: actions/upload-pages-artifact@v3
         with: { path: web/dist }
   deploy:

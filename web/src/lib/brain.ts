@@ -5,8 +5,8 @@ import type { Cohort, Overlay } from './types'
 export const BRAIN_URL: string = ((import.meta.env.VITE_BRAIN_URL as string | undefined) ?? '').replace(/\/+$/, '')
 export const brainConfigured = BRAIN_URL !== ''
 
-/** The API answers inside its own 5 s deadline; this is the browser's limit, with room for the network. */
-const REQUEST_TIMEOUT_MS = 8_000
+/** The API bounds itself to 5 s; this is only the browser's safety net, with room for the network and a cold start. */
+const REQUEST_TIMEOUT_MS = 12_000
 /** A Container App that scaled to zero needs a while to start. */
 const WAKE_TIMEOUT_MS = 60_000
 

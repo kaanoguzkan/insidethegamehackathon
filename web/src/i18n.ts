@@ -6,12 +6,13 @@ type Dict = Record<string, string>
 
 const en: Dict = {
   liveAI: 'Live AI',
+  liveTurnOn: 'Turn on Live AI',
   liveAIHint: 'Ask the AI service to write the story for the selected moment right now, for your viewer settings.',
   liveWaking: 'Waking the AI service…',
   liveAsking: 'Asking the model… (at most 5 s)',
   liveDown: 'The AI service did not answer. Showing the recorded text.',
   liveFailed: 'The live answer failed. Showing the recorded text.',
-  liveOffHint: 'Turn on Live AI in the top bar to have the model write this story now.',
+  liveOffHint: 'Turn on Live AI to have the model write this story now.',
   liveWrote: 'Written just now',
   liveSeconds: 's',
   liveFromCache: 'from cache',
@@ -129,12 +130,13 @@ const en: Dict = {
 
 const es: Dict = {
   liveAI: 'IA en vivo',
+  liveTurnOn: 'Activar IA en vivo',
   liveAIHint: 'Pide al servicio de IA que escriba ahora la historia del momento elegido, según tus ajustes de espectador.',
   liveWaking: 'Despertando el servicio de IA…',
   liveAsking: 'Preguntando al modelo… (máximo 5 s)',
   liveDown: 'El servicio de IA no respondió. Se muestra el texto grabado.',
   liveFailed: 'Falló la respuesta en vivo. Se muestra el texto grabado.',
-  liveOffHint: 'Activa IA en vivo en la barra superior para que el modelo escriba esta historia ahora.',
+  liveOffHint: 'Activa IA en vivo para que el modelo escriba esta historia ahora.',
   liveWrote: 'Escrito ahora mismo',
   liveSeconds: 's',
   liveFromCache: 'desde la caché',
@@ -252,12 +254,13 @@ const es: Dict = {
 
 const tr: Dict = {
   liveAI: 'Canlı yapay zekâ',
+  liveTurnOn: 'Canlı yapay zekâyı aç',
   liveAIHint: 'Yapay zekâ servisinden seçili an için hikâyeyi şimdi, izleyici ayarlarına göre yazmasını iste.',
   liveWaking: 'Yapay zekâ servisi uyandırılıyor…',
   liveAsking: 'Modele soruluyor… (en çok 5 sn)',
   liveDown: 'Yapay zekâ servisi yanıt vermedi. Kayıtlı metin gösteriliyor.',
   liveFailed: 'Canlı yanıt başarısız oldu. Kayıtlı metin gösteriliyor.',
-  liveOffHint: 'Modelin bu hikâyeyi şimdi yazması için üst çubuktan Canlı yapay zekâyı aç.',
+  liveOffHint: 'Modelin bu hikâyeyi şimdi yazması için Canlı yapay zekâyı aç.',
   liveWrote: 'Az önce yazıldı',
   liveSeconds: 'sn',
   liveFromCache: 'önbellekten',

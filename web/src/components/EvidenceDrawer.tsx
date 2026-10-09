@@ -137,7 +137,14 @@ function MetricRow({ k, m, lang, short, glossary }: { k: string; m: MetricChange
 function LiveSection({ live, momentId, lang }: { live: LiveBrain; momentId: string; lang: Lang }) {
   const res = live.resultFor(momentId)
   let body: JSX.Element | null = null
-  if (!live.enabled) body = <p className="hint">{t(lang, 'liveOffHint')}</p>
+  if (!live.enabled) {
+    body = (
+      <>
+        <p className="hint">{t(lang, 'liveOffHint')}</p>
+        <button type="button" className="btn live" aria-pressed={false} onClick={live.toggle}>{t(lang, 'liveTurnOn')}</button>
+      </>
+    )
+  }
   else if (live.status === 'waking') body = <p role="status">{t(lang, 'liveWaking')}</p>
   else if (live.status === 'down') body = <p className="caveat">{t(lang, 'liveDown')}</p>
   else if (live.busy && !res) body = <p role="status">{t(lang, 'liveAsking')}</p>
