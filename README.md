@@ -158,8 +158,7 @@ flowchart LR
   end
   WF --> PR["Overlay Producer<br/>timing, collisions"] --> OUT["Overlay JSON"]
   OUT --> WEB["Match center (web)"]
-  INT <--> MCP["Match Data MCP server"]
-  MCP <--> WF
+  INT <--> MCP["Match Data MCP server<br/>(for outside clients: Copilot, MCP agents)"]
 ```
 
 The live path (the Brain, `POST /api/beats`, five seconds) puts rule-based agents around a single model call per viewer cohort:
