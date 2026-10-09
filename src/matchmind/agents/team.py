@@ -18,7 +18,16 @@ from typing import Any, TypeVar
 from agent_framework import Agent, BaseChatClient
 from pydantic import BaseModel, ValidationError
 
-from ..core.contracts import Cohort, EditorOut, Explanation, Recap, StoryOut, StoryVariant
+from ..core.contracts import (
+    ChatAnswer,
+    Cohort,
+    EditorOut,
+    Explanation,
+    Plan,
+    Recap,
+    StoryOut,
+    StoryVariant,
+)
 from . import prompts
 from .llm import task_message
 from .verify import valid_refs
@@ -135,6 +144,8 @@ class AgentTeam:
         self.localizer = a.get("localizer") or Agent(client, prompts.LOCALIZER, name="localizer")
         self.recap_writer = a.get("recap_writer") or Agent(client, prompts.RECAP, name="recap_writer")
         self.composer = a.get("composer") or Agent(client, prompts.COMPOSER, name="composer")
+        self.planner = a.get("planner") or Agent(client, prompts.PLANNER, name="planner")
+        self.answerer = a.get("answerer") or Agent(client, prompts.ANSWERER, name="answerer")
 
     # ----- one call ----------------------------------------------------------------------------
 
@@ -152,8 +163,9 @@ class AgentTeam:
         return opts
 
     async def _ask(
-        self, agent: Agent, task: str, payload: dict, model: type[M], temperature: float, timeout_s: float | None = None
+        self, agent: Agent, task: str, payload: dict, model: type[M], temperature: float, timeout_s: float | None = None, usage: dict | None = None
     ) -> M:
+        """One call. ``usage``, if given, gets the call's token counts added to ``inputTokens`` and ``outputTokens``."""
         name = agent.name or task
         options = self._options(model, temperature)
         try:
@@ -169,6 +181,10 @@ class AgentTeam:
             raise
         except Exception as e:  # network, auth, content filter, injected outage ...
             raise AgentFailure(name, f"{type(e).__name__}: {e}") from e
+        if usage is not None:
+            u = getattr(resp, "usage_details", None) or {}
+            usage["inputTokens"] = usage.get("inputTokens", 0) + int(u.get("input_token_count") or 0)
+            usage["outputTokens"] = usage.get("outputTokens", 0) + int(u.get("output_token_count") or 0)
         value = resp.value if self.settings.structured_output and not self.settings.agent_side_options else None
         if isinstance(value, model):
             return value
@@ -192,11 +208,19 @@ class AgentTeam:
         payload = {"pack": pack, "validRefs": sorted(valid_refs(pack)), "feedback": feedback}
         return await self._ask(self.explainer, "explain", payload, Explanation, self.settings.explain_temperature)
 
-    async def compose(self, pack: dict, cohort: Cohort, timeout_s: float | None = None) -> StoryVariant:
+    async def plan(self, payload: dict, timeout_s: float | None = None, usage: dict | None = None) -> Plan:
+        """The chat's first step: which match-data tools answer this question (a refusal if it is off topic)."""
+        return await self._ask(self.planner, "plan", payload, Plan, 0.0, timeout_s, usage)
+
+    async def answer(self, payload: dict, timeout_s: float | None = None, usage: dict | None = None) -> ChatAnswer:
+        """The chat's last step: the answer, written only from what the tools returned."""
+        return await self._ask(self.answerer, "answer", payload, ChatAnswer, 0.2, timeout_s, usage)
+
+    async def compose(self, pack: dict, cohort: Cohort, timeout_s: float | None = None, usage: dict | None = None) -> StoryVariant:
         """The fast path: one call that explains and writes the story for one cohort, in its language."""
         refs = sorted(r for r in valid_refs(pack) if not r.startswith("player:"))
         payload = {"pack": names_not_ids(pack), "validRefs": refs, "cohort": cohort.key}
-        return await self._ask(self.composer, "compose", payload, StoryVariant, self.settings.story_temperature, timeout_s)
+        return await self._ask(self.composer, "compose", payload, StoryVariant, self.settings.story_temperature, timeout_s, usage)
 
     async def tell(self, pack: dict, explanation: Explanation, cohorts: list[Cohort], feedback: str = "") -> StoryOut:
         payload = {

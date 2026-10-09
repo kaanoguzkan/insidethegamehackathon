@@ -145,7 +145,7 @@ def test_the_deadline_holds_even_when_a_stalled_model_call_ignores_cancellation(
     from matchmind.agents.fast import run_fast
     from matchmind.agents.workflow import Batch
 
-    async def stubborn(pack, cohort, timeout_s=None):
+    async def stubborn(pack, cohort, timeout_s=None, usage=None):
         while True:  # swallows every cancellation and keeps going for 3 s, like a call stuck in a retry
             try:
                 await asyncio.sleep(3.0)

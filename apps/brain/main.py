@@ -26,6 +26,7 @@ import hmac
 import logging
 import os
 import time
+from collections import OrderedDict
 from typing import Any, Literal
 
 from agent_framework import Content, Message
@@ -35,6 +36,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from matchmind import __version__
+from matchmind.agents.ask import MAX_QUESTION_CHARS
+from matchmind.agents.ask import ask as ask_the_match
 from matchmind.agents.cache import BeatCache, SharedBeatCache
 from matchmind.agents.llm import Faults, make_chat_client
 from matchmind.agents.service import (  # noqa: F401
@@ -57,6 +60,14 @@ from matchmind.mcp_server.registry import MatchRegistry, UnknownMatch, preload
 from matchmind.mcp_server.server import build_server
 from matchmind.runner import build_analytics
 from matchmind.telemetry import setup_tracing
+
+
+class AskRequest(BaseModel):
+    match_id: str
+    question: str = Field(min_length=2, max_length=MAX_QUESTION_CHARS + 120)  # shaped and cut to MAX_QUESTION_CHARS before it reaches a prompt
+    language: Literal["en", "es", "tr"] = "en"
+    mode: Literal["analyst", "casual"] = "casual"
+    minute: float | None = Field(None, ge=0, le=130, description="where the viewer is in the match; the planner is told, answers may still use the whole match")
 
 
 class FaultRequest(BaseModel):
@@ -174,7 +185,11 @@ def create_app(
     )  # the web app on Azure Static Web Apps and GitHub Pages calls this API from the browser
     app.add_middleware(
         RateLimitMiddleware,
-        rules=[("/api/beats", "POST", int(os.environ.get("MATCHMIND_BEATS_PER_MIN", "20")), 60.0), ("/mcp", None, int(os.environ.get("MATCHMIND_MCP_PER_MIN", "60")), 60.0)],
+        rules=[
+            ("/api/beats", "POST", int(os.environ.get("MATCHMIND_BEATS_PER_MIN", "20")), 60.0),
+            ("/api/ask", "POST", int(os.environ.get("MATCHMIND_ASK_PER_MIN", "10")), 60.0),
+            ("/mcp", None, int(os.environ.get("MATCHMIND_MCP_PER_MIN", "60")), 60.0),
+        ],
     )
 
     @app.middleware("http")
@@ -292,6 +307,35 @@ def create_app(
             raise HTTPException(422, str(e)) from e
         finally:
             inflight[0] -= 1
+
+    ask_inflight = [0]
+    max_ask = int(os.environ.get("MATCHMIND_MAX_ASK_INFLIGHT", "4"))
+    ask_cache: OrderedDict[tuple, tuple[float, dict]] = OrderedDict()  # verified answers, so a repeated question (the suggestion chips) costs nothing
+    ask_ttl_s, ask_max = 3600.0, 256
+
+    @app.post("/api/ask")
+    async def ask_endpoint(req: AskRequest) -> dict:
+        """Ask the match a question. The answer is written from what the match-data tools return, and checked by the Verifier (docs/brain-api.md)."""
+        if ask_inflight[0] >= max_ask:
+            raise HTTPException(503, "busy, retry shortly", headers={"Retry-After": "3"})
+        ask_inflight[0] += 1
+        try:
+            _, names = await asyncio.to_thread(beat_inputs, req.match_id)
+            key = (req.match_id, " ".join(req.question.lower().split()), req.language, req.mode)
+            hit = ask_cache.get(key)
+            if hit and time.monotonic() - hit[0] < ask_ttl_s:
+                ask_cache.move_to_end(key)
+                return {**hit[1], "cached": True, "elapsedMs": 0, "usage": {"inputTokens": 0, "outputTokens": 0, "costUsd": 0.0}}
+            team = await asyncio.to_thread(get_team)
+            res = await ask_the_match(team, mcp, names, match_id=req.match_id, question=req.question, language=req.language, mode=req.mode, minute=req.minute)
+            out = res.public()
+            if res.level <= 1 and not res.refused:  # only answers the model wrote and the Verifier passed
+                ask_cache[key] = (time.monotonic(), out)
+                while len(ask_cache) > ask_max:
+                    ask_cache.popitem(last=False)
+            return {**out, "cached": False}
+        finally:
+            ask_inflight[0] -= 1
 
     # The fault switch degrades the model for every caller, so it is off unless explicitly enabled
     # (MATCHMIND_DIRECTOR=1 or director=True) and, when MATCHMIND_DIRECTOR_KEY is set, key-protected.

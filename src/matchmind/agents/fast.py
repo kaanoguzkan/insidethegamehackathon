@@ -105,7 +105,7 @@ async def _run_fast(
 ) -> list[BeatResult]:
     store = store if store is not None else InMemoryMomentStore()
     stats = stats if stats is not None else {}
-    stats.update(cacheHits=0, modelCalls=0, hedged=0, repaired=0, rejected=0, missedDeadline=0)
+    stats.update(cacheHits=0, modelCalls=0, hedged=0, repaired=0, rejected=0, missedDeadline=0, inputTokens=0, outputTokens=0)
     model_id = model_id or os.environ.get("MATCHMIND_LLM_MODEL", "offline")
     t0 = clock()
     deadline = t0 + deadline_s
@@ -145,7 +145,7 @@ async def _run_fast(
             return
         stats["modelCalls"] += 1
         try:
-            v = (await _hedged(lambda budget: team.compose(m, c, timeout_s=budget), left, hedge_after_s, deadline, clock, stats)).model_copy(update={"cohort": c.key})
+            v = (await _hedged(lambda budget: team.compose(m, c, timeout_s=budget, usage=stats), left, hedge_after_s, deadline, clock, stats)).model_copy(update={"cohort": c.key})
         except AgentFailure as e:
             store.trace(m["id"], "composer", f"failed: {c.key}: {e.reason}"[:200], (clock() - start) * 1000.0)
             return

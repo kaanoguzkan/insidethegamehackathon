@@ -23,9 +23,12 @@ from agent_framework import BaseChatClient, ChatResponse, Content, Message
 
 from ..core.contracts import (
     BeatChoice,
+    ChatAnswer,
     Cohort,
     EditorOut,
+    Plan,
     StoryOut,
+    ToolCall,
 )
 from . import templates as T
 
@@ -144,6 +147,17 @@ def offline_answer(task: str, payload: dict, context: dict | None = None) -> str
         from . import recap as R
 
         return R.render(payload["pack"], _cohort(payload["cohort"]), (context or {}).get("moments")).model_dump_json()
+    if task == "plan":
+        from . import ask as A
+
+        tool_info = {t["name"]: {} for t in payload["tools"]}
+        teams = {t["id"]: t["name"] for t in payload["teams"]}
+        calls = A.rule_plan(payload["question"], teams, tool_info)
+        return Plan(tools=[ToolCall(name=c["name"], args=json.dumps(c["args"])) for c in calls]).model_dump_json()
+    if task == "answer":
+        from . import ask as A
+
+        return ChatAnswer(answer=A.digest(payload["results"], payload["language"]), used=list(payload["results"])).model_dump_json()
     if task == "causal":
         return json.dumps({"supported": True, "reason": "offline"})
     raise ValueError(f"unknown task {task!r}")
@@ -162,6 +176,8 @@ def hallucinate(task: str, answer: str) -> str:
         data["body"] = f"{fake}. {data['body']}"
     elif task == "recap":
         data["summary"] = f"{fake}. {data['summary']}"
+    elif task == "answer":
+        data["answer"] = f"{fake}. {data['answer']}"
     return json.dumps(data, ensure_ascii=False)
 
 

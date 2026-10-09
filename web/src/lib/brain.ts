@@ -78,3 +78,32 @@ export function mergeLive(base: Overlay[], results: Iterable<LiveResult>): Overl
   const kept = base.filter((o) => !(o.kind === 'lower_third' && replaced.has(`${o.momentId}|${cohortKey(o.cohort)}`)))
   return [...kept, ...added].sort((a, b) => a.displayAt.matchMs - b.displayAt.matchMs || a.priority - b.priority)
 }
+
+export interface AskAnswer {
+  answer: string
+  /** 0 a model answer that passed the checks, 1 mended by cutting out what failed, 2 only the numbers the data gives, 3 refused or nothing found */
+  level: number
+  verified: boolean
+  refused: boolean
+  tools: { name: string; args: Record<string, unknown> }[]
+  elapsedMs: number
+  usage: { inputTokens: number; outputTokens: number; costUsd: number }
+}
+
+/** Ask the match a question. The Brain plans, runs match-data tools and answers only from what they return. */
+export async function askBrain(
+  req: { matchId: string; question: string; language: string; mode: string; minute: number | null },
+  base = BRAIN_URL,
+  signal?: AbortSignal,
+): Promise<AskAnswer> {
+  if (!SAFE_ID.test(req.matchId)) throw new Error('invalid id')
+  const limit = AbortSignal.timeout(45_000)
+  const res = await fetch(`${base}/api/ask`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ match_id: req.matchId, question: req.question, language: req.language, mode: req.mode, minute: req.minute }),
+    signal: signal ? AbortSignal.any([signal, limit]) : limit,
+  })
+  if (!res.ok) throw new Error(res.status === 429 ? 'rate' : `brain: ${res.status}`)
+  return (await res.json()) as AskAnswer
+}

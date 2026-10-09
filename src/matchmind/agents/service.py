@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from ..core.contracts import Cohort
 from .cache import BeatCache
 from .fast import run_fast
+from .pricing import cost_usd
 from .store import InMemoryMomentStore
 from .team import AgentSettings, AgentTeam
 from .verify import Registry
@@ -107,6 +108,8 @@ async def serve_beats(
         results = await run_fast(team, batch, deadline_s=req.deadlineMs / 1000.0, registry=registry, store=store, cache=cache if req.useCache else None, stats=stats)
     else:
         results = await run_batch(build_workflow(WorkflowDeps(team=team, registry=registry, store=store)), batch)
+    if req.mode == "fast":
+        stats["costUsd"] = cost_usd(stats.get("inputTokens", 0), stats.get("outputTokens", 0))  # model calls that were hedged or cut off count too
     return {
         "mode": req.mode,
         "stats": {**stats, "cacheSize": len(cache) if cache is not None else 0} if req.mode == "fast" else None,

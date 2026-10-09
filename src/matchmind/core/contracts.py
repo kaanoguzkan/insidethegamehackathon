@@ -200,6 +200,28 @@ class EditorOut(BaseModel):
     beats: list[BeatChoice]
 
 
+class ToolCall(BaseModel):
+    """One match-data tool the planner wants run. ``args`` is a JSON object as text (a free-form object is not allowed in a strict schema)."""
+
+    name: str
+    args: str = "{}"
+
+
+class Plan(BaseModel):
+    """The planner's answer to a viewer's question: which tools to run, or a refusal if it is not about this match."""
+
+    tools: list[ToolCall] = Field(default_factory=list, max_length=3)
+    refuse: bool = False
+    reason: str = ""
+
+
+class ChatAnswer(BaseModel):
+    """The answerer's reply, written only from tool results."""
+
+    answer: str
+    used: list[str] = Field(default_factory=list, description="names of the tools the answer relies on")
+
+
 class Recap(BaseModel):
     cohort: str
     kind: Literal["preview", "story_so_far", "half_time", "full_time"]

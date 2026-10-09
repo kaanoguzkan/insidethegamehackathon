@@ -2,12 +2,13 @@ import { t } from '../i18n'
 import type { Replay } from '../lib/data'
 import type { Lang, Profile } from '../lib/types'
 import type { Step } from '../hooks/useHash'
+import { AskPanel } from './AskPanel'
 import { MomentList } from './MomentList'
 import { RecapPanel } from './RecapPanel'
 import { TacticsPanel } from './TacticsPanel'
 
-export type RailTab = 'story' | 'tactics' | 'moments'
-const TABS: RailTab[] = ['story', 'tactics', 'moments']
+export type RailTab = 'story' | 'tactics' | 'moments' | 'ask'
+const TABS: RailTab[] = ['story', 'tactics', 'moments', 'ask']
 
 interface Props {
   step: Step
@@ -47,6 +48,7 @@ export function Rail({ step, tab, onTab, onStep, replay, profile, ms, selected, 
       <div className="rail-body" role={understand ? 'tabpanel' : undefined}>
         {active === 'story' && <RecapPanel replay={replay} profile={profile} ms={ms} onPick={onPick} />}
         {active === 'tactics' && <TacticsPanel replay={replay} ms={ms} lang={lang} />}
+        {active === 'ask' && <AskPanel replay={replay} profile={profile} ms={ms} />}
         {active === 'moments' && (
           <>
             <p className="hint">{t(lang, 'momentsHint')}</p>

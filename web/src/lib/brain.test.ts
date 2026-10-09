@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cohortKey, mergeLive, prewarm, requestBeats, wakeBrain, type LiveResult } from './brain'
+import { askBrain, cohortKey, mergeLive, prewarm, requestBeats, wakeBrain, type LiveResult } from './brain'
+import { formatCost } from '../components/AskPanel'
 import { cohortForMatch } from './cohort'
 import { DEFAULT_PROFILE, type Cohort, type Meta, type Overlay } from './types'
 
@@ -90,5 +91,28 @@ describe('cohortForMatch', () => {
     const c = cohortForMatch({ ...DEFAULT_PROFILE, perspective: 'KES', focusPlayer: 'KES-07' }, meta)
     expect(c.perspective).toBe('neutral')
     expect(c.focusPlayer).toBeNull()
+  })
+})
+
+describe('askBrain', () => {
+  it('posts the question with the viewer settings and returns the answer', async () => {
+    const answer = { answer: 'Redmoor had 12 shots.', level: 0, verified: true, refused: false, tools: [], elapsedMs: 2600, usage: { inputTokens: 2200, outputTokens: 120, costUsd: 0.0011 } }
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => answer })
+    vi.stubGlobal('fetch', fetchMock)
+    const r = await askBrain({ matchId: 'red-card-drama', question: 'Who had more shots?', language: 'es', mode: 'analyst', minute: 54 }, 'https://brain.test')
+    expect(r).toEqual(answer)
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('https://brain.test/api/ask')
+    expect(JSON.parse(init.body)).toEqual({ match_id: 'red-card-drama', question: 'Who had more shots?', language: 'es', mode: 'analyst', minute: 54 })
+  })
+  it('names a rate limit and refuses an id that is not a slug', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 429 }))
+    await expect(askBrain({ matchId: 'm', question: 'q?', language: 'en', mode: 'casual', minute: null }, 'https://brain.test')).rejects.toThrow('rate')
+    await expect(askBrain({ matchId: '../x', question: 'q?', language: 'en', mode: 'casual', minute: null }, 'https://brain.test')).rejects.toThrow('invalid id')
+  })
+  it('formats a cost people can read', () => {
+    expect(formatCost(0)).toBe('$0')
+    expect(formatCost(0.00115)).toBe('<$0.01 (≈$0.0011)')
+    expect(formatCost(0.0234)).toBe('$0.02')
   })
 })

@@ -515,3 +515,19 @@ body:has(.broadcast) { background: transparent; }
 .live-ai .live-story p { margin: 0 0 6px; }
 .live-ai .live-who { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 12px; color: var(--muted, inherit); }
 .live-ai .live-who > span:last-child { margin-left: 6px; }
+
+/* Ask the match: the question box in the Understand step */
+.ask { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.ask-log { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding: 2px 0 8px; }
+.ask-suggest { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.ask-turn { display: flex; flex-direction: column; gap: 6px; }
+.ask-q { align-self: flex-end; max-width: 92%; margin: 0; padding: 8px 12px; border-radius: 14px 14px 4px 14px; background: var(--accent-soft); border: 1px solid var(--accent); }
+.ask-a { margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px 14px 14px 4px; background: var(--panel, transparent); }
+.ask-a p { margin: 0 0 6px; }
+.ask-a p:last-child { margin-bottom: 0; }
+.ask-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); }
+.ask-ok { color: var(--good); font-weight: 600; }
+.ask-note { color: var(--warn); }
+.ask-form { display: flex; gap: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
+.ask-form input { flex: 1; min-width: 0; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--text); font: inherit; }
+.ask-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
