@@ -26,6 +26,27 @@ from .verify import valid_refs
 M = TypeVar("M", bound=BaseModel)
 
 
+def names_not_ids(pack: dict) -> dict:
+    """A copy of the pack for a small model: player ids ("NOR-21") become names, because small models write the id
+    into the text and the digits then fail the number check. Keys stay as they are."""
+    by_id = {p["id"]: p["name"] for p in pack.get("players", []) if p.get("id") and p.get("name")}
+
+    def walk(v: Any) -> Any:
+        if isinstance(v, str):
+            for pid, name in by_id.items():
+                v = v.replace(pid, name)
+            return v
+        if isinstance(v, list):
+            return [walk(x) for x in v]
+        if isinstance(v, dict):
+            return {k: walk(x) for k, x in v.items()}
+        return v
+
+    out = walk(pack)
+    out["players"] = [{k: p[k] for k in ("name", "team", "pos") if k in p} for p in pack.get("players", [])]
+    return out
+
+
 class AgentFailure(RuntimeError):
     """An agent timed out, errored or returned something unusable."""
 
@@ -167,7 +188,8 @@ class AgentTeam:
 
     async def compose(self, pack: dict, cohort: Cohort, timeout_s: float | None = None) -> StoryVariant:
         """The fast path: one call that explains and writes the story for one cohort, in its language."""
-        payload = {"pack": pack, "validRefs": sorted(valid_refs(pack)), "cohort": cohort.key}
+        refs = sorted(r for r in valid_refs(pack) if not r.startswith("player:"))
+        payload = {"pack": names_not_ids(pack), "validRefs": refs, "cohort": cohort.key}
         return await self._ask(self.composer, "compose", payload, StoryVariant, self.settings.story_temperature, timeout_s)
 
     async def tell(self, pack: dict, explanation: Explanation, cohorts: list[Cohort], feedback: str = "") -> StoryOut:

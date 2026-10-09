@@ -62,7 +62,7 @@ def _m(pack: dict, key: str) -> dict:
 
 def _name(pack: dict, pid: str | None) -> str | None:
     for p in pack["players"]:
-        if p["id"] == pid:
+        if pid is not None and pid in (p.get("id"), p["name"]):  # a name stands for itself (packs shown to a model)
             return p["name"]
     return None
 

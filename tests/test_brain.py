@@ -203,3 +203,13 @@ def test_mcp_answers_on_the_public_host_name_only_when_told_to(reg, monkeypatch)
         assert c.post("/mcp/", json=INIT, headers=MCP_HEADERS).status_code == 200
     with TestClient(create_app(reg), base_url="https://evil.example.org") as c:
         assert c.post("/mcp/", json=INIT, headers=MCP_HEADERS).status_code == 421, "other names stay refused"
+
+
+def test_the_fast_path_shows_the_model_names_not_player_ids(client):
+    from matchmind.agents.team import names_not_ids
+
+    pack = {"players": [{"id": "NOR-21", "name": "Kofi Ivarham", "team": "NOR", "pos": "AM"}],
+            "facts": {"scorer": "NOR-21", "n": 3}, "eventIds": ["e1"]}
+    seen = names_not_ids(pack)
+    assert "NOR-21" not in str(seen) and seen["facts"]["scorer"] == "Kofi Ivarham" and seen["facts"]["n"] == 3
+    assert seen["players"] == [{"name": "Kofi Ivarham", "team": "NOR", "pos": "AM"}]
