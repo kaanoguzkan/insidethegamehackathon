@@ -9,7 +9,7 @@ MatchMind uses Foundry for four things beyond hosting the model. Each is a comma
 | **The Brain calls them** | `MATCHMIND_AGENTS=foundry` (set in `infra/`) | `/health` reports `"agents":"foundry"`; traces show `invoke_agent matchmind-composer` |
 | **Evaluations** | `matchmind foundry-evals --samples 30` | A run in the Foundry portal with groundedness, relevance, coherence and fluency per overlay |
 | **A hosted agent** | `matchmind foundry-host` | `matchmind-newsroom`, the whole fast path, served by Foundry at the project's agent endpoint |
-| **Tracing** | `APPLICATIONINSIGHTS_CONNECTION_STRING` (set in `infra/`) | A span for each request, batch, agent run and model call in Application Insights |
+| **Tracing** | `APPLICATIONINSIGHTS_CONNECTION_STRING` (set in `infra/`, pointed at the project's own resource) | A span for each request, batch, agent run and model call, in the Foundry project's Application Insights |
 
 All of these use the experimental parts of Agent Framework's Foundry package (`to_prompt_agent`, `FoundryAgent`,
 `FoundryEvals`, `ResponsesHostServer`); the APIs may change.
@@ -24,6 +24,11 @@ each agent's output schema and temperature inside the definition: a registered a
 Calling a registered agent costs nothing extra: 2.4 to 3.5 s against 2.7 to 4.4 s for the same prompt sent straight to the
 model (three calls each, one laptop, one afternoon). On the live Brain, nine overlays over the three matches were all
 model-written (fallback level 0) in 1.8 to 3.2 s.
+
+**Stale prompts are refused.** A registered agent carries its own instructions, so `agents/prompts.py` and Foundry can drift apart. Each registered
+version stores the code's `PROMPT_VERSION` in its metadata; at start-up the Brain (`MATCHMIND_AGENTS=foundry`) reads the latest version of each agent and,
+if one is missing or its stored version differs, uses local agents instead and says so in `/health` (`"agents": "local (Foundry agents stale or missing: ...)"`).
+After any prompt change: bump `PROMPT_VERSION`, run `matchmind foundry-register`, redeploy.
 
 Registered agents bypass the Brain's fault injector (the resilience switch), because the injector wraps the local client.
 Run the director demo with `MATCHMIND_AGENTS` unset.
@@ -87,11 +92,17 @@ Things learned the hard way:
 `telemetry.py` starts OpenTelemetry to Application Insights when `APPLICATIONINSIGHTS_CONNECTION_STRING` is set, and
 turns on Agent Framework's instrumentation. In Application Insights (`dependencies`): `matchmind.beats` (one per batch,
 with the Router, Cache, Repairer, hedge and deadline numbers as attributes), `invoke_agent <name>`,
-`chat <model>`, the HTTP call to the Foundry Responses API and the managed-identity token fetch. Prompts and answers are
-not recorded unless `MATCHMIND_TRACE_CONTENT=1`.
+`chat <model>`, `AgentsOperations.get` (the stale-prompt check), the HTTP call to the Foundry Responses API and the managed-identity token fetch.
+Prompts and answers are not recorded unless `MATCHMIND_TRACE_CONTENT=1`.
+
+**Which Application Insights.** A Foundry project is connected to its *own* Application Insights resource, and the portal's tracing view reads that one.
+The Bicep first created a second resource (`appi-matchmind`) and the Brain exported there, so nothing showed in Foundry. The Brain now exports to the
+project's resource: `azd env set APPINSIGHTS_CONNECTION_STRING_OVERRIDE <its connection string>` (see [running-on-azure.md](running-on-azure.md)). To
+look at the last hour in Logs: `dependencies | where timestamp > ago(1h) | summarize count() by name`.
 
 ## What is not done
 
 * Foundry's red-teaming and scheduled evaluations, content-safety (RAI) policy on the agents, and Foundry IQ / memory.
 * The web app does not call the hosted agent; it calls the Brain.
 * The evaluation of live fast-path output (only recorded text is evaluated so far).
+* The shared beat cache and the Brain's guards are not Foundry features; they are described in [running-on-azure.md](running-on-azure.md).

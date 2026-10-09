@@ -17,12 +17,25 @@ cohort. Stat graphics have no narrative, so they are produced once per language 
 match every viewer who reads that language (`Cohort.covers`, mirrored in `web/src/lib/cohort.ts` and
 tested on both sides).
 
+## Provenance
+
+Every overlay says how it was made, so a renderer or an auditor never has to guess:
+
+| Field | Values |
+|---|---|
+| `provenance.fallbackLevel` | 0 written by a model and verified first time; 1 after a retry, or mended by the Repairer (it only cuts out what failed); 2 template text; 3 stat graphic |
+| `provenance.agents` | The agents that touched it, in order: `editor`, `router`, `cache`, `explainer`, `storyteller`, `localizer`, `composer`, `verifier`, `repairer`, `template`, `producer`. A cached overlay lists `cache` first, then the agents that originally wrote it |
+| `provenance.verified` | True only if the Producer re-ran the Verifier on exactly this text and it passed (earned, not asserted) |
+| `provenance.model` | `agent-team@<prompt version>` for model text, `template@<prompt version>` for templates, `offline-template@...` for the offline client |
+| `provenance.evidenceRef` | The moment id whose evidence pack licensed the text |
+
 ## Timing
 
 `displayAt` is on the match clock, so a renderer shows an overlay when *its* playback clock reaches it.
 In the live design the viewer sits about 15 seconds behind the simulator (a broadcast delay), which is the
 budget the agent workflow has to produce text; each beat carries a deadline and degrades to templates
-rather than running late.
+rather than running late. The Brain's live endpoint (`POST /api/beats`, [brain-api.md](brain-api.md)) tightens that to a hard five seconds
+for a request: a late model call costs only the upgrade from template text, never the overlay.
 
 ## Pitch graphics
 

@@ -1,6 +1,6 @@
 # MatchMind: Solution Plan
 
-*Working name. Entry plan for the Microsoft × Premier League "Inside the Game" Developer Hackathon. Written Sunday 4 October 2026; status section updated the same night.*
+*Working name. Entry plan for the Microsoft × Premier League "Inside the Game" Developer Hackathon. Written Sunday 4 October 2026; the status section was rewritten on 10 October after the first deployment and the first runs against a real model. The design sections below are the original plan; where the build differs, the status section says so.*
 
 > **How to read this**
 > - **Status:** what is built, measured and still open (start here).
@@ -15,9 +15,9 @@
 
 ## Status: where the build stands
 
-*Updated Monday 5 October 2026 (UTC+3), the day before the Submission Period opens. Everything below is committed locally; nothing is pushed or deployed.*
+*Updated Saturday 10 October 2026 (UTC+3), four days into the Submission Period (it closes 27 October, 11:59 pm Pacific). The first status text was written on 5 October, before anything was deployed or run against a real model; this replaces it.*
 
-**In one paragraph.** All five pipeline stages run end to end on a laptop with no keys, network or GPU: the simulator produces matches and tracking, the interpreter finds moments and builds evidence packs, a Microsoft Agent Framework workflow explains them (checked by a code Verifier, with a degradation ladder), the Overlay Producer emits schema-validated overlay JSON and recaps in three languages for eight audiences, and a React match center plays it with a personalization panel, evidence drawer and a model-health switch. An MCP server and a FastAPI Brain expose the same data and agents, a container image and Bicep infrastructure exist, and CI gates quality. On top of that sit an Opta-style analytics layer (win probability, possession value, post-shot xG, pitch control, packing, off-ball runs, physical load, formations from tracking, a simulated season with predictions and milestones) and broadcast-style pitch graphics. What is **not** done is everything that needs a real Azure subscription or a real language model, and the demo video.
+**In one paragraph.** All five pipeline stages run end to end, offline on a laptop and live on Azure. The simulator produces matches and tracking, the interpreter finds moments and builds evidence packs, Microsoft Agent Framework agents explain them (checked by a code Verifier, with a degradation ladder), the Overlay Producer emits schema-validated overlay JSON and recaps in three languages for eight audiences, and a React match center plays it with a personalization panel, evidence drawer and a model-health switch. An Opta-style analytics layer and broadcast-style pitch graphics sit on top. Since 7 October the system is **deployed on a free Azure subscription** (Container Apps, Static Web Apps, Cosmos DB, Application Insights, a Foundry project) and has been **run against a real model** (`gpt-4.1-mini` on Foundry): a live endpoint writes a personalized overlay in under five seconds (median 2.6 s) behind a hard deadline and template fallbacks, rule-based Router, Cache and Repairer agents surround the model, the agents are registered and evaluated in Foundry, a hosted Foundry agent serves the same pipeline, and the public API guards itself. What is **not** done: the event-driven pipeline (Functions, Event Grid, SignalR publishing to the browser), a live streaming mode, and the demo video.
 
 ### Build status
 
@@ -29,29 +29,36 @@
 | Template engine EN/ES/TR | Done | Every moment type and fact card, analyst and casual |
 | Verifier | Done | Deterministic, adversarially tested, wired into the workflow and the Producer (the `verified` flag is earned, not asserted) |
 | Agent Framework workflow, offline model, fault injector | Done | Editor, Explainer, Storyteller, Localizer, Recap Writer; levels 0 agent, 1 retry, 2 template, 3 stat graphic |
+| **Live fast path** (`POST /api/beats`) | **Done, measured live** | Rule-based Editor and Router, one Composer call per cohort in parallel, Verifier, rule-based Repairer, template-first fallback, memory and Cosmos DB cache, hedged calls; `docs/agents.md`, `docs/brain-api.md` |
+| **Public-API guards** | **Done, checked live** | Per-client rate limit, in-flight cap, admin key for expensive options, cohort validation, security headers, token and log ceilings (`docs/running-on-azure.md`) |
 | Overlay Producer, JSON Schemas, replay packages | Done | Version 2 packages; 3 matches, about 10 MB; recaps 3 kinds x 8 cohorts; healthy, unreliable and outage variants |
-| Web app | Done | Fit-to-screen pitch, a three-step path (Watch, Understand, Explore), overlays, viewer and model-health menus, match strip with story ribbon, evidence drawer, recaps, Tactics tab, Explore workspace (11 views in 5 groups), win-probability line, pitch lenses, EN/ES/TR UI, accessibility options |
-| MCP server (25 tools) and Brain API | Done | Verified over real HTTP, in tests and in Docker; registry hardened; fault-switch routes now opt-in and key-protected |
-| Evals and CI gates | Done | `matchmind evals`; reproducibility check is informational |
-| Dockerfile, Bicep, `azd`, GitHub Actions | Written | Image builds and runs; Bicep compiles; workflows `actionlint`-clean with a test that parses them and checks the SHA pins, third-party actions pinned to commit SHAs; **never deployed to Azure, and CI has not yet passed on GitHub** (its first runs failed on an invalid step name, now fixed) |
-| README and docs/ | Done | Honest "verified vs not" tables |
+| Web app | Done | Fit-to-screen pitch, a three-step path (Watch, Understand, Explore), overlays, viewer and model-health menus, match strip with story ribbon, evidence drawer, recaps, Tactics tab, Explore workspace (11 views in 5 groups), win-probability line, pitch lenses, EN/ES/TR UI, accessibility options, **Live AI switch** |
+| MCP server (25 tools) and Brain API | Done | Verified over real HTTP, in tests, in Docker and live; tools run in worker threads and matches preload so a cold call no longer freezes the service |
+| Evals and CI gates | Done | `matchmind evals`; reproducibility check is informational; CI runs tests in parallel |
+| Dockerfile, Bicep, `azd`, GitHub Actions | **Done, deployed** | Image builds from `ghcr.io` (Docker Hub rate-limited it) and runs on Container Apps; Bicep provisions repeatedly; CI and the Pages mirror pass on GitHub |
+| **Microsoft Foundry** | **Done, run live** | Model deployment; six agents registered as versioned prompt agents that the Brain calls (with a stale-prompt check); a hosted agent (`matchmind-newsroom`); evaluations; traces in the project's Application Insights (`docs/foundry.md`) |
+| README and docs/ | Done | Updated 10 October; honest "verified vs not" tables, API and configuration references |
 | Opta-style analytics | Done | Win probability, possession value (VAEP style), xGOT, pitch control, packing and line breaks, networks, measured formations, runs, load, transitions, set-piece review; models fitted from simulated matches (`docs/analytics.md`) |
 | Season history, milestones, prediction, radars | Done | 42 simulated matches; table, form, head-to-head, records, Poisson prediction, goal milestones, player radars and "plays like" |
 | Pitch graphics | Done | `pitch_graphic` overlays with geometry; live pitch control, team shape, offside line, passing options and run layers in the match center |
-| Azure adapters (Functions, Cosmos change feed, Event Grid, SignalR publishing) | Not built | The Brain runs the agents on demand; replays are static |
-| Foundry hosted recap agent, evals, tracing; real-model run | Not built / unverified | `FoundryChatClient` and the OpenAI-compatible client are wired but unrun |
+| Azure adapters (Functions, Cosmos change feed, Event Grid, SignalR publishing) | Not built | SignalR, Storage and Key Vault are provisioned and unused; Cosmos DB holds only the shared cache |
+| Foundry red-teaming, content-safety policy, hosted recap agent | Not built | |
 | Live streaming mode | Not built | Replay and on-demand only |
-| Demo video | Not recorded | |
+| Demo video | Not recorded | Required: under two minutes, public link |
 
-528 tests are collected (the fast and slow suites and ruff pass at the last run) plus 39 web tests. About 12,600 lines of Python in the package and 4,600 of web code.
+597 Python tests (3 slow; all pass, 4.5 minutes in full, 112 seconds for the 594 fast ones in parallel) plus 63 web tests; ruff clean. About 15,600 lines of Python in `src`, `apps` and `foundry`, 3,800 of Python tests and 6,500 of web code.
 
 ### Measured results
 
 * **Realism.** All 19 league averages inside their bands over 100 matches (table in `docs/data-card.md`), after re-calibrating for phase shapes and set pieces.
 * **Pressing-collapse detection.** Found in 15 of 16 seeds, median 9 minutes after the change at 55:00; no false collapse in 16 controls (study in `docs/metrics.md`). The other detectors are noisier and carry lower salience.
-* **Quality gates over the three replay packages.** Numeric fidelity 1.0, verification 1.0, language 1.0, honesty about contradicting metrics 1.0, recaps 24 of 24 verified, analyst text about 4x as number-dense as casual.
-* **Resilience demo.** Healthy: 144 agent-written overlays. Unreliable model: 64 recovered by retry, 112 template. Outage: all 176 template, none lost.
+* **Quality gates over the three replay packages (384 narrative overlays).** Numeric fidelity 1.0, verification 1.0, language 1.0, honesty about contradicting metrics 1.0, recaps 24 of 24 verified per match, analyst text 3 to 5 times as number-dense as casual.
+* **Resilience demo.** Healthy: 336 agent-written overlays, 48 template. Unreliable model: 16 first time, 150 recovered by retry, 218 template. Outage: all 384 template, none lost.
 * **Tactical shifts.** Defensive shape is compared like with like (opponent in possession, ball in the middle zone); thresholds re-derived at 7 m line / 10 m width: about 0.7 false alarms a match, the scripted shift found in 17 of 20 seeds.
+* **Live latency and quality (new).** Deployed Brain, `gpt-4.1-mini` through registered Foundry agents, 15 uncached requests of three cohorts: median 2.6 s, 95th percentile 4.2 s, no call past the deadline; 43 of 45 overlays written by the model and verified, 1 mended, 1 template; 16% of calls hedged; a repeated request 2 ms from memory and about 280 ms from Cosmos DB after a restart.
+* **Independent evaluation (new).** Foundry's evaluators over 30 overlays per group: groundedness, relevance, coherence 30/30 for agent-written text, fluency 26/30; the template control the same on the first three, fluency 24/30 (`docs/foundry.md`).
+* **Concurrency bug found and fixed (new).** A cold MCP call used to take 22 s and freeze `/health` for 20.8 s because loading a match re-simulates it on the event loop; it is now 0.3 s and `/health` answers in 0.3 s throughout. A test fails on the old code.
+* **Models tried (new).** `gpt-4.1-mini` is in use; `gpt-5-mini` took 96 s for the five-agent chain, Phi-4 50 s, Phi-4-mini never answered in five seconds, and the nano models were no faster in practice. Marketplace models cannot be bought on a free subscription.
 
 ### Where the build differs from this plan
 
@@ -65,17 +72,17 @@
 
 ### Not yet verified
 
-- **Anything that needs a real language model.** No model or key was available; prompts, structured-output behaviour, quality, latency and cost are unmeasured.
-- **Any Azure deployment.** No `az` or `azd` login here; the first `azd up` is yours to run (`docs/running-on-azure.md`).
-- **Free-tier limits and prices marked with \* elsewhere in this plan.**
-- **GitHub Actions on GitHub**, and cross-machine floating-point reproducibility of the replay packages.
+- **Quality of the live model beyond a small sample**: 45 live calls and 30 evaluated overlays per group on one model; shared-endpoint latency varies by a second or more from call to call. The judge in the Foundry evaluation is from the same family as the writer.
+- **Free-tier limits and prices marked with \* elsewhere in this plan** (the month-to-date cost of the whole deployment was about $1.42 on 9 October, against a $20 budget).
+- **Foundry's content filter, red-teaming and scheduled evaluations**: not configured or run by this project.
+- **The hosted Foundry agent under load**: its first call to a new session can time out while the container starts (62 s observed).
+- **Cross-machine floating-point reproducibility of the replay packages.**
 
 ### Next
 
-1. Push to a public GitHub repository; confirm CI and the Pages mirror run (needs your account).
-2. On or after 13 October (free-account credit window), create a Foundry project, run `azd up`, then measure real-model quality and latency and tune prompts.
-3. Record the under-2-minute demo video from the running app.
-4. If time allows: season history and milestones, the Functions adapters, live mode.
+1. Prove the live path from a cold start through the browser on both sites (Azure and Pages), then record the under-2-minute demo video from the running app.
+2. If time allows: the event-driven slice (Event Grid, a Function, SignalR to the browser) using the provisioned services, and a live streaming mode.
+3. Foundry extras: red-teaming and a content-safety policy on the agents.
 
 ---
 
@@ -754,7 +761,7 @@ All three pass the Verifier. Every number and name in them traces back to the sa
 
 | Use | Local development ($0) | Cloud demo | Why |
 |---|---|---|---|
-| Live agents (Editor, Explainer, Storyteller, Localizer) | Phi-4-mini via Foundry Local or Ollama | A small model deployed in Foundry. Open-weight (e.g., Phi-4-mini) if it passes evals, otherwise a current mini-class GPT model. | Latency and cost |
+| Live agents (Editor, Explainer, Storyteller, Localizer) | Phi-4-mini via Foundry Local or Ollama | A small model deployed in Foundry. Open-weight (e.g., Phi-4-mini) if it passes evals, otherwise a current mini-class GPT model. | Latency and cost. **Outcome:** Phi-4 generates at about 25 tokens a second and Phi-4-mini never answered inside five seconds, so `gpt-4.1-mini` is in use (`docs/agents.md`) |
 | Verifier causal check | Same | Small | Cheap, focused task |
 | Preview and recaps | Same | A stronger model | Quality matters more than latency here |
 | Translation | Azure AI Translator (free tier) | Same | Free and deterministic |
@@ -790,7 +797,7 @@ Replays cost nothing at viewing time, because their text is generated once when 
 ### 12.4 Credit timing
 
 - **Free account terms:** the Azure free account gives **$200 of credit for 30 days**. After that you must upgrade to pay-as-you-go to keep resources running. The free monthly amounts continue after the upgrade\*.
-- **When to open it:** build locally until 12 October, and **open the Azure account on Tuesday 13 October**. The credit then lasts until about 12 November, which is past the end of judging (11 November, 10:59 your time).
+- **When to open it:** build locally until 12 October, and **open the Azure account on Tuesday 13 October**. *(In practice the subscription was in use from 7 October, which left time to measure the real model and fix what that showed.)* The credit then lasts until about 12 November, which is past the end of judging (11 November, 10:59 your time).
 - **If you are a student:** Azure for Students gives $100 of credit for 12 months with no card\*. That removes the timing problem entirely.
 - **Hackathon credits:** check aka.ms/insidethegame for any credits the hackathon itself offers.
 
@@ -832,6 +839,13 @@ Replays cost nothing at viewing time, because their text is generated once when 
 - Template overlays (stat cards, speed badges) need no model call and arrive in about 2–3 seconds.
 - Anything that would miss its deadline drops down the degradation ladder (§7.6).
 - The live path never peeks at the simulator's future. It only uses the 15-second delay, just as a real broadcast would.
+
+**What was measured (10 October).** The table above assumed 1 to 2.5 s per model call in a chain of five. On Foundry the calls take 2 to 4 s each
+(median about 2 s, 95th percentile about 3.7 s), so a five-call chain needs tens of seconds, not five to eight. The built answer is a separate
+**fast path**: one model call per cohort, in parallel, inside a hard five-second deadline, with template text rendered first and a hedged second call for
+the slow tail. On the deployed Brain (15 requests of three cohorts, 45 calls) the request took a median of 2.6 s and a 95th percentile of 4.2 s, with
+no call past the deadline; the browser adds the network and, after idle, a cold start of about 20 s (hidden by waking the Brain on page load). The
+SignalR hop of the table is not built. See `docs/agents.md` and `docs/brain-api.md`.
 
 ---
 
@@ -1124,8 +1138,8 @@ This schedule is aggressive for one person. §19 says what to drop first.
 | Trademark or IP issues | Disqualification risk | Fictional league, our own crests, no real names, logos or music |
 | Abuse of the public demo | Unexpected bills | Access code for live mode, rate limits, budgets, token cap per match |
 | Changes after submission | Judging problems | Tag the submission; freeze `main`; only operational fixes |
-| No Azure CLI on the build machine | Infrastructure untested until you run it | Write Bicep and adapters against local fakes; you run the first `azd up` on 13 October; keep `azd down` one command away |
-| No language model available while building | Prompts and quality unmeasured | Real framework with a deterministic offline model; a GitHub Models token or a pulled Ollama model lets the same code run for real |
+| No Azure CLI on the build machine | **Resolved 7 October:** deployed with `azd`; it took several rounds of fixes for free-subscription limits (`docs/running-on-azure.md`). Original risk: infrastructure untested until you run it | Write Bicep and adapters against local fakes; you run the first `azd up` on 13 October; keep `azd down` one command away |
+| No language model available while building | **Resolved 7 to 10 October:** run against `gpt-4.1-mini` on Foundry; prompts, the verifier and the data shown to the model changed as a result. Original risk: prompts and quality unmeasured | Real framework with a deterministic offline model; a GitHub Models token or a pulled Ollama model lets the same code run for real |
 | Detector false alarms | Wrong or repetitive stories | Thresholds chosen from measured detection power; corroboration and persistence; the Editor ranks by salience and the Verifier checks every claim |
 
 ---
@@ -1134,13 +1148,13 @@ This schedule is aggressive for one person. §19 says what to drop first.
 
 1. **Team size.** This plan assumes you're solo, based on your answer "1". Tell me if teammates are joining.
 2. **Student status.** If you're a student, Azure for Students (12-month credit, no card) changes §12.4 for the better.
-3. **Free subscription limits.** Check the exact free-tier amounts, and which models your free subscription can deploy in your region. Do this on 13 October.
+3. **Free subscription limits.** Check the exact free-tier amounts, and which models your free subscription can deploy in your region. **Answered:** OpenAI, Phi and `gpt-oss` models deploy; Marketplace models (Mistral, Llama, Cohere, Claude, Grok, DeepSeek) cannot be bought on a free subscription; quota is per model and SKU (`docs/running-on-azure.md`).
 4. **Hackathon extras.** Check whether the hackathon offers Azure credits, office hours or a community channel (aka.ms/insidethegame).
 5. **Category selection.** Find out how categories are chosen on the submission form.
 6. **Rule clarifications.** If any rule is unclear (for example, whether GitHub Models is acceptable in the judged demo, or whether Fabric use is expected), send a written clarification request (rule 11.6).
 7. **"GitHub SDK".** The hero technology list mentions a "GitHub SDK". Find out which SDK that means and whether it fits naturally, for example in the Q&A agent.
-8. **A model to evaluate prompts against.** The machine has Ollama with no model pulled and no API keys. A GitHub Models token, a Foundry key or `ollama pull` of a small model would let prompts be tested for real. Until then they run against the offline model.
-9. **Who runs the first `azd up`.** It needs `az login` on a machine with the Azure CLI and the free account (planned for 13 October).
+8. **A model to evaluate prompts against. Answered:** a Foundry deployment of `gpt-4.1-mini`; prompts were tuned against it (`docs/agents.md`). Original text: the machine has Ollama with no model pulled and no API keys. A GitHub Models token, a Foundry key or `ollama pull` of a small model would let prompts be tested for real. Until then they run against the offline model.
+9. **Who runs the first `azd up`. Answered:** done on 7 October. It needs `az login` on a machine with the Azure CLI, Docker running and the free account.
 
 ---
 

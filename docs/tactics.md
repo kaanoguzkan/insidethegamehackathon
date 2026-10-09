@@ -97,5 +97,7 @@ team in the match center's Tactics tab (Understand step).
 * **A latent template bug surfaced.** Claims were linked to evidence by number coincidence, so a 0.3 in one
   sentence could cite an unrelated metric that also read 0.3. A metric now counts as cited only when both
   its before and after values appear.
-* **Not done:** recognising the formation from tracking (shapes are named from the layouts, not measured
-  back from the frames), and showing the set-piece card before the kick instead of as it is taken.
+* **Two views of a formation.** The tactics view names a team's shape from the layout the simulator was given; the analytics
+  *measure* it back from the tracking frames (`analytics/measured_shape.py`, see [analytics.md](analytics.md)). The two agree
+  when the team plays to its layout and differ when it does not, which is the point of measuring.
+* **Not done:** showing the set-piece card before the kick instead of as it is taken.

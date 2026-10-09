@@ -12,6 +12,11 @@ number in every sentence is traced to computed evidence and checked by code befo
 
 All data is synthetic. The league, clubs, crests and players are fictional.
 
+**Try it:** the match center runs on Azure Static Web Apps (<https://happy-beach-0379fb50f.5.azurestaticapps.net>) and as a
+GitHub Pages mirror (<http://kaanoguzkan.com/insidethegamehackathon/>). Both play three pre-generated matches from static files, and
+both have a **Live AI** switch that asks the Azure-hosted Brain to write the story for the selected moment *now*, for your viewer
+settings, in under five seconds. The Brain's API is documented in [docs/brain-api.md](docs/brain-api.md).
+
 ## How to use the match center
 
 The pitch always fits the screen. Depth comes from three steps in the top bar (keys `1`, `2`, `3`), so nobody has to scroll to find things:
@@ -24,13 +29,19 @@ The pitch always fits the screen. Depth comes from three steps in the top bar (k
 
 The match strip at the bottom never goes away: play, speed, **View** (2D or 3D, camera angle, follow the ball), **Lenses** (pitch control, team shape, offside line, passing options, runs) and a draggable ribbon of win probability, momentum, chaos and pressure with the key moments marked. Viewer settings (analyst or casual, language, club, followed player, accessibility, two viewers side by side) and the model-health switch live in menus in the top bar. The whole view is in the URL, so any state can be shared.
 
+**Live AI.** Switch it on (top bar, or inside the evidence drawer) and select a moment: the page asks the Brain to write that
+moment's story for each viewer on screen, and swaps the model's text in for the recorded one. The drawer shows who wrote it
+(`E R C ✓`: editor, router, composer, verifier), how long it took, and whether it came from the cache. If the Brain is asleep
+the page says so and waits (a Container App that scaled to zero needs about 20 seconds); if it is down or slow, the recorded
+text stays. Nothing in the replay depends on it.
+
 ## The pipeline
 
 | Stage | What happens | Where |
 |---|---|---|
 | **Ingest** | A 5 Hz simulator plays matches of a fictional league (nine formations that change shape with the ball, choreographed set pieces) and emits an event feed plus player and ball tracking | `src/matchmind/sim/` |
 | **Interpret** | Code derives sprints, speeds, pass difficulty, xG, xT, momentum, a control-vs-chaos index and pressing measures, and detects the moments worth telling | `tracking/`, `intel/` |
-| **Explain** | A team of Microsoft Agent Framework agents explains *why* each moment matters, citing an evidence pack; a Verifier checks every claim | `agents/` |
+| **Explain** | A team of Microsoft Agent Framework agents explains *why* each moment matters, citing an evidence pack; a Verifier checks every claim. Two paths: the five-agent workflow (offline, for the replay packages) and a **fast path** that answers live inside five seconds | `agents/` |
 | **Render** | Timed, machine-readable overlay JSON, drawn over a live 2D match view (or any renderer) | `core/contracts.py`, `web/` |
 | **Personalize** | The same intelligence becomes different text per viewer: analyst or casual, club-side tone, followed player, language | `agents/templates.py`, `web/` |
 
@@ -95,7 +106,7 @@ uv run matchmind build-pdf                          # the printable match report
 uv run matchmind fit-models                         # win probability, possession value, post-shot xG
 uv run matchmind build-season                       # the league's simulated history
 uv run pytest -m "not slow"                         # the fast suite
-cd web && pnpm install && pnpm dev                  # the match center (51 tests: pnpm test)
+cd web && pnpm install && pnpm dev                  # the match center (63 tests: pnpm test)
 ```
 
 No keys, network or GPU needed: the default model client answers from the template engine so the real
@@ -106,7 +117,21 @@ Models, Ollama, Azure OpenAI) or `MATCHMIND_LLM=foundry` (Microsoft Foundry); se
 ```bash
 uv run uvicorn apps.brain.main:app --port 8000      # REST API + MCP server
 docker build -t matchmind-brain . && docker run -p 8000:8000 matchmind-brain
+VITE_BRAIN_URL=http://localhost:8000 pnpm --dir web dev   # the match center with the Live AI switch pointed at it
 ```
+
+With a Microsoft Foundry project (see [docs/foundry.md](docs/foundry.md) and [docs/running-on-azure.md](docs/running-on-azure.md)):
+
+```bash
+export FOUNDRY_PROJECT_ENDPOINT=https://<account>.services.ai.azure.com/api/projects/<project> MATCHMIND_LLM_MODEL=<deployment>
+uv run matchmind foundry-register     # the six agents as versioned Foundry prompt agents
+uv run matchmind foundry-evals        # Foundry's groundedness, relevance, coherence and fluency evaluators over the overlay text
+uv run matchmind foundry-host         # the fast path as a Foundry hosted agent
+MATCHMIND_LLM=foundry MATCHMIND_AGENTS=foundry uv run uvicorn apps.brain.main:app   # the Brain calls the registered agents
+azd up                                # Container Apps, Static Web Apps, Cosmos DB, Application Insights ... (free tier)
+```
+
+Every setting is listed in [docs/configuration.md](docs/configuration.md).
 
 ### Ask the match from GitHub Copilot
 
@@ -137,23 +162,39 @@ flowchart LR
   MCP <--> WF
 ```
 
-Details: [docs/architecture.md](docs/architecture.md).
+The live path (the Brain, `POST /api/beats`, five seconds) puts rule-based agents around a single model call per viewer cohort:
+
+```mermaid
+flowchart LR
+  REQ["Request<br/>moments + cohorts"] --> G["Guards<br/>rate limit, key, cap"] --> ED2["Editor (rules)"] --> RT["Router (rules)"]
+  RT --> CA{"Cache<br/>memory, then Cosmos DB"}
+  CA -- hit --> PR2
+  CA -- miss --> CO["Composer (model)<br/>one call per cohort, in parallel,<br/>hedged if slow"] --> V["Verifier (code)"]
+  V -- pass --> PR2["Producer"]
+  V -- reject --> RP["Repairer (rules)<br/>cut what failed"] --> V2{"Verifier"}
+  V2 -- pass --> PR2
+  V2 -- fail --> TP2["Template<br/>(rendered first, always ready)"] --> PR2
+  CO -. deadline .-> TP2
+```
+
+Details: [docs/architecture.md](docs/architecture.md), the agents in [docs/agents.md](docs/agents.md).
 
 ## Microsoft technologies, and how far each is verified
 
 | Technology | Use | Status |
 |---|---|---|
-| **Microsoft Agent Framework 1.20** | Editor, Explainer, Storyteller, Localizer and Recap Writer as `Agent`s; a `WorkflowBuilder` graph with retry loops and fallbacks | Used and tested (offline model; a fault injector exercises every recovery path) |
+| **Microsoft Agent Framework 1.20** | Editor, Explainer, Storyteller, Localizer, Composer and Recap Writer as `Agent`s; a `WorkflowBuilder` graph with retry loops and fallbacks; rule-based Router, Cache and Repairer agents around the live path | Used and tested: offline with a fault injector that exercises every recovery path, and live against `gpt-4.1-mini` on Foundry |
 | **Model Context Protocol** | Match Data MCP server, 25 tools, served over streamable HTTP | Used and tested, including a real MCP client over HTTP |
 | **Microsoft Foundry** | The model (`gpt-4.1-mini`), six agents registered as versioned prompt agents that the Brain calls, a hosted agent (`matchmind-newsroom`), Foundry evaluations, and traces in Application Insights | **Run against a live project** (Oct 2026); the SDK parts are experimental. Results and caveats: [docs/foundry.md](docs/foundry.md) |
 | **GitHub Copilot** | Built with it; `.github/copilot-instructions.md` and the MCP config for agent mode | In use |
-| **Azure Container Apps, Cosmos DB, Storage, SignalR, Key Vault, Static Web Apps, App Insights** | `infra/` Bicep sized for the free tier, identity-only access, a budget with alerts | Bicep **compiles** (`az bicep build`); the container image **builds and runs**; **not deployed** (no Azure access while building) |
-| **GitHub Actions** | CI (lint, tests, quality gates, schema sync, web build, Bicep compile, container smoke test), Pages fallback mirror, OIDC deploy | `actionlint`-clean and covered by a test; the first CI runs failed on a YAML error (fixed), so CI has **not yet passed on GitHub**; Pages needs enabling in the repo settings |
+| **Azure Container Apps, Static Web Apps, Cosmos DB, Application Insights, Log Analytics, Container Registry** | `infra/` Bicep on the free tier: the Brain, the web app, a shared cache in Cosmos DB (identity only, no keys), traces, a budget with alerts, a daily log cap | **Deployed and verified** (Oct 2026): scale-to-zero cold start, rate limits, the shared cache across a restart, traces. See [docs/running-on-azure.md](docs/running-on-azure.md) |
+| **SignalR, Storage, Key Vault** | Provisioned by the same Bicep | Provisioned only; the app does not use them yet (below) |
+| **GitHub Actions** | CI (lint, tests in parallel, quality gates, schema sync, web build, Bicep compile, container smoke test), Pages mirror, OIDC deploy | CI passes on GitHub. Two runs failed, both on a Docker Hub rate limit (HTTP 429) while pulling the base image; since the Dockerfile builds from `ghcr.io`, the last four runs pass. Pages is live |
 
-What is **not** built: the Azure Functions pipeline adapters (Cosmos change feed, Event Grid, SignalR
-publishing) and Microsoft Fabric. The replay path (static files, no backend) is what the demo and the
-judge link use, and the Brain service runs the same agents on demand. See
-[docs/running-on-azure.md](docs/running-on-azure.md) and the plan's status section.
+What is **not** built: the event-driven pipeline of the plan (Azure Functions on a Cosmos change feed, Event Grid, SignalR
+publishing to the browser) and Microsoft Fabric. The replay path (static files, no backend) is what the demo and the judge link
+use; the Brain runs the same agents on demand for Live AI. See [docs/running-on-azure.md](docs/running-on-azure.md) and the
+plan's status section.
 
 ## Measured results
 
@@ -164,32 +205,49 @@ judge link use, and the Brain service runs the same agents on demand. See
   median 9 minutes later, and never fires as a false collapse in 16 unscripted controls. Pressing is read
   from tracking (PPDA over five minutes rests on 0-3 actions and is too noisy); see
   [docs/metrics.md](docs/metrics.md).
-* **Quality gates.** Over the three replay packages: numeric fidelity 1.0, 100% of narrative text verified,
-  24/24 recaps verified, contradicting evidence always admitted, analyst text more than twice as
+* **Quality gates.** Over the three replay packages (384 narrative overlays): numeric fidelity 1.0, 100% of narrative text
+  verified, 24/24 recaps verified per match, contradicting evidence always admitted, analyst text 3 to 5 times as
   number-dense as casual text. `uv run matchmind evals` (CI-gated).
-* **Graceful degradation.** Same match three ways: healthy (144 agent-written overlays, 32 template), unreliable model
-  (64 recovered by retry, 112 template), outage (all 176 template, none lost).
+* **Graceful degradation.** The same three matches three ways: healthy (336 agent-written overlays, 48 template), unreliable model
+  (16 first time, 150 recovered by retry, 218 template), outage (all 384 template, none lost).
+* **Live, in five seconds.** On the deployed Brain with `gpt-4.1-mini` (45 uncached model calls, 15 requests of three cohorts each):
+  request time median 2.6 s, 95th percentile 4.2 s, no missed deadline; 43 overlays written by the model, 1 mended by the
+  Repairer, 1 fell back to a template. A repeated request is served from cache in 2 ms, and from Cosmos DB after a restart in
+  about 280 ms. Method and caveats: [docs/agents.md](docs/agents.md).
+* **Foundry evaluations.** 30 overlays per group judged by Foundry's built-in evaluators: groundedness, relevance and coherence 30/30
+  for agent-written text (fluency 26/30); the template control scores the same on the first three (fluency 24/30). See
+  [docs/foundry.md](docs/foundry.md) for what this does and does not show.
 
 ## Repository
 
 ```
-src/matchmind/   core/ sim/ tracking/ intel/ agents/ mcp_server/   runner.py evals.py cli.py
-apps/brain/      FastAPI service: REST + MCP + agent workflow
-web/             React + TypeScript match center (replay player, overlays, evidence drawer, recaps)
+src/matchmind/   core/ sim/ tracking/ intel/ analytics/ agents/ mcp_server/ report/   runner.py evals.py cli.py
+                 guards.py telemetry.py foundry_agents.py foundry_evals.py foundry_host.py
+apps/brain/      FastAPI service: REST + MCP + both agent paths, with rate limits and an admin key
+foundry/hosted/  the entry point of the Foundry hosted agent
+web/             React + TypeScript match center (replay player, overlays, evidence drawer, recaps, Live AI)
 data/            league, scenarios (3 stories), replay packages (3 matches, ~10 MB)
 infra/           Bicep + azure.yaml          schemas/   JSON Schemas of the public contracts
-docs/            architecture, tactics, analytics, metrics, agents, overlay contract, data card, responsible AI, Azure
-tests/ evals/    528 + 51 tests              SOLUTION PLAN.md   design, schedule, status
+docs/            architecture, agents, brain-api, configuration, foundry, running-on-azure, tactics, analytics, metrics,
+                 overlay contract, data card, responsible AI, report
+tests/ evals/    597 Python tests (3 slow) + 63 web tests      SOLUTION PLAN.md   design, schedule, status
 ```
 
 ## Honest limits
 
-* No language model was available while building, so prompts and real-model quality are **unmeasured**;
-  everything model-facing is exercised through the offline model and fault injection.
-* Not deployed to Azure; the demo video is not recorded.
-* The season history and milestone moments (`get_season_context`) are not built; the tool says so.
+* **Real-model quality is measured on a small scale.** The live numbers above come from one model (`gpt-4.1-mini`), 45 calls and one
+  afternoon; latency of a shared model endpoint varies by a second or more, which is why the live path has a hard deadline, template
+  fallbacks and a hedged second call. The Foundry evaluation scores recorded text and uses a judge from the same model family.
+* **The first request after idle is slow.** The Brain scales to zero (free tier), so a cold start takes about 20 seconds; the page wakes it on load
+  and shows "Waking the AI service" meanwhile.
+* **No event-driven pipeline.** Live mode, Functions, Event Grid and SignalR publishing are not built; SignalR, Storage and Key Vault are provisioned
+  and unused. The shared cache in Cosmos DB is the one place the app uses Cosmos.
+* **Experimental SDK parts.** Registered Foundry agents, the hosted agent and Foundry evaluations use experimental Agent Framework APIs that may change.
+  The hosted agent's first call to a new session can time out while its container starts.
+* The demo video is not recorded.
 * Other detectors (chaos flip, momentum swing) are noisier than the pressing detector.
-* Shapes are named from the formation layouts; recognising a formation back from the tracking frames is not built.
+* Pitch control uses positions only, not velocities or the ball, and win probability, possession value and xG are fitted on simulated, not real,
+  matches ([docs/analytics.md](docs/analytics.md)).
 
 ## License
 

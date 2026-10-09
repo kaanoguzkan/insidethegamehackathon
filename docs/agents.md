@@ -1,8 +1,9 @@
 # The agent team
 
-All agents are Microsoft Agent Framework `Agent`s (`agents/team.py`) with typed JSON output validated by
-pydantic. They never call each other; they coordinate through the moment store (a Cosmos DB container in
-Azure, a dict locally), which also keeps a per-agent trace.
+The model-backed agents are Microsoft Agent Framework `Agent`s (`agents/team.py`) with typed JSON output validated by
+pydantic; the others are plain code. They never call each other; they coordinate through the moment store (an in-memory dict that
+also keeps a per-agent trace; the Brain reports the trace in every answer). A Cosmos DB-backed store is not built: Cosmos holds the
+shared beat cache, below.
 
 | Agent | Job | Output |
 |---|---|---|
@@ -11,7 +12,9 @@ Azure, a dict locally), which also keeps a per-agent trace.
 | **Verifier** | Code, not a model: numbers, names, citations, honesty, policy, language, format | pass, or an error list for the retry |
 | **Storyteller** | English variants per audience (analyst, casual, club side, followed player) | `StoryOut` |
 | **Localizer** | Native Spanish or Turkish versions, numbers unchanged | `StoryVariant` |
+| **Composer** | The fast path's one call: explains and writes a single cohort's story, natively in its language | `StoryVariant` |
 | **Recap Writer** | Preview, half-time and full-time recaps from a recap evidence pack | `Recap` |
+| **Router, Cache, Repairer** | Rules, no model: who gets a model call, what has been written before, how to mend rejected text (fast path, below) | |
 | **Overlay Producer** | Code: timing, lanes, collisions | overlays |
 
 ## Workflow (`agents/workflow.py`)
@@ -22,7 +25,7 @@ reachable from any step. Rules: messages are immutable; edge conditions are mutu
 has a deadline; a failure, timeout or failed check degrades that beat (or only the failing cohorts) to
 verified templates.
 
-`fallbackLevel` on every overlay: 0 first-time agent text, 1 after a retry, 2 template, 3 stat graphic.
+`fallbackLevel` on every overlay: 0 first-time agent text, 1 after a retry (or mended by the Repairer in the fast path), 2 template, 3 stat graphic.
 
 ## Model backends (`agents/llm.py`)
 
@@ -36,8 +39,18 @@ Select with `MATCHMIND_LLM`:
 * `foundry`: a Microsoft Foundry project. Set `FOUNDRY_PROJECT_ENDPOINT` and `MATCHMIND_LLM_MODEL`;
   authenticates with `DefaultAzureCredential`. Install: `uv sync --extra foundry`.
 
-The `foundry` backend has been run against a live Foundry project (gpt-4.1-mini on Azure, Oct 2026); prompts are
-versioned in `agents/prompts.py` (`PROMPT_VERSION`) and recorded in each overlay's provenance.
+The `foundry` backend has been run against a live Foundry project (`gpt-4.1-mini` on Azure, Oct 2026); prompts are
+versioned in `agents/prompts.py` (`PROMPT_VERSION`) and recorded in each overlay's provenance. Settings that depend on the model
+(reasoning models refuse a temperature and need a bigger token cap; models that do not enforce a JSON schema get it in the prompt)
+are chosen from the model's name; see [configuration.md](configuration.md).
+
+**Which model.** Tried through Foundry on a free subscription for the fast path, with the same prompts and the same verifier:
+`gpt-4.1-mini` is the one in use (median request 2.6 s, 43 of 45 overlays model-written). `gpt-5-mini` (a reasoning model) took 96 s for
+three moments through the five-agent chain; Phi-4 (open weights) generates at about 25 tokens a second and took 50 s for the same chain;
+Phi-4-mini-instruct never answered inside five seconds; `gpt-5-nano` and `gpt-4.1-nano` were no faster in practice and failed the verifier more
+often. Mistral, Llama and Cohere models cannot be bought on a free subscription (Marketplace). Latency of a shared endpoint varies by a second or
+more between calls, which is why the fast path has a hard deadline, templates and a hedged second call. `Microsoft-Decision-1` is in the catalog
+but is not a chat model (`chatCompletion: false`) and has not been tried.
 
 ## Foundry
 
@@ -61,11 +74,41 @@ surrounds it with agents that need no model at all:
 | Template | rules | the answer that is always ready: rendered first, kept for anything late, failed or unrepairable |
 | Producer | code | builds the timed overlay JSON |
 
-Each agent leaves an entry in the beat's `trace`, and every overlay's `provenance.agents` lists who made it. The
-response carries `stats` (cache hits, model calls, repaired, rejected, calls past the deadline).
-Measured on the live Brain (gpt-4.1-mini, three matches, English/Spanish/Turkish cohorts, 24 narrative overlays per
-run): 20 to 24 of 24 are model text, 0 to 2 are mended by the Repairer, and a repeated request is served from the cache
-in about 0 s.
+Each agent leaves an entry in the beat's `trace`, and every overlay's `provenance.agents` lists who made it
+(for example `editor, router, composer, verifier, repairer`, or `editor, router, cache, composer, verifier` for a cached one).
+The response carries `stats` (cache hits, model calls, hedged, repaired, rejected, calls past the deadline).
+
+**Router** (`agents/router.py`). Only moments the Editor kept as beats go to the model; stat-graphic cohorts (`mode: any`) and tickers get
+templates; at most 18 model calls a request, most important moments first.
+
+**Cache** (`agents/cache.py`). Verified model text only, never a template. Memory in front (LRU, 2 048 entries, one hour), Cosmos DB behind
+(`beats`, seven days, shared by replicas and kept across restarts). Keyed by match, moment, cohort, model and prompt version. Every Cosmos call
+is time-boxed (0.6 s) and any error is a miss; the connection is opened at start-up with a generous limit because the first call needs an
+identity token and account discovery. `/health` reports `sharedCache`.
+
+**Repairer** (`agents/repair.py`). It only removes: a failing sentence is dropped, a failing headline is replaced by the template's, a failing claim
+is dropped, an over-long body loses its last sentences, and the result must pass the Verifier again. It never adds a word, so it cannot introduce a
+fact. A text in the wrong language is not repairable. A mended text is level 1.
+
+**Hedging** (`MATCHMIND_HEDGE_S`, 3.2 s). If the first call is slower than that, a second identical call starts and the first answer wins. At 2.2 s,
+about half of all calls were duplicated; at 3.2 s, 16%.
+
+### Measured on the deployed Brain
+
+15 uncached requests of three cohorts (English casual, Spanish analyst, Turkish casual), `gpt-4.1-mini` through registered Foundry agents, Oct 2026:
+
+| | |
+|---|---|
+| Model calls | 45; 7 hedged (16%); 0 passed the deadline |
+| Request time | median 2.6 s, 95th percentile 4.2 s, maximum 4.7 s |
+| Narrative overlays | 45: 43 written by the model and verified first time, 1 mended by the Repairer, 1 fell back to a template |
+| A repeated request | 2 ms from memory; about 280 ms from Cosmos DB on a freshly started replica |
+
+This is one afternoon and one model. Shared-endpoint latency varies, and an earlier run of the same code on a slow afternoon had 5 to 9 of 24 overlays
+fall back to templates when calls crept past four seconds; the answer was still on time, just written by the template. What the Verifier refused in
+the first live runs, and what fixed it: the model cited evidence keys that do not exist (the prompt now carries the exact list of valid references),
+it wrote player ids such as `NOR-21` into the text so their digits failed the number check (the model now sees names, never ids), and a few
+sentences used words the policy bans.
 
 ## The Verifier
 

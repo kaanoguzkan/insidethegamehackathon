@@ -77,3 +77,14 @@ A pack holds the moment type and time, the teams and players involved, `metrics`
 after, delta, percentage change, all computed from the rounded numbers shown), a `consistent` flag per
 metric (does it move with or against the story?), the windows compared, the event ids behind it and a
 glossary of the metrics it mentions. Agents cite its keys; the Verifier checks against it.
+
+## How the generated text is measured
+
+Three layers, from cheapest to most independent:
+
+1. **The Verifier** runs on every text before it is shown (numbers, names, references, policy, language, length). It is deterministic and has adversarial tests.
+2. **Quality gates** (`matchmind evals`, CI-gated) over the three replay packages: numeric fidelity, verification rate, language correctness, persona
+   separation (analyst text 3 to 5 times as number-dense as casual text), honesty about contradicting metrics, recaps verified, analytics
+   consistency checks, and the same figures for the unreliable-model and outage runs. See the README's measured results.
+3. **Live and independent measurements**: the live fast path's latency and fallback rates ([agents.md](agents.md#measured-on-the-deployed-brain)), and Foundry's
+   groundedness, relevance, coherence and fluency evaluators over a sample of overlay text ([foundry.md](foundry.md#evaluations)).
