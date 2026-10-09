@@ -109,6 +109,7 @@ class AgentTeam:
         self.storyteller = Agent(client, prompts.STORYTELLER, name="storyteller")
         self.localizer = Agent(client, prompts.LOCALIZER, name="localizer")
         self.recap_writer = Agent(client, prompts.RECAP, name="recap_writer")
+        self.composer = Agent(client, prompts.COMPOSER, name="composer")
 
     # ----- one call ----------------------------------------------------------------------------
 
@@ -123,7 +124,9 @@ class AgentTeam:
             opts["reasoning"] = {"effort": self.settings.reasoning_effort}
         return opts
 
-    async def _ask(self, agent: Agent, task: str, payload: dict, model: type[M], temperature: float) -> M:
+    async def _ask(
+        self, agent: Agent, task: str, payload: dict, model: type[M], temperature: float, timeout_s: float | None = None
+    ) -> M:
         name = agent.name or task
         options = self._options(model, temperature)
         try:
@@ -131,9 +134,10 @@ class AgentTeam:
             if not self.settings.structured_output:
                 schema = json.dumps(model.model_json_schema(), ensure_ascii=False)
                 message += f"\nReply with one JSON object only, no markdown fence, matching this JSON schema:\n{schema}"
-            resp = await asyncio.wait_for(agent.run(message, options=options), timeout=self.settings.timeout_s)
+            limit = self.settings.timeout_s if timeout_s is None else min(timeout_s, self.settings.timeout_s)
+            resp = await asyncio.wait_for(agent.run(message, options=options), timeout=limit)
         except TimeoutError as e:
-            raise AgentFailure(name, f"no answer within {self.settings.timeout_s:g}s") from e
+            raise AgentFailure(name, f"no answer within {limit:g}s") from e
         except AgentFailure:
             raise
         except Exception as e:  # network, auth, content filter, injected outage ...
@@ -160,6 +164,11 @@ class AgentTeam:
     async def explain(self, pack: dict, feedback: str = "") -> Explanation:
         payload = {"pack": pack, "validRefs": sorted(valid_refs(pack)), "feedback": feedback}
         return await self._ask(self.explainer, "explain", payload, Explanation, self.settings.explain_temperature)
+
+    async def compose(self, pack: dict, cohort: Cohort, timeout_s: float | None = None) -> StoryVariant:
+        """The fast path: one call that explains and writes the story for one cohort, in its language."""
+        payload = {"pack": pack, "validRefs": sorted(valid_refs(pack)), "cohort": cohort.key}
+        return await self._ask(self.composer, "compose", payload, StoryVariant, self.settings.story_temperature, timeout_s)
 
     async def tell(self, pack: dict, explanation: Explanation, cohorts: list[Cohort], feedback: str = "") -> StoryOut:
         payload = {

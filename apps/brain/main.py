@@ -10,7 +10,8 @@ endpoints with the offline model, so everything here works with no keys and no n
     GET  /api/matches/{id}/moments     interpreter moments for a match
     GET  /api/matches/{id}/analytics   Opta-style analytics (win probability, possession value, networks ...)
     GET  /api/matches/{id}/win-probability
-    POST /api/beats                    run the agent workflow for chosen moments and cohorts
+    POST /api/beats                    overlays for chosen moments and cohorts: mode "fast" (default, one model call per
+                                       cohort inside deadlineMs, templates for what misses it) or "full" (five-agent workflow)
     GET  /api/director/faults          current model-fault switch (only when MATCHMIND_DIRECTOR=1)
     POST /api/director/faults          set it (none | error | slow | hallucinate), for the resilience demo;
                                        needs the X-Director-Key header if MATCHMIND_DIRECTOR_KEY is set
@@ -30,6 +31,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from matchmind import __version__
+from matchmind.agents.fast import run_fast
 from matchmind.agents.llm import Faults, make_chat_client
 from matchmind.agents.store import InMemoryMomentStore
 from matchmind.agents.team import AgentSettings, AgentTeam
@@ -52,6 +54,10 @@ class BeatRequest(BaseModel):
     moment_ids: list[str] = Field(min_length=1, max_length=MAX_MOMENTS)
     cohorts: list[Cohort] = Field(min_length=1, max_length=MAX_COHORTS)
     budget: int = Field(3, ge=0, le=MAX_MOMENTS)
+    mode: Literal["fast", "full"] = Field(
+        "fast", description="fast: one model call per cohort inside deadlineMs, template text for what misses it; full: the five-agent workflow"
+    )
+    deadlineMs: int = Field(5000, ge=500, le=30000, description="fast mode: wall-clock limit for the whole request")
 
 
 class FaultRequest(BaseModel):
@@ -132,14 +138,18 @@ def create_app(
         deps = WorkflowDeps(team=AgentTeam(client, settings), registry=Registry.from_meta(ip.meta), store=store)
         batch = Batch(moments=tuple(by_id[m] for m in req.moment_ids), cohorts=tuple(req.cohorts), budget=req.budget, budget_s=min(settings.beat_budget_s or 15.0, 90.0))
         t0 = time.monotonic()
-        results = await run_batch(build_workflow(deps), batch)
+        if req.mode == "fast":
+            results = await run_fast(deps.team, batch, deadline_s=req.deadlineMs / 1000.0, registry=deps.registry, store=store)
+        else:
+            results = await run_batch(build_workflow(deps), batch)
         return {
+            "mode": req.mode,
             "elapsedMs": round((time.monotonic() - t0) * 1000),
             "beats": [
                 {
                     "momentId": r.momentId, "level": r.level, "agents": list(r.agents),
                     "overlays": [o.model_dump(mode="json") for o in r.overlays],
-                    "trace": [{k: v for k, v in s.items() if k in ("agent", "outcome")} for s in store.get(r.momentId).get("trace", [])],
+                    "trace": [{k: v for k, v in s.items() if k in ("agent", "outcome", "ms")} for s in store.get(r.momentId).get("trace", [])],
                 }
                 for r in sorted(results, key=lambda r: r.momentId)
             ],

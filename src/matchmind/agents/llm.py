@@ -138,7 +138,7 @@ def offline_answer(task: str, payload: dict, context: dict | None = None) -> str
     if task == "story":
         variants = [T.render(payload["pack"], _cohort(k)) for k in payload["cohorts"]]
         return StoryOut(variants=variants).model_dump_json()
-    if task == "localize":
+    if task in ("localize", "compose"):
         return T.render(payload["pack"], _cohort(payload["cohort"])).model_dump_json()
     if task == "recap":
         from . import recap as R
@@ -158,7 +158,7 @@ def hallucinate(task: str, answer: str) -> str:
     elif task == "story":
         for v in data["variants"]:
             v["body"] = f"{fake}. {v['body']}"
-    elif task == "localize":
+    elif task in ("localize", "compose"):
         data["body"] = f"{fake}. {data['body']}"
     elif task == "recap":
         data["summary"] = f"{fake}. {data['summary']}"

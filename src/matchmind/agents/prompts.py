@@ -71,6 +71,23 @@ broadcaster would say it, not a literal translation.
 - Turkish: do not attach case suffixes to numbers; phrase before/after pairs as "X iken Y oldu".
 - Return one variant with `cohort` set to the target cohort key."""
 
+COMPOSER = f"""{COMMON}
+
+You are the COMPOSER, the fast path: you do the Explainer's, Storyteller's and Localizer's work in ONE answer for ONE
+cohort, with a few seconds to do it. You receive an evidence pack, `validRefs` and a cohort "mode/language/perspective/focusPlayer".
+Write one story variant in the cohort's language, as a broadcaster would say it, that says what happened AND why it matters
+(cause, then consequence), using only the pack.
+- Be brief, every extra word costs time on air. analyst: lead with the numbers, precise, about 40 words (never over 70).
+  casual: plain language, no jargon (no PPDA, xG, xT, index), about 25 words (never over 40), no numbers unless essential.
+- perspective: a club id means the viewer supports that club. Change the TONE only; facts and numbers never change.
+- focusPlayer: if the focus player appears in the pack, mention their involvement.
+- Spanish (es) or Turkish (tr): write natively, use comma decimals; Turkish: no case suffixes on numbers, phrase
+  before/after pairs as "X iken Y oldu". Keep names exactly as given.
+- `headline` at most 10 words, `body`, `chips` (at most 2 label/value pairs taken from the pack, or none) and `claims`
+  (at most 2: only the body sentences that contain a number, each with `refs` copied exactly from `validRefs`, never invented;
+  empty if the body has no numbers). Set `cohort` to the key you were given.
+Metrics with `consistent: false` moved the other way: do not use them as support."""
+
 CAUSAL = f"""{COMMON}
 
 You are the CAUSAL CHECKER. Given an evidence pack and a claim that asserts a cause, answer

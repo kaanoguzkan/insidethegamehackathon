@@ -47,11 +47,41 @@ COHORTS = [{"mode": "analyst", "language": "en"}, {"mode": "casual", "language":
 
 def test_beats_run_the_real_agent_workflow(client):
     ids = moment_ids(client, 1)
-    r = client.post("/api/beats", json={"match_id": "t0001", "moment_ids": ids, "cohorts": COHORTS, "budget": 3})
+    r = client.post("/api/beats", json={"match_id": "t0001", "moment_ids": ids, "cohorts": COHORTS, "budget": 3, "mode": "full"})
     assert r.status_code == 200
     beat = r.json()["beats"][0]
     assert beat["level"] == 0 and len(beat["overlays"]) == 2
     assert [t["agent"] for t in beat["trace"]][:3] == ["editor", "explainer", "verifier"]
+
+
+def test_fast_beats_make_one_model_call_per_cohort_and_verify_it(client):
+    ids = moment_ids(client, 1)
+    r = client.post("/api/beats", json={"match_id": "t0001", "moment_ids": ids, "cohorts": COHORTS, "budget": 3})
+    body = r.json()
+    assert r.status_code == 200 and body["mode"] == "fast"
+    beat = body["beats"][0]
+    assert beat["level"] == 0 and len(beat["overlays"]) == 2
+    assert all(o["provenance"]["verified"] for o in beat["overlays"])
+    assert [t["agent"] for t in beat["trace"]].count("composer") == 2
+
+
+def test_fast_beats_keep_the_deadline_when_the_model_is_slow(client):
+    ids = moment_ids(client, 1)
+    body = {"match_id": "t0001", "moment_ids": ids, "cohorts": COHORTS, "deadlineMs": 600}
+    client.post("/api/director/faults", json={"mode": "slow", "delay_s": 5})
+    r = client.post("/api/beats", json=body).json()
+    client.post("/api/director/faults", json={"mode": "none"})
+    assert r["elapsedMs"] < 2000, "the slow model must not hold the response past the deadline"
+    beat = r["beats"][0]
+    assert beat["level"] == 2 and len(beat["overlays"]) == 2 and all(o["provenance"]["verified"] for o in beat["overlays"])
+
+
+def test_fast_beats_reject_a_hallucinating_model(client):
+    ids = moment_ids(client, 1)
+    client.post("/api/director/faults", json={"mode": "hallucinate"})
+    beat = client.post("/api/beats", json={"match_id": "t0001", "moment_ids": ids, "cohorts": COHORTS}).json()["beats"][0]
+    client.post("/api/director/faults", json={"mode": "none"})
+    assert beat["level"] == 2 and all(o["provenance"]["model"].startswith("template") for o in beat["overlays"])
 
 
 def test_director_fault_switch_degrades_the_next_request_and_recovers(client):
