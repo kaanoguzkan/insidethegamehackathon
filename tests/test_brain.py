@@ -76,12 +76,27 @@ def test_fast_beats_keep_the_deadline_when_the_model_is_slow(client):
     assert beat["level"] == 2 and len(beat["overlays"]) == 2 and all(o["provenance"]["verified"] for o in beat["overlays"])
 
 
-def test_fast_beats_reject_a_hallucinating_model(client):
+def test_fast_beats_mend_a_hallucinating_model_instead_of_discarding_it(client):
     ids = moment_ids(client, 1)
     client.post("/api/director/faults", json={"mode": "hallucinate"})
-    beat = client.post("/api/beats", json={"match_id": "t0001", "moment_ids": ids, "cohorts": COHORTS}).json()["beats"][0]
+    r = client.post("/api/beats", json={"match_id": "t0001", "moment_ids": ids, "cohorts": COHORTS, "useCache": False}).json()
     client.post("/api/director/faults", json={"mode": "none"})
-    assert beat["level"] == 2 and all(o["provenance"]["model"].startswith("template") for o in beat["overlays"])
+    beat = r["beats"][0]
+    assert r["stats"]["repaired"] == 2, "the invented sentence is cut out of each variant"
+    assert beat["level"] == 1 and all(o["provenance"]["verified"] for o in beat["overlays"])
+    assert all("Brandmont" not in o["content"]["body"] and "99" not in o["content"]["body"] for o in beat["overlays"])
+    assert all("repairer" in o["provenance"]["agents"] for o in beat["overlays"])
+
+
+def test_fast_beats_come_from_the_cache_the_second_time(client):
+    ids = moment_ids(client, 1)
+    body = {"match_id": "t0001", "moment_ids": ids, "cohorts": COHORTS}
+    first = client.post("/api/beats", json=body).json()
+    second = client.post("/api/beats", json=body).json()
+    assert first["stats"]["modelCalls"] == 2 and first["stats"]["cacheHits"] == 0
+    assert second["stats"]["modelCalls"] == 0 and second["stats"]["cacheHits"] == 2
+    assert all("cache" in o["provenance"]["agents"] for o in second["beats"][0]["overlays"])
+    assert second["beats"][0]["level"] == 0
 
 
 def test_director_fault_switch_degrades_the_next_request_and_recovers(client):

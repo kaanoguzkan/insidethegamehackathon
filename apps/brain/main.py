@@ -31,6 +31,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from matchmind import __version__
+from matchmind.agents.cache import BeatCache
 from matchmind.agents.fast import run_fast
 from matchmind.agents.llm import Faults, make_chat_client
 from matchmind.agents.store import InMemoryMomentStore
@@ -58,6 +59,7 @@ class BeatRequest(BaseModel):
         "fast", description="fast: one model call per cohort inside deadlineMs, template text for what misses it; full: the five-agent workflow"
     )
     deadlineMs: int = Field(5000, ge=500, le=30000, description="fast mode: wall-clock limit for the whole request")
+    useCache: bool = Field(True, description="fast mode: serve and store verified model text in the Brain's cache")
 
 
 class FaultRequest(BaseModel):
@@ -74,6 +76,7 @@ def create_app(
     faults = Faults()
     kind = (llm or os.environ.get("MATCHMIND_LLM", "offline")).lower()
     client = make_chat_client(kind, faults=faults)
+    beat_cache = BeatCache()  # verified model text, shared by every request this replica serves
     mcp = build_server(reg, path="/")
 
     @contextlib.asynccontextmanager
@@ -138,12 +141,17 @@ def create_app(
         deps = WorkflowDeps(team=AgentTeam(client, settings), registry=Registry.from_meta(ip.meta), store=store)
         batch = Batch(moments=tuple(by_id[m] for m in req.moment_ids), cohorts=tuple(req.cohorts), budget=req.budget, budget_s=min(settings.beat_budget_s or 15.0, 90.0))
         t0 = time.monotonic()
+        run_stats: dict = {}
         if req.mode == "fast":
-            results = await run_fast(deps.team, batch, deadline_s=req.deadlineMs / 1000.0, registry=deps.registry, store=store)
+            results = await run_fast(
+                deps.team, batch, deadline_s=req.deadlineMs / 1000.0, registry=deps.registry, store=store,
+                cache=beat_cache if req.useCache else None, stats=run_stats,
+            )
         else:
             results = await run_batch(build_workflow(deps), batch)
         return {
             "mode": req.mode,
+            "stats": {**run_stats, "cacheSize": len(beat_cache)} if req.mode == "fast" else None,
             "elapsedMs": round((time.monotonic() - t0) * 1000),
             "beats": [
                 {
