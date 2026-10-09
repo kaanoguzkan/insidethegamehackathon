@@ -155,6 +155,19 @@ def cmd_foundry_register(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_foundry_host(args: argparse.Namespace) -> int:
+    """Upload the newsroom as a Foundry hosted agent (a new version)."""
+    from .foundry_host import build_zip, deploy
+
+    if args.zip_only:
+        z = build_zip(Path(args.zip_only))
+        print(f"{z} ({z.stat().st_size / 1e6:.1f} MB)")
+        return 0
+    res = deploy(model=args.model)
+    print(f"{res['name']} version {res['version']}: {res['status']}")
+    return 0 if "active" in res["status"].lower() else 1
+
+
 def cmd_build_replay(args: argparse.Namespace) -> int:
     """Simulate a scenario and build the full replay package (agents included)."""
     from .core.paths import replays_dir
@@ -242,6 +255,11 @@ def main(argv: list[str] | None = None) -> int:
     fr = sub.add_parser("foundry-register", help="register the agents as Foundry prompt agents (needs FOUNDRY_PROJECT_ENDPOINT)")
     fr.add_argument("--model", default=None, help="model deployment the agents use (default MATCHMIND_LLM_MODEL)")
     fr.set_defaults(fn=cmd_foundry_register)
+
+    fh = sub.add_parser("foundry-host", help="upload the newsroom as a Foundry hosted agent (needs FOUNDRY_PROJECT_ENDPOINT)")
+    fh.add_argument("--model", default=None, help="model deployment the hosted agent calls (default MATCHMIND_LLM_MODEL)")
+    fh.add_argument("--zip-only", default=None, metavar="PATH", help="only write the zip here, do not upload")
+    fh.set_defaults(fn=cmd_foundry_host)
 
     e = sub.add_parser("export-schemas", help="write JSON Schemas for the public contracts to schemas/")
     e.add_argument("--out", default=str(Path(__file__).resolve().parents[2] / "schemas"))

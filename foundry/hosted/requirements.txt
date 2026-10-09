@@ -1,0 +1,9 @@
+agent-framework-core>=1.20
+agent-framework-foundry>=1.14
+agent-framework-foundry-hosting
+azure-identity>=1.19
+numpy>=2.0
+pydantic>=2.7
+pyyaml>=6.0
+jsonschema>=4.22
+opentelemetry-api
