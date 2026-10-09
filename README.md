@@ -145,7 +145,7 @@ Details: [docs/architecture.md](docs/architecture.md).
 |---|---|---|
 | **Microsoft Agent Framework 1.20** | Editor, Explainer, Storyteller, Localizer and Recap Writer as `Agent`s; a `WorkflowBuilder` graph with retry loops and fallbacks | Used and tested (offline model; a fault injector exercises every recovery path) |
 | **Model Context Protocol** | Match Data MCP server, 25 tools, served over streamable HTTP | Used and tested, including a real MCP client over HTTP |
-| **Microsoft Foundry** | `FoundryChatClient` is wired in as one of three model backends | Wired, **not run against a live Foundry project** (no model access while building) |
+| **Microsoft Foundry** | The model (`gpt-4.1-mini`), six agents registered as versioned prompt agents that the Brain calls, a hosted agent (`matchmind-newsroom`), Foundry evaluations, and traces in Application Insights | **Run against a live project** (Oct 2026); the SDK parts are experimental. Results and caveats: [docs/foundry.md](docs/foundry.md) |
 | **GitHub Copilot** | Built with it; `.github/copilot-instructions.md` and the MCP config for agent mode | In use |
 | **Azure Container Apps, Cosmos DB, Storage, SignalR, Key Vault, Static Web Apps, App Insights** | `infra/` Bicep sized for the free tier, identity-only access, a budget with alerts | Bicep **compiles** (`az bicep build`); the container image **builds and runs**; **not deployed** (no Azure access while building) |
 | **GitHub Actions** | CI (lint, tests, quality gates, schema sync, web build, Bicep compile, container smoke test), Pages fallback mirror, OIDC deploy | `actionlint`-clean and covered by a test; the first CI runs failed on a YAML error (fixed), so CI has **not yet passed on GitHub**; Pages needs enabling in the repo settings |

@@ -1,6 +1,6 @@
 # Running on Azure
 
-**Status: authored, partly verified, not deployed.** No Azure access was available while building.
+**Status: deployed and verified on a free subscription (October 2026).** The Brain (Container Apps), the web app (Static Web Apps), Cosmos DB, Storage, SignalR, Application Insights and a Foundry project are provisioned by `azd up`. SignalR and Cosmos are provisioned but not yet used by the app. The table below dates from before the first deploy; see [foundry.md](foundry.md) for what ran against Foundry.
 
 | Piece | What is verified |
 |---|---|

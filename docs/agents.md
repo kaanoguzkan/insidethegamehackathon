@@ -39,6 +39,11 @@ Select with `MATCHMIND_LLM`:
 The `foundry` backend has been run against a live Foundry project (gpt-4.1-mini on Azure, Oct 2026); prompts are
 versioned in `agents/prompts.py` (`PROMPT_VERSION`) and recorded in each overlay's provenance.
 
+## Foundry
+
+The same agents can run as agents registered in a Foundry project (`MATCHMIND_AGENTS=foundry`), and the fast path is also served
+as a Foundry hosted agent. See [foundry.md](foundry.md).
+
 ## The fast path (`agents/fast.py`)
 
 `POST /api/beats` defaults to `mode: "fast"`, which answers inside `deadlineMs` (5 s). The five-call workflow above
