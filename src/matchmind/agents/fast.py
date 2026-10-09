@@ -72,7 +72,7 @@ async def _hedged(call: Callable[[float], Awaitable[StoryVariant]], first_budget
                 t.cancel()
 
 
-async def run_fast(
+async def _run_fast(
     team: AgentTeam,
     batch: Batch,
     *,
@@ -187,3 +187,21 @@ async def run_fast(
             worst = max(worst, lv)
         results.append(BeatResult(momentId=m["id"], overlays=tuple(overlays), level=worst, agents=tuple(dict.fromkeys([*seen, "producer"]))))
     return results
+
+
+async def run_fast(team: AgentTeam, batch: Batch, **kw) -> list[BeatResult]:
+    """:func:`_run_fast` inside a trace span carrying the batch's numbers (a no-op without a tracing setup)."""
+    from opentelemetry import trace
+
+    stats = kw.setdefault("stats", {})
+    with trace.get_tracer("matchmind.fast").start_as_current_span("matchmind.beats") as span:
+        span.set_attribute("matchmind.moments", len(batch.moments))
+        span.set_attribute("matchmind.cohorts", len(batch.cohorts))
+        span.set_attribute("matchmind.deadline_s", kw.get("deadline_s", 0.0))
+        results = await _run_fast(team, batch, **kw)
+        for k, v in stats.items():
+            span.set_attribute(f"matchmind.{k}", v)
+        levels = [o.provenance.fallbackLevel for r in results for o in r.overlays if o.kind == "lower_third"]
+        for lv in (0, 1, 2):
+            span.set_attribute(f"matchmind.overlays_level{lv}", levels.count(lv))
+        return results

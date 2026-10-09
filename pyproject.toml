@@ -28,6 +28,8 @@ azure = [
   "azure-cosmos>=4.7", "azure-storage-blob>=12.20", "azure-identity>=1.19",
   "azure-functions>=1.20", "azure-monitor-opentelemetry>=1.6",
 ]
+# OpenTelemetry to Application Insights: traces of every request and every agent call (Foundry shows them too).
+telemetry = ["azure-monitor-opentelemetry>=1.6"]
 report = [
     "reportlab>=4.2",
 ]

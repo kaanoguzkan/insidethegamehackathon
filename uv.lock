@@ -1196,6 +1196,9 @@ openai = [
 report = [
     { name = "reportlab" },
 ]
+telemetry = [
+    { name = "azure-monitor-opentelemetry" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -1219,6 +1222,7 @@ requires-dist = [
     { name = "azure-identity", marker = "extra == 'azure'", specifier = ">=1.19" },
     { name = "azure-identity", marker = "extra == 'foundry'", specifier = ">=1.19" },
     { name = "azure-monitor-opentelemetry", marker = "extra == 'azure'", specifier = ">=1.6" },
+    { name = "azure-monitor-opentelemetry", marker = "extra == 'telemetry'", specifier = ">=1.6" },
     { name = "azure-storage-blob", marker = "extra == 'azure'", specifier = ">=12.20" },
     { name = "fastapi", marker = "extra == 'brain'", specifier = ">=0.115" },
     { name = "httpx", marker = "extra == 'brain'", specifier = ">=0.27" },
@@ -1230,7 +1234,7 @@ requires-dist = [
     { name = "reportlab", marker = "extra == 'report'", specifier = ">=4.2" },
     { name = "uvicorn", marker = "extra == 'brain'", specifier = ">=0.30" },
 ]
-provides-extras = ["openai", "foundry", "brain", "azure", "report"]
+provides-extras = ["openai", "foundry", "brain", "azure", "telemetry", "report"]
 
 [package.metadata.requires-dev]
 dev = [

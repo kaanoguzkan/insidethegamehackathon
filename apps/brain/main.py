@@ -42,6 +42,7 @@ from matchmind.agents.store import InMemoryMomentStore
 from matchmind.agents.team import AgentSettings, AgentTeam
 from matchmind.agents.verify import Registry
 from matchmind.agents.workflow import Batch, WorkflowDeps, build_workflow, run_batch
+from matchmind.telemetry import setup_tracing
 from matchmind.analytics.report import MatchAnalytics
 from matchmind.analytics.season import load_season
 from matchmind.core.contracts import Cohort
@@ -131,6 +132,7 @@ def create_app(
         finally:
             watcher.cancel()
 
+    setup_tracing()  # before the app object exists, so its requests are instrumented
     app = FastAPI(title="MatchMind Brain", version=__version__, lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware, allow_origins=cors_origins(), allow_methods=["GET", "POST", "OPTIONS"],

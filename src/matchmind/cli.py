@@ -133,6 +133,28 @@ def cmd_evals(args: argparse.Namespace) -> int:
     return 1 if fails else 0
 
 
+def cmd_foundry_evals(args: argparse.Namespace) -> int:
+    """Run Foundry's built-in evaluators over the overlay text in the replay packages."""
+    import asyncio
+
+    from .foundry_evals import run
+
+    res = asyncio.run(run(per_group=args.samples, model=args.model))
+    print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+    if args.out:
+        Path(args.out).write_text(json.dumps(res, indent=2, ensure_ascii=False, default=str) + "\n")
+    return 0 if all(g["status"] == "completed" for g in res["groups"].values()) else 1
+
+
+def cmd_foundry_register(args: argparse.Namespace) -> int:
+    """Register the agents (their prompts) in the Foundry project."""
+    from .foundry_agents import register
+
+    for a in register(model=args.model):
+        print(f"{a['name']:26s} version {a['version']}  ({a['model']})")
+    return 0
+
+
 def cmd_build_replay(args: argparse.Namespace) -> int:
     """Simulate a scenario and build the full replay package (agents included)."""
     from .core.paths import replays_dir
@@ -210,6 +232,16 @@ def main(argv: list[str] | None = None) -> int:
     ev.add_argument("--root", default=None)
     ev.add_argument("--out", default=None)
     ev.set_defaults(fn=cmd_evals)
+
+    fe = sub.add_parser("foundry-evals", help="score the overlay text with Microsoft Foundry's evaluators (needs FOUNDRY_PROJECT_ENDPOINT)")
+    fe.add_argument("--samples", type=int, default=12, help="overlays per group (agent-written and template)")
+    fe.add_argument("--model", default=None, help="deployment that judges the text (default MATCHMIND_LLM_MODEL)")
+    fe.add_argument("--out", default=None, help="write the results here as JSON")
+    fe.set_defaults(fn=cmd_foundry_evals)
+
+    fr = sub.add_parser("foundry-register", help="register the agents as Foundry prompt agents (needs FOUNDRY_PROJECT_ENDPOINT)")
+    fr.add_argument("--model", default=None, help="model deployment the agents use (default MATCHMIND_LLM_MODEL)")
+    fr.set_defaults(fn=cmd_foundry_register)
 
     e = sub.add_parser("export-schemas", help="write JSON Schemas for the public contracts to schemas/")
     e.add_argument("--out", default=str(Path(__file__).resolve().parents[2] / "schemas"))
