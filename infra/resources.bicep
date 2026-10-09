@@ -9,6 +9,7 @@ param brainImage string
 param foundryProjectEndpoint string
 param modelName string
 param corsOrigins string
+param agentsMode string
 
 // Container Apps capacity differs by region and by subscription; the apps can sit in another region from the data.
 var appsRegion = empty(appsLocation) ? location : appsLocation
@@ -285,6 +286,7 @@ resource brain 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'MATCHMIND_DATA', value: '/app/data' }
             { name: 'MATCHMIND_ALLOWED_HOSTS', value: brainHost } // MCP's DNS-rebinding guard answers to this name
             { name: 'MATCHMIND_ALLOWED_ORIGINS', value: 'https://${web.properties.defaultHostname}' }
+            { name: 'MATCHMIND_AGENTS', value: agentsMode } // 'foundry': call the agents registered in the Foundry project
             { name: 'MATCHMIND_CORS_ORIGINS', value: corsOrigins } // other sites that call the API from the browser (GitHub Pages)
             { name: 'MATCHMIND_AGENT_TIMEOUT_S', value: '30' } // a model call may use up to this long, never more than the request has left
             { name: 'MATCHMIND_BEAT_BUDGET_S', value: '90' } // the five-agent workflow (mode "full") needs far more than the 15 s default

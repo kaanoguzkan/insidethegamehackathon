@@ -82,6 +82,7 @@ class AgentSettings:
     story_temperature: float = 0.6
     send_temperature: bool = True  # a reasoning model rejects the parameter outright
     structured_output: bool = True  # ask the endpoint to enforce the JSON schema; off: the schema goes in the prompt
+    agent_side_options: bool = False  # Foundry-registered agents: schema and temperature live in the agent, calls pass none
     reasoning_effort: str | None = None  # "minimal" | "low" | "medium" | "high" for reasoning models
     beat_budget_s: float | None = None  # wall-clock time a beat has to become overlays (None: the caller's default)
 
@@ -122,20 +123,25 @@ class AgentTeam:
         client: BaseChatClient,
         settings: AgentSettings | None = None,
         explainer_tools: Any = None,
+        agents: dict[str, Any] | None = None,
     ) -> None:
+        """``agents`` replaces the local agents by role (editor, explainer, ...), e.g. with Foundry-registered ones."""
         self.client = client
         self.settings = settings or AgentSettings.from_env()
-        self.editor = Agent(client, prompts.EDITOR, name="editor")
-        self.explainer = Agent(client, prompts.EXPLAINER, name="explainer", tools=explainer_tools)
-        self.storyteller = Agent(client, prompts.STORYTELLER, name="storyteller")
-        self.localizer = Agent(client, prompts.LOCALIZER, name="localizer")
-        self.recap_writer = Agent(client, prompts.RECAP, name="recap_writer")
-        self.composer = Agent(client, prompts.COMPOSER, name="composer")
+        a = agents or {}
+        self.editor = a.get("editor") or Agent(client, prompts.EDITOR, name="editor")
+        self.explainer = a.get("explainer") or Agent(client, prompts.EXPLAINER, name="explainer", tools=explainer_tools)
+        self.storyteller = a.get("storyteller") or Agent(client, prompts.STORYTELLER, name="storyteller")
+        self.localizer = a.get("localizer") or Agent(client, prompts.LOCALIZER, name="localizer")
+        self.recap_writer = a.get("recap_writer") or Agent(client, prompts.RECAP, name="recap_writer")
+        self.composer = a.get("composer") or Agent(client, prompts.COMPOSER, name="composer")
 
     # ----- one call ----------------------------------------------------------------------------
 
     def _options(self, model: type[M], temperature: float) -> dict:
         """The chat options for one call, leaving out what the configured model refuses."""
+        if self.settings.agent_side_options:
+            return {}  # a Foundry agent refuses per-call temperature and response format: they are in its definition
         opts: dict = {"max_tokens": self.settings.max_tokens}
         if self.settings.structured_output:
             opts["response_format"] = model
@@ -152,7 +158,7 @@ class AgentTeam:
         options = self._options(model, temperature)
         try:
             message = task_message(task, payload)
-            if not self.settings.structured_output:
+            if not self.settings.structured_output and not self.settings.agent_side_options:
                 schema = json.dumps(model.model_json_schema(), ensure_ascii=False)
                 message += f"\nReply with one JSON object only, no markdown fence, matching this JSON schema:\n{schema}"
             limit = self.settings.timeout_s if timeout_s is None else min(timeout_s, self.settings.timeout_s)
@@ -163,7 +169,7 @@ class AgentTeam:
             raise
         except Exception as e:  # network, auth, content filter, injected outage ...
             raise AgentFailure(name, f"{type(e).__name__}: {e}") from e
-        value = resp.value if self.settings.structured_output else None
+        value = resp.value if self.settings.structured_output and not self.settings.agent_side_options else None
         if isinstance(value, model):
             return value
         try:

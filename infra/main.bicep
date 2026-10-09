@@ -33,6 +33,9 @@ param appsLocation string = ''
 @description('Model deployment name in the Foundry project.')
 param modelName string = ''
 
+@description('Where the agents run: "foundry" calls the ones registered in the Foundry project (matchmind foundry-register), empty uses local ones.')
+param agentsMode string = ''
+
 @description('Extra browser origins allowed to call the Brain API, comma separated (the GitHub Pages site).')
 param corsOrigins string = ''
 
@@ -70,6 +73,7 @@ module resources 'resources.bicep' = {
     foundryProjectEndpoint: foundryProjectEndpoint
     modelName: modelName
     corsOrigins: corsOrigins
+    agentsMode: agentsMode
   }
 }
 

@@ -16,17 +16,29 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from .agents import prompts
+from pydantic import BaseModel
 
-# Foundry agent name -> (instructions, what it does). The names are the public address of each agent.
-AGENTS: dict[str, tuple[str, str]] = {
-    "matchmind-editor": (prompts.EDITOR, "Chooses which detected moments become on-screen story beats."),
-    "matchmind-explainer": (prompts.EXPLAINER, "Explains why a moment matters, citing the evidence pack."),
-    "matchmind-storyteller": (prompts.STORYTELLER, "Writes the English story for each viewer cohort."),
-    "matchmind-localizer": (prompts.LOCALIZER, "Rewrites a verified story natively in Spanish or Turkish."),
-    "matchmind-composer": (prompts.COMPOSER, "Fast path: explains and writes one cohort's story in one call."),
-    "matchmind-recap-writer": (prompts.RECAP, "Writes the pre-match, half-time and full-time recaps."),
-}
+from .agents import prompts
+from .agents.team import AgentSettings, AgentTeam
+from .core.contracts import EditorOut, Explanation, Recap, StoryOut, StoryVariant
+
+
+class Spec:
+    """One agent: its Foundry name, which AgentTeam role it fills, its prompt, output schema and temperature."""
+
+    def __init__(self, name: str, role: str, instructions: str, description: str, output: type[BaseModel], temperature: float) -> None:
+        self.name, self.role, self.instructions, self.description, self.output, self.temperature = name, role, instructions, description, output, temperature
+
+
+# The schema and temperature are part of each agent's definition: a registered agent refuses them per call.
+SPECS: list[Spec] = [
+    Spec("matchmind-editor", "editor", prompts.EDITOR, "Chooses which detected moments become on-screen story beats.", EditorOut, 0.1),
+    Spec("matchmind-explainer", "explainer", prompts.EXPLAINER, "Explains why a moment matters, citing the evidence pack.", Explanation, 0.2),
+    Spec("matchmind-storyteller", "storyteller", prompts.STORYTELLER, "Writes the English story for each viewer cohort.", StoryOut, 0.6),
+    Spec("matchmind-localizer", "localizer", prompts.LOCALIZER, "Rewrites a verified story natively in Spanish or Turkish.", StoryVariant, 0.6),
+    Spec("matchmind-composer", "composer", prompts.COMPOSER, "Fast path: explains and writes one cohort's story in one call.", StoryVariant, 0.6),
+    Spec("matchmind-recap-writer", "recap_writer", prompts.RECAP, "Writes the pre-match, half-time and full-time recaps.", Recap, 0.6),
+]
 
 
 def register(endpoint: str | None = None, model: str | None = None) -> list[dict[str, Any]]:
@@ -42,11 +54,24 @@ def register(endpoint: str | None = None, model: str | None = None) -> list[dict
     chat = FoundryChatClient(project_endpoint=endpoint, model=model, credential=cred)
     project = AIProjectClient(endpoint=endpoint, credential=cred)
     out = []
-    for name, (instructions, description) in AGENTS.items():
-        definition = to_prompt_agent(Agent(chat, instructions, name=name))
+    for sp in SPECS:
+        agent = Agent(chat, sp.instructions, name=sp.name, default_options={"response_format": sp.output, "temperature": sp.temperature})
         v = project.agents.create_version(
-            agent_name=name, definition=definition, description=description,
+            agent_name=sp.name, definition=to_prompt_agent(agent), description=sp.description,
             metadata={"promptVersion": prompts.PROMPT_VERSION, "app": "matchmind"},
         )
-        out.append({"name": name, "version": getattr(v, "version", None), "id": getattr(v, "id", None), "model": model})
+        out.append({"name": sp.name, "version": getattr(v, "version", None), "id": getattr(v, "id", None), "model": model})
     return out
+
+
+def foundry_team(chat_client: Any, endpoint: str | None = None) -> AgentTeam:
+    """An :class:`AgentTeam` whose agents are the ones registered in Foundry (called by name, latest version)."""
+    from agent_framework.foundry import FoundryAgent
+    from azure.identity import DefaultAzureCredential
+
+    endpoint = endpoint or os.environ["FOUNDRY_PROJECT_ENDPOINT"]
+    cred = DefaultAzureCredential()
+    agents = {sp.role: FoundryAgent(project_endpoint=endpoint, agent_name=sp.name, credential=cred) for sp in SPECS}
+    settings = AgentSettings.from_env()
+    settings.agent_side_options = True
+    return AgentTeam(chat_client, settings, agents=agents)

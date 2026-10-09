@@ -94,6 +94,20 @@ def create_app(
     beat_cache = BeatCache()  # verified model text, shared by every request this replica serves
     mcp = build_server(reg, path="/")
 
+    # MATCHMIND_AGENTS=foundry: the agents are the ones registered in the Foundry project (`matchmind foundry-register`),
+    # called by name, instead of local ones built from the same prompts. They are built once and shared.
+    use_foundry_agents = kind == "foundry" and os.environ.get("MATCHMIND_AGENTS", "").lower() == "foundry"
+    shared_team: list[AgentTeam] = []
+
+    def get_team() -> AgentTeam:
+        if not use_foundry_agents:
+            return AgentTeam(client, AgentSettings.from_env())
+        if not shared_team:
+            from matchmind.foundry_agents import foundry_team
+
+            shared_team.append(foundry_team(client))
+        return shared_team[0]
+
     warm_up: list[asyncio.Task] = []
 
     def start_warm_up() -> None:
@@ -143,7 +157,7 @@ def create_app(
     @app.get("/health")
     async def health() -> dict:
         start_warm_up()
-        return {"status": "ok", "llm": kind, "version": __version__, "matches": len(reg.ids())}
+        return {"status": "ok", "llm": kind, "agents": "foundry" if use_foundry_agents else "local", "version": __version__, "matches": len(reg.ids())}
 
     @app.get("/api/matches")
     def matches() -> list[str]:
@@ -217,7 +231,8 @@ def create_app(
             raise HTTPException(404, f"unknown moments: {missing}")
         store = InMemoryMomentStore()
         settings = AgentSettings.from_env()
-        deps = WorkflowDeps(team=AgentTeam(client, settings), registry=names, store=store)
+        team = await asyncio.to_thread(get_team)
+        deps = WorkflowDeps(team=team, registry=names, store=store)
         batch = Batch(moments=tuple(by_id[m] for m in req.moment_ids), cohorts=tuple(req.cohorts), budget=req.budget, budget_s=min(settings.beat_budget_s or 15.0, 90.0))
         t0 = time.monotonic()
         run_stats: dict = {}
