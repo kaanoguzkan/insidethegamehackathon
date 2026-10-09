@@ -45,6 +45,7 @@ from azure.identity import DefaultAzureCredential  # noqa: E402
 from matchmind.agents.cache import BeatCache  # noqa: E402
 from matchmind.agents.service import (  # noqa: E402
     BeatRequest,
+    InvalidCohort,
     UnknownMoments,
     load_recorded,
     serve_beats,
@@ -98,7 +99,7 @@ class Newsroom(BaseAgent):
         packs, names = loaded
         try:
             answer = await serve_beats(req, packs=packs, registry=names, team=self.team, cache=self.cache)
-        except UnknownMoments as e:
+        except (UnknownMoments, InvalidCohort) as e:
             return json.dumps({"error": str(e)})
         return json.dumps(answer, ensure_ascii=False)
 

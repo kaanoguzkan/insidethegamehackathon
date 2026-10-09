@@ -243,7 +243,7 @@ def test_beats_for_a_recorded_match_never_load_the_interpreter():
     assert "red-card-drama" in fresh.ids()
     with TestClient(create_app(fresh)) as c:
         t0 = time.monotonic()
-        r = c.post("/api/beats", json={"match_id": "red-card-drama", "moment_ids": ["red-card-drama-mo-003"], "cohorts": COHORTS})
+        r = c.post("/api/beats", json={"match_id": "red-card-drama", "moment_ids": ["red-card-drama-mo-003"], "cohorts": [{"mode": "analyst", "language": "en"}, {"mode": "casual", "language": "tr", "perspective": "RED"}]})
         took = time.monotonic() - t0
     assert r.status_code == 200 and r.json()["beats"][0]["overlays"]
     assert not fresh._cache, "the beats request loaded the interpreter"

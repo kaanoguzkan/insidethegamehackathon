@@ -49,6 +49,20 @@ class UnknownMoments(LookupError):
     """The request names moments the match does not have."""
 
 
+class InvalidCohort(ValueError):
+    """A cohort asks for a club or a player the match does not have."""
+
+
+def check_cohorts(cohorts: list[Cohort], registry: Registry) -> None:
+    """``perspective`` and ``focusPlayer`` end up in the model's prompt, so they must be what they say they are: 'neutral' or one of the match's
+    club ids, and one of the match's player ids. Anything else (free text, an instruction, a very long string) is refused before any model call."""
+    for c in cohorts:
+        if c.perspective != "neutral" and c.perspective not in registry.clubs:
+            raise InvalidCohort(f"perspective must be 'neutral' or one of this match's clubs: {', '.join(sorted(registry.clubs))}")
+        if c.focusPlayer is not None and c.focusPlayer not in registry.players:
+            raise InvalidCohort("focusPlayer must be one of this match's player ids")
+
+
 def load_recorded(root: Path, match_id: str) -> tuple[dict[str, dict], Registry] | None:
     """Moment packs and the name registry from a replay package on disk, or None if it has none (or the id is not a slug).
 
@@ -80,6 +94,7 @@ async def serve_beats(
     missing = [m for m in req.moment_ids if m not in packs]
     if missing:
         raise UnknownMoments(f"unknown moments: {missing}")
+    check_cohorts(req.cohorts, registry)
     settings = settings or AgentSettings.from_env()
     store = InMemoryMomentStore()
     batch = Batch(

@@ -11,7 +11,7 @@ import { useClock } from './hooks/useClock'
 import { buildHash, STEPS, type Step, useRoute } from './hooks/useHash'
 import { useLiveBrain } from './hooks/useLiveBrain'
 import { t } from './i18n'
-import { cohortOf } from './lib/cohort'
+import { cohortForMatch } from './lib/cohort'
 import { totalMs } from './lib/clock'
 import { LAYER_KEYS, NO_LAYERS, type Layers } from './lib/layers'
 import type { Cam } from './lib/webgl'
@@ -95,7 +95,7 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
   const [profileB, setProfileB] = useState<Profile>({ ...DEFAULT_PROFILE, mode: profile.mode === 'analyst' ? 'casual' : 'analyst', language: profile.language === 'es' ? 'en' : 'es' })
 
   // With Live AI on, selecting a moment asks the Brain for a fresh story for each viewer on screen.
-  const liveCohorts = useMemo(() => (route.split ? [cohortOf(profile), cohortOf(profileB)] : [cohortOf(profile)]), [route.split, profile, profileB])
+  const liveCohorts = useMemo(() => (route.split ? [profile, profileB] : [profile]).map((p) => cohortForMatch(p, replay.meta)), [route.split, profile, profileB, replay.meta])
   useEffect(() => {
     if (selected) live.explain(selected, liveCohorts)
   }, [selected, liveCohorts, live.explain])

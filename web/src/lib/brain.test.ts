@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cohortKey, mergeLive, prewarm, requestBeats, wakeBrain, type LiveResult } from './brain'
-import type { Cohort, Overlay } from './types'
+import { cohortForMatch } from './cohort'
+import { DEFAULT_PROFILE, type Cohort, type Meta, type Overlay } from './types'
 
 const cohort = (over: Partial<Cohort> = {}): Cohort => ({ mode: 'casual', language: 'en', perspective: 'neutral', focusPlayer: null, ...over })
 const overlay = (id: string, level: number, over: Partial<Overlay> = {}): Overlay => ({
@@ -75,5 +76,19 @@ describe('Brain requests', () => {
     prewarm('')
     expect(fetchMock).not.toHaveBeenCalled()
     expect(() => prewarm('https://brain.test')).not.toThrow()
+  })
+})
+
+describe('cohortForMatch', () => {
+  const team = (id: string, players: string[]) => ({ id, players: Object.fromEntries(players.map((p) => [p, { name: p, pos: 'CM', number: 1 }])) })
+  const meta = { home: team('RED', ['RED-01', 'RED-09']), away: team('SAL', ['SAL-01']) } as unknown as Meta
+  it('keeps a club and a player that belong to the match', () => {
+    const c = cohortForMatch({ ...DEFAULT_PROFILE, perspective: 'RED', focusPlayer: 'SAL-01', mode: 'analyst', language: 'tr' }, meta)
+    expect(c).toEqual({ mode: 'analyst', language: 'tr', perspective: 'RED', focusPlayer: 'SAL-01' })
+  })
+  it('drops a club and a player from another match, which the Brain would refuse', () => {
+    const c = cohortForMatch({ ...DEFAULT_PROFILE, perspective: 'KES', focusPlayer: 'KES-07' }, meta)
+    expect(c.perspective).toBe('neutral')
+    expect(c.focusPlayer).toBeNull()
   })
 })

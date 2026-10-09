@@ -41,6 +41,7 @@ from matchmind.agents.service import (  # noqa: F401
     MAX_COHORTS,
     MAX_MOMENTS,
     BeatRequest,
+    InvalidCohort,
     UnknownMoments,
     load_recorded,
     read_recorded,
@@ -287,6 +288,8 @@ def create_app(
             return await serve_beats(req, packs=packs, registry=names, team=team, cache=beat_cache, settings=AgentSettings.from_env())
         except UnknownMoments as e:
             raise HTTPException(404, str(e)) from e
+        except InvalidCohort as e:
+            raise HTTPException(422, str(e)) from e
         finally:
             inflight[0] -= 1
 
