@@ -22,7 +22,7 @@ from __future__ import annotations
 import asyncio
 import os
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 
 from ..core.contracts import Cohort, Overlay, StoryVariant
 from . import producer, repair, router, templates, verify
@@ -34,6 +34,33 @@ from .team import AgentFailure, AgentTeam
 from .workflow import Batch, BeatResult
 
 MIN_CALL_S = 0.3  # a model call with less time than this left cannot finish
+HEDGE_AFTER_S = float(os.environ.get("MATCHMIND_HEDGE_S", "2.2"))  # 0 turns hedging off
+
+
+async def _hedged(call: Callable[[float], Awaitable[StoryVariant]], first_budget: float, hedge_after_s: float, deadline: float, clock: Callable[[], float], stats: dict) -> StoryVariant:
+    """The model's answer, asking twice if the first call is slow: the service's latency varies by a second or more
+    from call to call, so a second request started part-way through often beats a slow first one. The loser is cancelled."""
+    first = asyncio.ensure_future(call(first_budget))
+    tasks = {first}
+    try:
+        if 0 < hedge_after_s < first_budget:
+            await asyncio.wait(tasks, timeout=hedge_after_s)
+            if not first.done() and deadline - clock() > MIN_CALL_S:
+                stats["hedged"] = stats.get("hedged", 0) + 1
+                tasks.add(asyncio.ensure_future(call(deadline - clock())))
+        failure: AgentFailure | None = None
+        while tasks:
+            done, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for d in done:
+                try:
+                    return d.result()
+                except AgentFailure as e:
+                    failure = e
+        raise failure or AgentFailure("composer", "no answer")
+    finally:
+        for t in (first, *tasks):
+            if not t.done():
+                t.cancel()
 
 
 async def run_fast(
@@ -47,11 +74,12 @@ async def run_fast(
     stats: dict | None = None,
     model_id: str | None = None,
     max_calls: int = router.DEFAULT_MAX_CALLS,
+    hedge_after_s: float = HEDGE_AFTER_S,
     clock: Callable[[], float] = time.monotonic,
 ) -> list[BeatResult]:
     store = store if store is not None else InMemoryMomentStore()
     stats = stats if stats is not None else {}
-    stats.update(cacheHits=0, modelCalls=0, repaired=0, rejected=0, missedDeadline=0)
+    stats.update(cacheHits=0, modelCalls=0, hedged=0, repaired=0, rejected=0, missedDeadline=0)
     model_id = model_id or os.environ.get("MATCHMIND_LLM_MODEL", "offline")
     t0 = clock()
     deadline = t0 + deadline_s
@@ -90,7 +118,7 @@ async def run_fast(
             return
         stats["modelCalls"] += 1
         try:
-            v = (await team.compose(m, c, timeout_s=left)).model_copy(update={"cohort": c.key})
+            v = (await _hedged(lambda budget: team.compose(m, c, timeout_s=budget), left, hedge_after_s, deadline, clock, stats)).model_copy(update={"cohort": c.key})
         except AgentFailure as e:
             store.trace(m["id"], "composer", f"failed: {c.key}: {e.reason}"[:200], (clock() - start) * 1000.0)
             return

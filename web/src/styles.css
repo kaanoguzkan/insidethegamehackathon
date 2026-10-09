@@ -507,3 +507,11 @@ body:has(.broadcast) { background: transparent; }
 .pitch-3d .p3d-labels { pointer-events: none; }
 .check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .seg button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Live AI: the story the model wrote just now for the selected moment */
+.btn.live { display: inline-flex; align-items: center; gap: 6px; }
+.live-ai .live-story { margin: 8px 0 0; padding: 10px 12px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; background: var(--accent-soft); }
+.live-ai .live-story h4 { margin: 2px 0 4px; font-size: 14px; }
+.live-ai .live-story p { margin: 0 0 6px; }
+.live-ai .live-who { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 12px; color: var(--muted, inherit); }
+.live-ai .live-who > span:last-child { margin-left: 6px; }

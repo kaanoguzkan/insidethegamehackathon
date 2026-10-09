@@ -33,6 +33,9 @@ param appsLocation string = ''
 @description('Model deployment name in the Foundry project.')
 param modelName string = ''
 
+@description('Extra browser origins allowed to call the Brain API, comma separated (the GitHub Pages site).')
+param corsOrigins string = ''
+
 @description('Monthly budget in USD. Alerts fire at 25%, 50% and 90% of it.')
 param budgetUsd int = 20
 
@@ -66,6 +69,7 @@ module resources 'resources.bicep' = {
     brainImage: brainImage
     foundryProjectEndpoint: foundryProjectEndpoint
     modelName: modelName
+    corsOrigins: corsOrigins
   }
 }
 

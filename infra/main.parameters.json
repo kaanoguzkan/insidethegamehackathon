@@ -8,6 +8,7 @@
     "webLocation": { "value": "${WEB_LOCATION=eastus2}" },
     "foundryProjectEndpoint": { "value": "${FOUNDRY_PROJECT_ENDPOINT=}" },
     "modelName": { "value": "${MATCHMIND_LLM_MODEL=}" },
+    "corsOrigins": { "value": "${MATCHMIND_CORS_ORIGINS=}" },
     "budgetContact": { "value": "${BUDGET_CONTACT=}" }
   }
 }

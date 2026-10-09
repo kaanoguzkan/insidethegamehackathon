@@ -1,4 +1,5 @@
 import { metricLabel, momentTypeLabel, t } from '../i18n'
+import type { LiveBrain } from '../hooks/useLiveBrain'
 import type { Replay } from '../lib/data'
 import type { Lang, MetricChange, Moment } from '../lib/types'
 
@@ -11,15 +12,16 @@ interface Props {
   showOnPitch: boolean
   setShowOnPitch: (v: boolean) => void
   health?: string
+  live?: LiveBrain
 }
 
-const AGENT_ICON: Record<string, string> = { editor: 'E', explainer: 'X', verifier: '✓', storyteller: 'S', localizer: 'L', producer: 'P', template: 'T', interpreter: 'I' }
+const AGENT_ICON: Record<string, string> = { editor: 'E', explainer: 'X', verifier: '✓', storyteller: 'S', localizer: 'L', producer: 'P', template: 'T', interpreter: 'I', router: 'R', cache: '⚡', composer: 'C', repairer: '+' }
 
 function fmt(v: number | null | undefined): string {
   return v === null || v === undefined ? '–' : String(v)
 }
 
-export function EvidenceDrawer({ moment, replay, lang, onClose, onSeek, showOnPitch, setShowOnPitch, health = 'healthy' }: Props) {
+export function EvidenceDrawer({ moment, replay, lang, onClose, onSeek, showOnPitch, setShowOnPitch, health = 'healthy', live }: Props) {
   if (!moment) return null
   const short = (id: string) => (id === replay.meta.home.id ? replay.meta.home.short : id === replay.meta.away.id ? replay.meta.away.short : id)
   const rows = Object.entries(moment.metrics).filter(([, m]) => m.before !== undefined || m.value !== undefined)
@@ -39,6 +41,7 @@ export function EvidenceDrawer({ moment, replay, lang, onClose, onSeek, showOnPi
       </header>
 
       <div className="drawer-body">
+        {live?.available && <LiveSection live={live} momentId={moment.id} lang={lang} />}
         {ex && (
           <section>
             <h3>{t(lang, 'explanation')} <span className={`conf conf-${ex.confidence}`}>{t(lang, 'confidence')}: {ex.confidence}</span></h3>
@@ -128,5 +131,48 @@ function MetricRow({ k, m, lang, short, glossary }: { k: string; m: MetricChange
       )}
       <td>{m.consistent === true ? <span className="ok" aria-label={t(lang, 'supports')}>✓</span> : m.consistent === false ? <span className="no" aria-label={t(lang, 'against')}>✗</span> : null}</td>
     </tr>
+  )
+}
+
+function LiveSection({ live, momentId, lang }: { live: LiveBrain; momentId: string; lang: Lang }) {
+  const res = live.resultFor(momentId)
+  let body: JSX.Element | null = null
+  if (!live.enabled) body = <p className="hint">{t(lang, 'liveOffHint')}</p>
+  else if (live.status === 'waking') body = <p role="status">{t(lang, 'liveWaking')}</p>
+  else if (live.status === 'down') body = <p className="caveat">{t(lang, 'liveDown')}</p>
+  else if (live.busy && !res) body = <p role="status">{t(lang, 'liveAsking')}</p>
+  else if (live.error && !res) body = <p className="caveat">{t(lang, 'liveFailed')}</p>
+  else if (res) {
+    const stories = res.overlays.filter((o) => o.kind === 'lower_third')
+    body = (
+      <>
+        {stories.map((o) => {
+          const model = o.provenance.fallbackLevel < 2
+          return (
+            <article key={o.id} className="live-story">
+              <small>{t(lang, o.cohort.mode === 'any' ? 'casual' : o.cohort.mode)} · {o.cohort.language.toUpperCase()}</small>
+              {model ? (
+                <>
+                  <h4>{o.content.headline}</h4>
+                  <p>{o.content.body}</p>
+                </>
+              ) : (
+                <p className="hint">{t(lang, 'liveTemplate')}</p>
+              )}
+              <p className="live-who">
+                {o.provenance.agents.map((a, i) => <span key={i} className="agent" title={a}>{AGENT_ICON[a] ?? '•'}</span>)}
+                <span>{model ? t(lang, 'liveWrote') : t(lang, 'byTemplate')} · {(res.elapsedMs / 1000).toFixed(1)}{t(lang, 'liveSeconds')}{o.provenance.agents.includes('cache') ? ` · ${t(lang, 'liveFromCache')}` : ''}</span>
+              </p>
+            </article>
+          )
+        })}
+      </>
+    )
+  }
+  return (
+    <section className="live-ai">
+      <h3>{t(lang, 'liveAI')}</h3>
+      {body}
+    </section>
   )
 }

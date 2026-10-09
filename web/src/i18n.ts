@@ -5,6 +5,17 @@ import type { Lang } from './lib/types'
 type Dict = Record<string, string>
 
 const en: Dict = {
+  liveAI: 'Live AI',
+  liveAIHint: 'Ask the AI service to write the story for the selected moment right now, for your viewer settings.',
+  liveWaking: 'Waking the AI service…',
+  liveAsking: 'Asking the model… (at most 5 s)',
+  liveDown: 'The AI service did not answer. Showing the recorded text.',
+  liveFailed: 'The live answer failed. Showing the recorded text.',
+  liveOffHint: 'Turn on Live AI in the top bar to have the model write this story now.',
+  liveWrote: 'Written just now',
+  liveSeconds: 's',
+  liveFromCache: 'from cache',
+  liveTemplate: 'The model was too slow or its text failed the checks, so the verified template text is shown.',
   appTitle: 'MatchMind',
   tagline: 'Explained, personalized match intelligence',
   match: 'Match',
@@ -117,6 +128,17 @@ const en: Dict = {
 }
 
 const es: Dict = {
+  liveAI: 'IA en vivo',
+  liveAIHint: 'Pide al servicio de IA que escriba ahora la historia del momento elegido, según tus ajustes de espectador.',
+  liveWaking: 'Despertando el servicio de IA…',
+  liveAsking: 'Preguntando al modelo… (máximo 5 s)',
+  liveDown: 'El servicio de IA no respondió. Se muestra el texto grabado.',
+  liveFailed: 'Falló la respuesta en vivo. Se muestra el texto grabado.',
+  liveOffHint: 'Activa IA en vivo en la barra superior para que el modelo escriba esta historia ahora.',
+  liveWrote: 'Escrito ahora mismo',
+  liveSeconds: 's',
+  liveFromCache: 'desde la caché',
+  liveTemplate: 'El modelo tardó demasiado o su texto no pasó las comprobaciones, así que se muestra el texto de plantilla verificado.',
   ...en,
   tagline: 'Inteligencia de partido explicada y personalizada',
   match: 'Partido',
@@ -229,6 +251,17 @@ const es: Dict = {
 }
 
 const tr: Dict = {
+  liveAI: 'Canlı yapay zekâ',
+  liveAIHint: 'Yapay zekâ servisinden seçili an için hikâyeyi şimdi, izleyici ayarlarına göre yazmasını iste.',
+  liveWaking: 'Yapay zekâ servisi uyandırılıyor…',
+  liveAsking: 'Modele soruluyor… (en çok 5 sn)',
+  liveDown: 'Yapay zekâ servisi yanıt vermedi. Kayıtlı metin gösteriliyor.',
+  liveFailed: 'Canlı yanıt başarısız oldu. Kayıtlı metin gösteriliyor.',
+  liveOffHint: 'Modelin bu hikâyeyi şimdi yazması için üst çubuktan Canlı yapay zekâyı aç.',
+  liveWrote: 'Az önce yazıldı',
+  liveSeconds: 'sn',
+  liveFromCache: 'önbellekten',
+  liveTemplate: 'Model çok yavaştı ya da metni denetimlerden geçemedi; doğrulanmış şablon metni gösteriliyor.',
   ...en,
   tagline: 'Açıklanmış, kişiselleştirilmiş maç zekâsı',
   match: 'Maç',

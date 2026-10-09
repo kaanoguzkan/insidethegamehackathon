@@ -228,3 +228,10 @@ def test_the_fast_path_shows_the_model_names_not_player_ids(client):
     seen = names_not_ids(pack)
     assert "NOR-21" not in str(seen) and seen["facts"]["scorer"] == "Kofi Ivarham" and seen["facts"]["n"] == 3
     assert seen["players"] == [{"name": "Kofi Ivarham", "team": "NOR", "pos": "AM"}]
+
+
+def test_the_api_answers_a_browser_preflight_from_an_allowed_origin_only(client, monkeypatch):
+    ok = client.options("/api/beats", headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type"})
+    assert ok.status_code == 200 and ok.headers["access-control-allow-origin"] == "http://localhost:5173"
+    other = client.options("/api/beats", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"})
+    assert "access-control-allow-origin" not in other.headers

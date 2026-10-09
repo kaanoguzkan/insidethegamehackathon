@@ -95,3 +95,43 @@ def test_the_router_spends_a_limited_number_of_calls_on_the_most_important_momen
     routes = router.plan(moments, choices, cohorts, max_calls=2)
     assert all(routes["high", c.key].model for c in cohorts)
     assert not any(routes["low", c.key].model for c in cohorts)
+
+
+def _run_fast(pack: dict, faults, **kw):
+    import asyncio
+
+    from matchmind.agents.fast import run_fast
+    from matchmind.agents.llm import make_chat_client
+    from matchmind.agents.team import AgentTeam
+    from matchmind.agents.workflow import Batch
+
+    team = AgentTeam(make_chat_client("offline", faults=faults))
+    stats: dict = {}
+    batch = Batch(moments=(pack,), cohorts=(CASUAL,), budget=3)
+    results = asyncio.run(run_fast(team, batch, stats=stats, model_id="offline", **kw))
+    return results[0], stats
+
+
+def test_a_slow_first_call_is_beaten_by_a_hedged_second_call(goal_pack):
+    import time
+
+    from matchmind.agents.llm import Faults
+
+    t0 = time.monotonic()
+    beat, stats = _run_fast(goal_pack, Faults(mode="slow", delay_s=3.0, remaining=1), deadline_s=2.5, hedge_after_s=0.2)
+    assert time.monotonic() - t0 < 1.5, "the hedge answered while the first call was still asleep"
+    assert stats["hedged"] == 1 and beat.level == 0
+
+
+def test_without_a_hedge_the_same_slow_call_misses_the_deadline_and_the_template_is_served(goal_pack):
+    from matchmind.agents.llm import Faults
+
+    beat, stats = _run_fast(goal_pack, Faults(mode="slow", delay_s=3.0, remaining=1), deadline_s=0.8, hedge_after_s=0)
+    assert stats["hedged"] == 0 and stats["missedDeadline"] == 1 and beat.level == 2
+
+
+def test_a_fast_call_is_not_hedged(goal_pack):
+    from matchmind.agents.llm import Faults
+
+    _, stats = _run_fast(goal_pack, Faults(), deadline_s=2.0, hedge_after_s=0.5)
+    assert stats["hedged"] == 0 and stats["modelCalls"] == 1

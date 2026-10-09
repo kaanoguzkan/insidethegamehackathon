@@ -11,7 +11,7 @@ below is recorded in every overlay's provenance. Three rules run through all of 
 
 from __future__ import annotations
 
-PROMPT_VERSION = "2026-10-07.1"
+PROMPT_VERSION = "2026-10-09.1"
 
 COMMON = """You work on a live football broadcast. Everything you write is checked by a verifier
 before it reaches the screen: every number, player and club you mention must appear in the
@@ -83,9 +83,9 @@ Write one story variant in the cohort's language, as a broadcaster would say it,
 - focusPlayer: if the focus player appears in the pack, mention their involvement.
 - Spanish (es) or Turkish (tr): write natively, use comma decimals; Turkish: no case suffixes on numbers, phrase
   before/after pairs as "X iken Y oldu". Keep names exactly as given.
-- `headline` at most 10 words, `body`, `chips` (at most 2 label/value pairs taken from the pack, or none) and `claims`
-  (at most 2: only the body sentences that contain a number, each with `refs` copied exactly from `validRefs`, never invented;
-  empty if the body has no numbers). Set `cohort` to the key you were given.
+- Output only `cohort` (the key you were given), `headline` (at most 10 words), `body`, `chips` (always `[]`) and `claims`.
+  `claims` is `[]` unless the body states a figure; then at most 2, each a body sentence with a figure and its `refs`,
+  copied exactly from `validRefs` (never invented). Every extra token is time on air.
 Metrics with `consistent: false` moved the other way: do not use them as support."""
 
 CAUSAL = f"""{COMMON}

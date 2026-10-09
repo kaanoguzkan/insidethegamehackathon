@@ -20,13 +20,16 @@ endpoints with the offline model, so everything here works with no keys and no n
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import hmac
 import os
 import time
 from typing import Literal
 
+from agent_framework import Content, Message
 from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -69,6 +72,16 @@ class FaultRequest(BaseModel):
     every: int = Field(1, ge=1, le=20)
 
 
+LOCAL_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:4173", "http://127.0.0.1:4173"]
+
+
+def cors_origins() -> list[str]:
+    """Browser origins allowed to call the API: the local dev servers, ``MATCHMIND_CORS_ORIGINS`` and the MCP origins."""
+    split = lambda v: [x.strip().rstrip("/") for x in v.split(",") if x.strip()]  # noqa: E731
+    env = os.environ
+    return list(dict.fromkeys([*LOCAL_ORIGINS, *split(env.get("MATCHMIND_CORS_ORIGINS", "")), *split(env.get("MATCHMIND_ALLOWED_ORIGINS", ""))]))
+
+
 def create_app(
     registry: MatchRegistry | None = None, llm: str | None = None, director: bool | None = None
 ) -> FastAPI:
@@ -79,16 +92,38 @@ def create_app(
     beat_cache = BeatCache()  # verified model text, shared by every request this replica serves
     mcp = build_server(reg, path="/")
 
+    warm_up: list[asyncio.Task] = []
+
+    def start_warm_up() -> None:
+        """Once per replica: fetch the managed-identity token and open the model connection, which cost the first real
+        request about 3 s. Started at boot and by the first health check (the web page pings it on load)."""
+        if warm_up or kind == "offline":
+            return
+
+        async def go() -> None:
+            try:
+                await asyncio.wait_for(client.get_response([Message("user", [Content.from_text("ping")])], options={"max_tokens": 16}), 30)
+            except Exception:  # noqa: BLE001 - a failed warm-up only means the first request pays for it
+                pass
+
+        warm_up.append(asyncio.ensure_future(go()))
+
     @contextlib.asynccontextmanager
     async def lifespan(_: FastAPI):
+        start_warm_up()
         async with mcp.session_manager.run():
             yield
 
     app = FastAPI(title="MatchMind Brain", version=__version__, lifespan=lifespan)
+    app.add_middleware(
+        CORSMiddleware, allow_origins=cors_origins(), allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["content-type", "x-director-key"], allow_credentials=False, max_age=600,
+    )  # the web app on Azure Static Web Apps and GitHub Pages calls this API from the browser
     app.mount("/mcp", mcp.streamable_http_app())
 
     @app.get("/health")
-    def health() -> dict:
+    async def health() -> dict:
+        start_warm_up()
         return {"status": "ok", "llm": kind, "version": __version__, "matches": len(reg.ids())}
 
     @app.get("/api/matches")

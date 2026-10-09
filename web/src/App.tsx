@@ -9,7 +9,9 @@ import { Screen } from './components/Screen'
 import { StageHead } from './components/StageHead'
 import { useClock } from './hooks/useClock'
 import { buildHash, STEPS, type Step, useRoute } from './hooks/useHash'
+import { useLiveBrain } from './hooks/useLiveBrain'
 import { t } from './i18n'
+import { cohortOf } from './lib/cohort'
 import { totalMs } from './lib/clock'
 import { LAYER_KEYS, NO_LAYERS, type Layers } from './lib/layers'
 import type { Cam } from './lib/webgl'
@@ -87,9 +89,16 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
     if (health === 'healthy' || variants[health]) return
     loadVariant(replay.id, health).then((o) => setVariants((v) => ({ ...v, [health]: o }))).catch(() => setHealth('healthy'))
   }, [health, replay.id, variants])
-  const overlays = useMemo(() => overlaysFor(replay, health, variants), [replay, health, variants])
+  const live = useLiveBrain(replay.id)
+  const overlays = useMemo(() => live.merge(overlaysFor(replay, health, variants)), [replay, health, variants, live.merge])
   const hasVariants = Object.keys(replay.meta.package.variants ?? {}).length > 0
   const [profileB, setProfileB] = useState<Profile>({ ...DEFAULT_PROFILE, mode: profile.mode === 'analyst' ? 'casual' : 'analyst', language: profile.language === 'es' ? 'en' : 'es' })
+
+  // With Live AI on, selecting a moment asks the Brain for a fresh story for each viewer on screen.
+  const liveCohorts = useMemo(() => (route.split ? [cohortOf(profile), cohortOf(profileB)] : [cohortOf(profile)]), [route.split, profile, profileB])
+  useEffect(() => {
+    if (selected) live.explain(selected, liveCohorts)
+  }, [selected, liveCohorts, live.explain])
 
   // Jump to the start time from the URL once, and autoplay the overlay-only page.
   useEffect(() => {
@@ -197,6 +206,12 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
               </div>
             </Popover>
           )}
+          {live.available && (
+            <button type="button" className={`btn live${live.enabled ? ' on' : ''}`} aria-pressed={live.enabled} onClick={live.toggle} title={t(lang, 'liveAIHint')}>
+              {live.enabled && <span className={`health-dot h-${live.status === 'ready' ? 'healthy' : live.status === 'waking' ? 'unreliable' : 'outage'}`} aria-hidden="true" />}
+              {t(lang, 'liveAI')}
+            </button>
+          )}
           <a className="btn" href={`${import.meta.env.BASE_URL}replays/${replay.id}/report.pdf`} target="_blank" rel="noreferrer" title={t(lang, 'reportHint')}>{t(lang, 'report')}</a>
           <a className="btn" href={broadcastHref} target="_blank" rel="noreferrer">{t(lang, 'broadcastLink')}</a>
         </div>
@@ -221,7 +236,7 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
       </main>
 
       <MatchStrip replay={replay} ms={ms} playing={playing} speed={speed} lang={lang} layers={layers} selected={selected} cam={cam} follow={route.follow} onCam={(c) => setRoute({ cam: c })} onFollow={(on) => setRoute({ follow: on })} toggle={toggle} setSpeed={setSpeed} seek={seek} onPick={pick} onLayer={onLayer} onClearLayers={() => setLayers(NO_LAYERS)} />
-      <EvidenceDrawer moment={moment} replay={replay} lang={lang} onClose={() => setSelected(null)} onSeek={seek} showOnPitch={showOnPitch} setShowOnPitch={setShowOnPitch} health={health} />
+      <EvidenceDrawer moment={moment} replay={replay} lang={lang} onClose={() => setSelected(null)} onSeek={seek} showOnPitch={showOnPitch} setShowOnPitch={setShowOnPitch} health={health} live={live} />
       <footer className="foot">
         <span>{t(lang, 'synthetic')}</span>
         <span>{t(lang, 'poweredBy')}</span>
