@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import hmac
+import json
 import os
 import time
 from typing import Literal
@@ -121,6 +122,8 @@ def create_app(
     @contextlib.asynccontextmanager
     async def lifespan(_: FastAPI):
         start_warm_up()
+        for mid in reg.ids():  # read the packs now, in a thread, so the first request does not wait for them
+            asyncio.ensure_future(asyncio.to_thread(beat_inputs, mid))
         watcher = asyncio.ensure_future(watch_loop())
         try:
             async with mcp.session_manager.run():
@@ -149,6 +152,32 @@ def create_app(
             return reg.get(match_id)
         except UnknownMatch as e:
             raise HTTPException(404, str(e)) from e
+
+    # Keys the replay runner adds to a moment after the evidence pack is built (the agents' own recorded answers).
+    recorded_only = {"status", "level", "explanation", "explanations", "variants", "trace"}
+    beat_data: dict[str, tuple[dict[str, dict], Registry]] = {}
+
+    def beat_inputs(match_id: str) -> tuple[dict[str, dict], Registry]:
+        """The moment packs and the name registry /api/beats needs, without loading the match's interpreter.
+
+        ``reg.get`` re-simulates the match from its seed: about 6 s on a laptop and about 20 s on the 1-vCPU container,
+        and doing that inside the request froze the whole server (the 5 s deadline included). The replay package already
+        holds the finished packs and metadata, so read those; a match with no package on disk (one registered in
+        memory) falls back to the interpreter. Called from a worker thread.
+        """
+        if match_id in beat_data:
+            return beat_data[match_id]
+        if match_id not in reg.ids():
+            raise HTTPException(404, f"unknown match {match_id!r}")
+        d = reg.root / match_id
+        if (d / "moments.json").exists() and (d / "meta.json").exists():
+            packs = {m["id"]: {k: v for k, v in m.items() if k not in recorded_only} for m in json.loads((d / "moments.json").read_text())}
+            out = (packs, Registry.from_meta(json.loads((d / "meta.json").read_text())))
+        else:
+            ip = _ip(match_id)
+            out = ({m["id"]: m for m in ip.all_moments}, Registry.from_meta(ip.meta))
+        beat_data[match_id] = out
+        return out
 
     @app.get("/api/matches/{match_id}/moments")
     def moments(match_id: str, min_salience: float = 0.0) -> list[dict]:
@@ -180,14 +209,13 @@ def create_app(
 
     @app.post("/api/beats")
     async def beats(req: BeatRequest) -> dict:
-        ip = _ip(req.match_id)
-        by_id = {m["id"]: m for m in ip.all_moments}
+        by_id, names = await asyncio.to_thread(beat_inputs, req.match_id)
         missing = [m for m in req.moment_ids if m not in by_id]
         if missing:
             raise HTTPException(404, f"unknown moments: {missing}")
         store = InMemoryMomentStore()
         settings = AgentSettings.from_env()
-        deps = WorkflowDeps(team=AgentTeam(client, settings), registry=Registry.from_meta(ip.meta), store=store)
+        deps = WorkflowDeps(team=AgentTeam(client, settings), registry=names, store=store)
         batch = Batch(moments=tuple(by_id[m] for m in req.moment_ids), cohorts=tuple(req.cohorts), budget=req.budget, budget_s=min(settings.beat_budget_s or 15.0, 90.0))
         t0 = time.monotonic()
         run_stats: dict = {}

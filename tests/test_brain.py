@@ -235,3 +235,21 @@ def test_the_api_answers_a_browser_preflight_from_an_allowed_origin_only(client,
     assert ok.status_code == 200 and ok.headers["access-control-allow-origin"] == "http://localhost:5173"
     other = client.options("/api/beats", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"})
     assert "access-control-allow-origin" not in other.headers
+
+
+def test_beats_for_a_recorded_match_never_load_the_interpreter():
+    """Loading the interpreter re-simulates the match (about 6 s, 20 s on the container) and froze the server."""
+    fresh = MatchRegistry()  # nothing cached
+    assert "red-card-drama" in fresh.ids()
+    with TestClient(create_app(fresh)) as c:
+        t0 = time.monotonic()
+        r = c.post("/api/beats", json={"match_id": "red-card-drama", "moment_ids": ["red-card-drama-mo-003"], "cohorts": COHORTS})
+        took = time.monotonic() - t0
+    assert r.status_code == 200 and r.json()["beats"][0]["overlays"]
+    assert not fresh._cache, "the beats request loaded the interpreter"
+    assert took < 3, f"the request took {took:.1f}s"
+
+
+def test_beats_on_an_unknown_match_are_a_404(client):
+    r = client.post("/api/beats", json={"match_id": "no-such-match", "moment_ids": ["x"], "cohorts": COHORTS})
+    assert r.status_code == 404
