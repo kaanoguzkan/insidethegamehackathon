@@ -54,6 +54,13 @@ often. Mistral, Llama and Cohere models cannot be bought on a free subscription 
 more between calls, which is why the fast path has a hard deadline, templates and a hedged second call. `Microsoft-Decision-1` is in the catalog
 but is not a chat model (`chatCompletion: false`) and has not been tried.
 
+**Newer models (checked 11 Oct 2026).** The subscription can deploy `gpt-5.4` (also `-mini`, `-nano`, `-pro`), `gpt-5.5`, `gpt-5.6-luna`/`-sol`/`-terra`,
+`gpt-6-astra`/`-luna`/`-sol` and `gpt-6.1-sol`, besides the older `gpt-4.1` family, `o3`/`o4-mini`, `model-router` and `gpt-oss-120b`. All of the `gpt-5`/`gpt-6`
+models reason, so they need `reasoning effort: low` (they refuse `minimal`). On the same 27 live-path requests (nine moments, three cohorts, deadline
+5 s, no cache): `gpt-4.1-mini` median 2.0 s, 90th percentile 2.9 s, 23 of 27 model-written; `gpt-6-luna` median 3.0 s, 90th percentile 4.4 s, 25 of 27
+model-written, with about twice the output tokens (its reasoning is billed as output). `gpt-6-luna` is the cheaper model per token (see the Azure price page) but leaves little room under five seconds, so the overlay path keeps `gpt-4.1-mini`; luna is the candidate for Ask the match, where
+there is no five-second limit.
+
 ## Foundry
 
 The same agents can run as agents registered in a Foundry project (`MATCHMIND_AGENTS=foundry`), and the fast path is also served
