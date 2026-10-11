@@ -72,7 +72,7 @@
 6. Tooling: Python 3.12 with `uv`, Agent Framework 1.20 (`agent-framework-core` plus extras instead of the 30-package meta-package), MCP SDK 1.30, pnpm 11 with `allowBuilds`.
 7. Security review fixes: replay ids validated in the web app, the Producer's `verified` flag is earned, the match registry is slug-validated, limited to listed ids and LRU-bounded, the director fault routes are off unless `MATCHMIND_DIRECTOR=1`, and workflow actions are pinned.
 
-8. **MCP is served, not yet used by the agents.** The plan has the Explainer call the Match Data MCP server (`MCPStreamableHTTPTool`); in the build the server is for outside clients (GitHub Copilot, any MCP agent) and `AgentTeam` accepts tools (`explainer_tools`) but none are passed. Section 15 and the scoring table (section 16) were written for the planned design. The draft submission text near the end also lists Functions and SignalR, which the app does not use: edit it before submitting.
+8. **MCP is used by Ask the match, in process, and by outside clients over HTTP; the overlay agents do not use it.** The plan has the Explainer call the Match Data MCP server itself (`MCPStreamableHTTPTool`); in the build, code runs the tools (the planner only chooses from an allow-list, arguments are clamped, each call is bounded) because a model-driven tool loop does not fit a six-second overlay and failed on out-of-range arguments. The overlay agents get an evidence pack in the prompt, and `AgentTeam` accepts tools (`explainer_tools`) but none are passed. Section 15 and the scoring table (section 16) were written for the planned design. The draft submission text near the end also lists Functions and SignalR, which the app does not use: edit it before submitting.
 
 ### Not yet verified
 
