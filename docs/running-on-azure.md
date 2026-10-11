@@ -9,7 +9,7 @@
 |---|---|---|
 | Container App `ca-matchmind-brain` (1 vCPU, 2 GiB, 0 to 2 replicas, scales on 20 concurrent requests) | North Europe | The Brain: REST, MCP, both agent paths |
 | Static Web App `swa-matchmind` | East US 2 | The match center, built with the Brain's address (`BRAIN_URI`) |
-| Microsoft Foundry account and project `kaanoguzkan-9930` | Sweden Central | The model (`gpt-4.1-mini`, 120 000 tokens a minute), eight registered prompt agents, the hosted agent `matchmind-newsroom`, evaluations |
+| Microsoft Foundry account and project `kaanoguzkan-9930` | Sweden Central | The models (`gpt-6-luna` in use, `gpt-4.1-mini` kept as a fallback deployment, 120 000 tokens a minute for the latter), eight registered prompt agents, the hosted agent `matchmind-newsroom`, evaluations |
 | Cosmos DB (free tier), database `matchmind`, container `beats` | Sweden Central | The Brain's shared cache of verified model text (7-day expiry per document); identity only, no keys |
 | Application Insights, Log Analytics (30 days, 0.5 GB a day cap) | Sweden Central | Traces and logs. The Brain exports to the **Foundry project's own** Application Insights so traces show in the Foundry portal |
 | Container Registry (Basic), user-assigned managed identity | Sweden Central | The Brain image; the identity pulls it and calls Cosmos, Storage and the model |
@@ -22,7 +22,7 @@
 |---|---|
 | `infra/*.bicep` | `az bicep build` clean; `azd provision` repeatedly (it is incremental) |
 | Brain image | Built locally for `linux/amd64`, pushed, running; non-root user |
-| Live model | Real `POST /api/beats` calls against `gpt-4.1-mini` through registered Foundry agents: median 2.6 s, 95th percentile 4.2 s ([agents.md](agents.md)) |
+| Live model | Real `POST /api/beats` calls against `gpt-6-luna` through registered Foundry agents: median 2.8 s, 90th percentile 3.8 s ([agents.md](agents.md)) |
 | Cold start | A scaled-to-zero Brain answers its first request after about 20 s; the page waits for `/health` first |
 | Rate limit, admin key, headers | Exercised with `curl` against the live Brain (403 without the key, 429 after 20 requests a minute) |
 | Shared cache | A request cached before a restart was served by the fresh replica from Cosmos DB in 282 ms with no model call |
@@ -131,8 +131,8 @@ Three things that used to stall or lose work, and what fixed them:
 * **Cached text outlives a restart.** Verified model text is kept in memory and in Cosmos DB (`beats` container, 7-day expiry,
   `MATCHMIND_SHARED_CACHE=1`). A fresh replica served a result cached before it existed in 282 ms with no model call. Cosmos is
   time-boxed and any error counts as a miss, so it can only make a request faster. `/health` shows `sharedCache`.
-* **Hedging is for the slow tail only.** A second identical model call starts after 3.2 s (`MATCHMIND_HEDGE_S`). At 2.2 s, about half of
-  all calls were duplicated; at 3.2 s, 16% were (45 uncached calls, 15 requests, no missed deadline, request p50 2.6 s, p95 4.2 s).
+* **Hedging is for the slow tail only.** A second identical model call starts after 4 s (`MATCHMIND_HEDGE_S`). With the earlier, faster model, at 2.2 s about half of
+  all calls were duplicated and at 3.2 s, 16% were; `gpt-6-luna` is about a second slower, so the hedge moved to 4 s.
 
 Traces go to the **Foundry project's own** Application Insights (`APPINSIGHTS_CONNECTION_STRING_OVERRIDE`), so they appear in the
 Foundry portal; set it with `az monitor app-insights component show --app <project>-appinsights -g <rg> --query connectionString`.

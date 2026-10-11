@@ -34,7 +34,7 @@ Every overlay says how it was made, so a renderer or an auditor never has to gue
 `displayAt` is on the match clock, so a renderer shows an overlay when *its* playback clock reaches it.
 In the live design the viewer sits about 15 seconds behind the simulator (a broadcast delay), which is the
 budget the agent workflow has to produce text; each beat carries a deadline and degrades to templates
-rather than running late. The Brain's live endpoint (`POST /api/beats`, [brain-api.md](brain-api.md)) tightens that to a hard five seconds
+rather than running late. The Brain's live endpoint (`POST /api/beats`, [brain-api.md](brain-api.md)) tightens that to a hard six seconds
 for a request: a late model call costs only the upgrade from template text, never the overlay.
 
 ## Pitch graphics

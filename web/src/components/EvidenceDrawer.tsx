@@ -1,4 +1,5 @@
 import { metricLabel, momentTypeLabel, t } from '../i18n'
+import { LoadBar } from './LoadBar'
 import type { LiveBrain } from '../hooks/useLiveBrain'
 import type { Replay } from '../lib/data'
 import type { Lang, MetricChange, Moment } from '../lib/types'
@@ -147,7 +148,7 @@ function LiveSection({ live, momentId, lang }: { live: LiveBrain; momentId: stri
   }
   else if (live.status === 'waking') body = <p role="status">{t(lang, 'liveWaking')}</p>
   else if (live.status === 'down') body = <p className="caveat">{t(lang, 'liveDown')}</p>
-  else if (live.busy && !res) body = <p role="status">{t(lang, 'liveAsking')}</p>
+  else if (live.busy && !res) body = <><p role="status">{t(lang, 'liveAsking')}</p><LoadBar seconds={6} /></>
   else if (live.error && !res) body = <p className="caveat">{t(lang, 'liveFailed')}</p>
   else if (res) {
     const stories = res.overlays.filter((o) => o.kind === 'lower_third')

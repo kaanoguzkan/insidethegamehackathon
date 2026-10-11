@@ -41,13 +41,13 @@ Select with `MATCHMIND_LLM`:
 * `foundry`: a Microsoft Foundry project. Set `FOUNDRY_PROJECT_ENDPOINT` and `MATCHMIND_LLM_MODEL`;
   authenticates with `DefaultAzureCredential`. Install: `uv sync --extra foundry`.
 
-The `foundry` backend has been run against a live Foundry project (`gpt-4.1-mini` on Azure, Oct 2026); prompts are
+The `foundry` backend has been run against a live Foundry project (`gpt-4.1-mini` then `gpt-6-luna` on Azure, Oct 2026); prompts are
 versioned in `agents/prompts.py` (`PROMPT_VERSION`) and recorded in each overlay's provenance. Settings that depend on the model
 (reasoning models refuse a temperature and need a bigger token cap; models that do not enforce a JSON schema get it in the prompt)
 are chosen from the model's name; see [configuration.md](configuration.md).
 
 **Which model.** Tried through Foundry on a free subscription for the fast path, with the same prompts and the same verifier:
-`gpt-4.1-mini` is the one in use (median request 2.6 s, 43 of 45 overlays model-written). `gpt-5-mini` (a reasoning model) took 96 s for
+`gpt-6-luna` is the one in use since 11 October (see "Newer models" below); `gpt-4.1-mini` was in use before (median request 2.6 s, 43 of 45 overlays model-written). `gpt-5-mini` (a reasoning model) took 96 s for
 three moments through the five-agent chain; Phi-4 (open weights) generates at about 25 tokens a second and took 50 s for the same chain;
 Phi-4-mini-instruct never answered inside five seconds; `gpt-5-nano` and `gpt-4.1-nano` were no faster in practice and failed the verifier more
 often. Mistral, Llama and Cohere models cannot be bought on a free subscription (Marketplace). Latency of a shared endpoint varies by a second or
@@ -56,10 +56,14 @@ but is not a chat model (`chatCompletion: false`) and has not been tried.
 
 **Newer models (checked 11 Oct 2026).** The subscription can deploy `gpt-5.4` (also `-mini`, `-nano`, `-pro`), `gpt-5.5`, `gpt-5.6-luna`/`-sol`/`-terra`,
 `gpt-6-astra`/`-luna`/`-sol` and `gpt-6.1-sol`, besides the older `gpt-4.1` family, `o3`/`o4-mini`, `model-router` and `gpt-oss-120b`. All of the `gpt-5`/`gpt-6`
-models reason, so they need `reasoning effort: low` (they refuse `minimal`). On the same 27 live-path requests (nine moments, three cohorts, deadline
-5 s, no cache): `gpt-4.1-mini` median 2.0 s, 90th percentile 2.9 s, 23 of 27 model-written; `gpt-6-luna` median 3.0 s, 90th percentile 4.4 s, 25 of 27
-model-written, with about twice the output tokens (its reasoning is billed as output). `gpt-6-luna` is the cheaper model per token (see the Azure price page) but leaves little room under five seconds, so the overlay path keeps `gpt-4.1-mini`; luna is the candidate for Ask the match, where
-there is no five-second limit.
+models reason, so they need `reasoning effort: low` (they refuse `minimal`) and no temperature; `foundry-register` leaves both out of / puts both into each agent's
+definition by model name (`AgentSettings.for_model`). On the same 27 live-path requests (nine moments, one cohort each, no cache, direct calls): `gpt-4.1-mini` median 2.0 s,
+90th percentile 2.9 s, 23 of 27 model-written; `gpt-6-luna` median 3.0 s, 90th percentile 4.4 s, 25 of 27 model-written, with about twice the output tokens
+(its reasoning is billed as output). Read side by side, luna's headlines say what the moment means and its analyst text gives before and after values instead of
+bare percentages; its casual text is shorter. The facts are the same, so this is a difference of writing, not of information.
+`gpt-6-luna` is the cheaper model per token (see the Azure price page) and costs about a second more, so **the deadline became 6 s, the hedge 4 s, and the
+match center shows a loading bar while the model writes** (template text is on screen first). Through the registered agents, 27 requests: median 2.8 s, 90th percentile
+3.8 s, slowest 4.7 s, 27 of 27 model-written, none rejected. The prices the Brain reports are chosen from the model name (`pricing.py`).
 
 ## Foundry
 
@@ -68,7 +72,7 @@ as a Foundry hosted agent. See [foundry.md](foundry.md).
 
 ## The fast path (`agents/fast.py`)
 
-`POST /api/beats` defaults to `mode: "fast"`, which answers inside `deadlineMs` (5 s). The five-call workflow above
+`POST /api/beats` defaults to `mode: "fast"`, which answers inside `deadlineMs` (6 s). The five-call workflow above
 takes tens of seconds with a real model, so the fast path uses one model call per moment and cohort, in parallel, and
 surrounds it with agents that need no model at all:
 
@@ -99,10 +103,10 @@ identity token and account discovery. `/health` reports `sharedCache`.
 is dropped, an over-long body loses its last sentences, and the result must pass the Verifier again. It never adds a word, so it cannot introduce a
 fact. A text in the wrong language is not repairable. A mended text is level 1.
 
-**Hedging** (`MATCHMIND_HEDGE_S`, 3.2 s). If the first call is slower than that, a second identical call starts and the first answer wins. At 2.2 s,
-about half of all calls were duplicated; at 3.2 s, 16%.
+**Hedging** (`MATCHMIND_HEDGE_S`, 4 s). If the first call is slower than that, a second identical call starts and the first answer wins. With `gpt-4.1-mini`, at 2.2 s
+about half of all calls were duplicated and at 3.2 s, 16%; `gpt-6-luna` is about a second slower, so the hedge moved to 4 s.
 
-### Measured on the deployed Brain
+### Measured on the deployed Brain (with `gpt-4.1-mini`)
 
 15 uncached requests of three cohorts (English casual, Spanish analyst, Turkish casual), `gpt-4.1-mini` through registered Foundry agents, Oct 2026:
 

@@ -531,3 +531,9 @@ body:has(.broadcast) { background: transparent; }
 .ask-form { display: flex; gap: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
 .ask-form input { flex: 1; min-width: 0; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--text); font: inherit; }
 .ask-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.loadbar { height: 4px; border-radius: 2px; overflow: hidden; background: var(--line); margin-top: 6px; }
+.loadbar span { display: block; height: 100%; width: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent), var(--accent-soft), var(--accent)); background-size: 200% 100%; transform-origin: left; animation: loadbar-fill 6s cubic-bezier(.2,.7,.3,1) forwards, loadbar-shine 1.4s linear infinite; }
+@keyframes loadbar-fill { from { transform: scaleX(.04); } to { transform: scaleX(.94); } }
+@keyframes loadbar-shine { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .loadbar span { animation: none; transform: scaleX(.5); } }

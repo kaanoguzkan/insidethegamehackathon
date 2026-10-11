@@ -76,7 +76,7 @@ The reply is the Brain's answer as JSON text: overlays, the agents that wrote th
 Measured on the project: status `completed`, model-written English and Spanish overlays, 2.8 and 4.7 s of server time, about
 12 to 13 s end to end through Foundry's front door. **The first call to a new session can fail**: it returned
 `session_not_ready` after 62 s while the container started, and the next call succeeded. Hosted agents are a good place
-for the pipeline to live and be governed; they are not the low-latency path. The 5-second target applies to the Brain.
+for the pipeline to live and be governed; they are not the low-latency path. The 6-second target applies to the Brain.
 
 Things learned the hard way:
 

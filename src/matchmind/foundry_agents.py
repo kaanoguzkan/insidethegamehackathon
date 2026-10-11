@@ -56,8 +56,14 @@ def register(endpoint: str | None = None, model: str | None = None) -> list[dict
     chat = FoundryChatClient(project_endpoint=endpoint, model=model, credential=cred)
     project = AIProjectClient(endpoint=endpoint, credential=cred)
     out = []
+    settings = AgentSettings.for_model(model)
     for sp in SPECS:
-        agent = Agent(chat, sp.instructions, name=sp.name, default_options={"response_format": sp.output, "temperature": sp.temperature})
+        options: dict[str, Any] = {"response_format": sp.output}
+        if settings.send_temperature:
+            options["temperature"] = sp.temperature  # a reasoning model rejects the parameter outright
+        if settings.reasoning_effort:
+            options["reasoning"] = {"effort": settings.reasoning_effort}  # baked in: a registered agent refuses per-call options
+        agent = Agent(chat, sp.instructions, name=sp.name, default_options=options)
         v = project.agents.create_version(
             agent_name=sp.name, definition=to_prompt_agent(agent), description=sp.description,
             metadata={"promptVersion": prompts.PROMPT_VERSION, "app": "matchmind"},

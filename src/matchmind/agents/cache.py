@@ -78,7 +78,7 @@ class SharedBeatCache:
     * ``get`` looks in memory, then in Cosmos, and keeps what it finds in memory;
     * ``put`` stores in memory at once and writes to Cosmos in the background;
     * every Cosmos call is time-boxed and any error is a miss: the shared layer can only make a request faster, never slower
-      or broken (the request has a 5 s deadline). After a failure the layer is left alone for ``cooldown_s``.
+      or broken (the request has a 6 s deadline). After a failure the layer is left alone for ``cooldown_s``.
 
     ``open_container`` is an async callable returning a Cosmos container client (partition key ``/matchId``).
     """

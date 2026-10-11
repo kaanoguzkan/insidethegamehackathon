@@ -96,6 +96,14 @@ class AgentSettings:
     beat_budget_s: float | None = None  # wall-clock time a beat has to become overlays (None: the caller's default)
 
     @classmethod
+    def for_model(cls, model: str) -> AgentSettings:
+        """The options a named model accepts, whatever the environment says (used when registering agents)."""
+        s = cls()
+        if _REASONING_MODEL.match(model.split("/")[-1]):
+            s.send_temperature, s.reasoning_effort = False, "low"
+        return s
+
+    @classmethod
     def from_env(cls) -> AgentSettings:
         """Settings for the configured model: a reasoning model needs different options and far more time.
 

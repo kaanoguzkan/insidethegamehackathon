@@ -251,3 +251,24 @@ def test_a_tool_that_comes_back_empty_is_asked_again_without_the_filters_the_mod
     res = asyncio.run(A.ask(team, mcp, REG, match_id="m1", question="who had the shots?"))
     assert [a for _, a in mcp.calls] == [{"match_id": "m1", "min_xg": 0.9}, {"match_id": "m1"}]
     assert res.level == 0 and "12 shots" in res.answer
+
+
+def test_prices_follow_the_configured_model(monkeypatch):
+    from matchmind.agents import pricing
+
+    monkeypatch.delenv("MATCHMIND_PRICE_IN_PER_M", raising=False)
+    monkeypatch.delenv("MATCHMIND_PRICE_OUT_PER_M", raising=False)
+    monkeypatch.setenv("MATCHMIND_LLM_MODEL", "gpt-6-luna")
+    assert pricing.prices() == (0.10, 0.50)
+    monkeypatch.setenv("MATCHMIND_LLM_MODEL", "something-unlisted")
+    assert pricing.prices() == pricing.DEFAULT_PRICE  # an unknown model is costed at the dearer default: never understated
+    monkeypatch.setenv("MATCHMIND_PRICE_OUT_PER_M", "9")
+    assert pricing.prices()[1] == 9.0
+
+
+def test_agent_settings_for_a_reasoning_model_leave_out_temperature():
+    from matchmind.agents.team import AgentSettings
+
+    luna, mini = AgentSettings.for_model("gpt-6-luna"), AgentSettings.for_model("gpt-4.1-mini")
+    assert (luna.send_temperature, luna.reasoning_effort) == (False, "low")
+    assert (mini.send_temperature, mini.reasoning_effort) == (True, None)

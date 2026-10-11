@@ -44,9 +44,9 @@ def _wound_down(t: asyncio.Future) -> None:
         t.exception()  # retrieved, so a late failure is not reported as never retrieved
 
 
-# Measured on the live Brain: a call takes about 2.0 s (median) and 3.7 s (95th percentile). Hedging at 2.2 s duplicated about half of
-# all calls (about 50% more tokens); at 3.2 s only the slow tail is hedged and a second call still has time to finish.
-HEDGE_AFTER_S = float(os.environ.get("MATCHMIND_HEDGE_S", "3.2"))  # 0 turns hedging off
+# Measured with gpt-6-luna: a call takes about 3.0 s (median) and 4.4 s (90th percentile) inside a 6 s deadline. Hedging early duplicates
+# a large share of the calls (more tokens, which is the cost this model was chosen to cut); at 4 s only the slow tail is hedged.
+HEDGE_AFTER_S = float(os.environ.get("MATCHMIND_HEDGE_S", "4.0"))  # 0 turns hedging off
 
 
 async def _cache_get(cache, key):  # noqa: ANN001, ANN202

@@ -53,7 +53,7 @@ describe('Brain requests', () => {
     expect(r.elapsedMs).toBe(2700)
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('https://brain.test/api/beats')
-    expect(JSON.parse(init.body)).toMatchObject({ match_id: 'red-card-drama', moment_ids: ['mo-1'], mode: 'fast', deadlineMs: 5000 })
+    expect(JSON.parse(init.body)).toMatchObject({ match_id: 'red-card-drama', moment_ids: ['mo-1'], mode: 'fast', deadlineMs: 6000 })
   })
   it('refuses ids that are not plain slugs before any request', async () => {
     const fetchMock = vi.fn()

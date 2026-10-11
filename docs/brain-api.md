@@ -31,7 +31,7 @@ The request names a match, one to six moments and one to twelve viewer cohorts. 
     {"mode": "casual",  "language": "en"},
     {"mode": "analyst", "language": "es", "perspective": "RED", "focusPlayer": null}
   ],
-  "budget": 3, "mode": "fast", "deadlineMs": 5000, "useCache": true
+  "budget": 3, "mode": "fast", "deadlineMs": 6000, "useCache": true
 }
 ```
 
@@ -43,7 +43,7 @@ The request names a match, one to six moments and one to twelve viewer cohorts. 
 | `cohorts[].focusPlayer` | `null` | **One of the match's player ids** (anything else is refused) |
 | `budget` | 3 | How many non-mandatory moments the Editor may keep as beats (0 to 6) |
 | `mode` | `fast` | `fast`: one model call per cohort inside `deadlineMs`, template text for whatever misses it. `full`: the five-agent workflow (tens of seconds) |
-| `deadlineMs` | 5000 | Fast mode: wall-clock limit for the whole request (500 to 30 000) |
+| `deadlineMs` | 6000 | Fast mode: wall-clock limit for the whole request (500 to 30 000) |
 | `useCache` | true | Serve and store verified model text in the cache |
 
 **Who may use what.** With `MATCHMIND_ADMIN_KEY` set (it is on Azure), `mode: "full"`, `useCache: false` and a `deadlineMs` over 10 000 need the header
@@ -82,12 +82,12 @@ The request names a match, one to six moments and one to twelve viewer cohorts. 
 | 429 | More than 20 `/api/beats` (or 60 `/mcp`) requests a minute from one client; `Retry-After` says when to retry |
 | 503 | More than 8 `/api/beats` requests being served at once; `Retry-After: 2` |
 
-### The five-second guarantee
+### The six-second guarantee
 
 Fast mode answers inside `deadlineMs` whatever the model does. Template text is rendered first for every cohort; the model's text replaces it only
 if it arrives in time and the Verifier accepts it (a rejected text is first mended by the Repairer, which cuts out only what failed). A model call that
-is slower than 3.2 s is hedged with a second identical call and the first answer wins. Measured on the deployed Brain: median 2.6 s, 95th percentile
-4.2 s, no missed deadline in 45 calls ([agents.md](agents.md)). The browser's own limit in the match center is 12 s, a safety net only. The match center sends only a club and a followed player that belong to the match on screen (they survive a change of match in the URL, and the Brain refuses a foreign one).
+is slower than 4 s is hedged with a second identical call and the first answer wins. Measured with the model in use (`gpt-6-luna`, registered agents): median 2.8 s, 90th percentile
+3.8 s, slowest 4.7 s, no missed deadline in 27 requests ([agents.md](agents.md)); the match center shows a loading bar meanwhile. The browser's own limit in the match center is 12 s, a safety net only. The match center sends only a club and a followed player that belong to the match on screen (they survive a change of match in the URL, and the Brain refuses a foreign one).
 
 ## `POST /api/ask`
 

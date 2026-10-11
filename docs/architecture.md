@@ -22,7 +22,7 @@ MatchMind is one Python package (`src/matchmind`) used by every deployment shape
    detects moments. Each moment gets an **evidence pack** (see [metrics.md](metrics.md)).
 4. **Agents.** Two paths over the same evidence packs and the same Verifier ([agents.md](agents.md)). The **workflow**
    (`agents/workflow.py`) chains Editor, Explainer, Storyteller and Localizer with retries; it builds the replay packages and takes tens
-   of seconds per beat with a real model. The **fast path** (`agents/fast.py`) answers a live request inside five seconds: a rule-based
+   of seconds per beat with a real model. The **fast path** (`agents/fast.py`) answers a live request inside six seconds: a rule-based
    Editor and Router, one Composer model call per cohort in parallel, the Verifier, a rule-based Repairer, and template text rendered
    first as the guaranteed answer.
 5. **Overlay Producer** (`agents/producer.py`). Timing from the match clock, one lower-third at a time per
@@ -44,13 +44,13 @@ MatchMind is one Python package (`src/matchmind`) used by every deployment shape
   followed player); cost grows with cohorts, not audience size.
 * **Replay packages for judges.** Static files, no backend and no model at view time, plus a GitHub Pages
   mirror that survives an Azure outage.
-* **The deadline is the design.** A live overlay has five seconds. The template text is rendered *first*, so there is always a verified
+* **The deadline is the design.** A live overlay has six seconds. The template text is rendered *first*, so there is always a verified
   answer; the model's text replaces it only if it arrives in time and passes the Verifier. Late, failed and rejected calls cost nothing but the
   upgrade. Nothing waits for a cancelled call.
 * **Rules before models.** Choosing beats (Editor), choosing who gets a model call (Router), remembering verified text (Cache) and mending
   rejected text (Repairer) need no model, so they cost no tokens and no seconds. The model writes; code decides, checks and repairs.
 * **Never block the event loop.** A single synchronous call that waits for a simulation (6 s on a laptop, 20 s on the container) froze the
-  whole service, health checks and the five-second deadline timer included. Heavy work runs in worker threads, read endpoints serve
+  whole service, health checks and the six-second deadline timer included. Heavy work runs in worker threads, read endpoints serve
   the recorded files, and a test fails if a slow MCP tool stalls `/health`.
 * **Cache only verified model text, in two layers.** Memory in front, Cosmos DB behind; keyed by match, moment, cohort, model and prompt
   version, so a change of either never serves old text. Cosmos can only make a request faster: every call is time-boxed and an error is a miss.
@@ -65,7 +65,7 @@ MatchMind is one Python package (`src/matchmind`) used by every deployment shape
 flowchart LR
   B["Browser<br/>Static Web App or GitHub Pages"] -->|"static replays"| B
   B -->|"Live AI: POST /api/beats"| CA["Container App<br/>the Brain (0 to 2 replicas)"]
-  CA -->|"managed identity"| F["Foundry project<br/>gpt-4.1-mini, registered agents"]
+  CA -->|"managed identity"| F["Foundry project<br/>gpt-6-luna, registered agents"]
   CA <-->|"shared cache"| CO[("Cosmos DB<br/>beats")]
   CA -->|"OpenTelemetry"| AI["Application Insights<br/>(the Foundry project's)"]
   H["Foundry hosted agent<br/>matchmind-newsroom"] --> F

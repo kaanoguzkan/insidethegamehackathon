@@ -42,7 +42,7 @@ class BeatRequest(BaseModel):
     mode: Literal["fast", "full"] = Field(
         "fast", description="fast: one model call per cohort inside deadlineMs, template text for what misses it; full: the five-agent workflow"
     )
-    deadlineMs: int = Field(5000, ge=500, le=30000, description="fast mode: wall-clock limit for the whole request")
+    deadlineMs: int = Field(6000, ge=500, le=30000, description="fast mode: wall-clock limit for the whole request")
     useCache: bool = Field(True, description="fast mode: serve and store verified model text in the Brain's cache")
 
 

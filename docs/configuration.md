@@ -22,7 +22,7 @@ On Azure the Bicep sets the Brain's variables from `azd env` values (names in th
 
 | Variable | Default | Effect |
 |---|---|---|
-| `MATCHMIND_HEDGE_S` | 3.2 | After this many seconds a second identical model call starts and the first answer wins; `0` turns hedging off. Measured: a call has a median of about 2 s and a 95th percentile of about 3.7 s |
+| `MATCHMIND_HEDGE_S` | 4 | After this many seconds a second identical model call starts and the first answer wins; `0` turns hedging off. Measured with `gpt-6-luna`: a call has a median of about 3 s and a 90th percentile of about 4.4 s |
 | `MATCHMIND_SHARED_CACHE` | off | `1` keeps verified model text in Cosmos DB too (needs `COSMOS_ENDPOINT` and the `cosmos` extra); set to `1` by Bicep |
 | `COSMOS_ENDPOINT` | none | The Cosmos DB account; identity only, database `matchmind`, container `beats` |
 | `MATCHMIND_PRELOAD`, `MATCHMIND_PRELOAD_DELAY_S` | off, 10 | `1` loads every match's interpreter in the background after start-up so the first MCP call is not a 20 s simulation; set to `1` by Bicep |
@@ -44,7 +44,7 @@ On Azure the Bicep sets the Brain's variables from `azd env` values (names in th
 
 | Variable | Default | Effect |
 |---|---|---|
-| `MATCHMIND_PRICE_IN_PER_M`, `MATCHMIND_PRICE_OUT_PER_M` | the list price of the model in use | US dollars per million input and output tokens. They only feed the `costUsd` that `/api/ask` and `/api/beats` report; set them to the list price of whatever model you deploy (see `pricing.py`) |
+| `MATCHMIND_PRICE_IN_PER_M`, `MATCHMIND_PRICE_OUT_PER_M` | the list price of the model named by `MATCHMIND_LLM_MODEL` (`pricing.py`; unknown models are costed at the `gpt-4.1-mini` rate) | US dollars per million input and output tokens. They only feed the `costUsd` that `/api/ask` and `/api/beats` report; set them to the list price of whatever model you deploy (see `pricing.py`) |
 
 ## Telemetry
 

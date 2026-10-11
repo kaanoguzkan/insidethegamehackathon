@@ -5,7 +5,7 @@ import type { Cohort, Overlay } from './types'
 export const BRAIN_URL: string = ((import.meta.env.VITE_BRAIN_URL as string | undefined) ?? '').replace(/\/+$/, '')
 export const brainConfigured = BRAIN_URL !== ''
 
-/** The API bounds itself to 5 s; this is only the browser's safety net, with room for the network and a cold start. */
+/** The API bounds itself to 6 s; this is only the browser's safety net, with room for the network and a cold start. */
 const REQUEST_TIMEOUT_MS = 12_000
 /** A Container App that scaled to zero needs a while to start. */
 const WAKE_TIMEOUT_MS = 60_000
@@ -71,7 +71,7 @@ export async function requestBeats(momentId: string, matchId: string, cohorts: C
   const res = await fetch(`${base}/api/beats`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ match_id: matchId, moment_ids: [momentId], cohorts, budget: 1, mode: 'fast', deadlineMs: 5000 }),
+    body: JSON.stringify({ match_id: matchId, moment_ids: [momentId], cohorts, budget: 1, mode: 'fast', deadlineMs: 6000 }),
     signal: signal ? AbortSignal.any([signal, limit]) : limit,
   })
   if (!res.ok) throw new Error(`brain: ${res.status}`)

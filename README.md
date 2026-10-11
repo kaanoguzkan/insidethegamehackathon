@@ -15,7 +15,7 @@ All data is synthetic. The league, clubs, crests and players are fictional.
 **Try it:** the match center runs on Azure Static Web Apps (<https://happy-beach-0379fb50f.5.azurestaticapps.net>) and as a
 GitHub Pages mirror (<http://kaanoguzkan.com/insidethegamehackathon/>). Both play three pre-generated matches from static files, and
 both have a **Live AI** switch that asks the Azure-hosted Brain to write the story for the selected moment *now*, for your viewer
-settings, in under five seconds. The Brain's API is documented in [docs/brain-api.md](docs/brain-api.md).
+settings, in about six seconds at most. The Brain's API is documented in [docs/brain-api.md](docs/brain-api.md).
 
 ## How to use the match center
 
@@ -163,7 +163,7 @@ flowchart LR
   INT <--> MCP["Match Data MCP server<br/>(for outside clients: Copilot, MCP agents)"]
 ```
 
-The live path (the Brain, `POST /api/beats`, five seconds) puts rule-based agents around a single model call per viewer cohort:
+The live path (the Brain, `POST /api/beats`, six seconds) puts rule-based agents around a single model call per viewer cohort:
 
 ```mermaid
 flowchart LR
@@ -186,7 +186,7 @@ Details: [docs/architecture.md](docs/architecture.md), the agents in [docs/agent
 |---|---|---|
 | **Microsoft Agent Framework 1.20** | Editor, Explainer, Storyteller, Localizer, Composer and Recap Writer as `Agent`s; a `WorkflowBuilder` graph with retry loops and fallbacks; rule-based Router, Cache and Repairer agents around the live path | Used and tested: offline with a fault injector that exercises every recovery path, and live against `gpt-4.1-mini` on Foundry |
 | **Model Context Protocol** | Match Data MCP server, 25 tools, served over streamable HTTP | Used and tested, including a real MCP client over HTTP |
-| **Microsoft Foundry** | The model (`gpt-4.1-mini`), eight agents registered as versioned prompt agents that the Brain calls, a hosted agent (`matchmind-newsroom`), Foundry evaluations, and traces in Application Insights | **Run against a live project** (Oct 2026); the SDK parts are experimental. Results and caveats: [docs/foundry.md](docs/foundry.md) |
+| **Microsoft Foundry** | The model (`gpt-6-luna`), eight agents registered as versioned prompt agents that the Brain calls, a hosted agent (`matchmind-newsroom`), Foundry evaluations, and traces in Application Insights | **Run against a live project** (Oct 2026); the SDK parts are experimental. Results and caveats: [docs/foundry.md](docs/foundry.md) |
 | **GitHub Copilot** | Built with it; `.github/copilot-instructions.md` and the MCP config for agent mode | In use |
 | **Azure Container Apps, Static Web Apps, Cosmos DB, Application Insights, Log Analytics, Container Registry** | `infra/` Bicep on the free tier: the Brain, the web app, a shared cache in Cosmos DB (identity only, no keys), traces, a budget with alerts, a daily log cap | **Deployed and verified** (Oct 2026): scale-to-zero cold start, rate limits, the shared cache across a restart, traces. See [docs/running-on-azure.md](docs/running-on-azure.md) |
 | **SignalR, Storage, Key Vault** | Provisioned by the same Bicep | Provisioned only; the app does not use them yet (below) |
@@ -211,7 +211,7 @@ plan's status section.
   number-dense as casual text. `uv run matchmind evals` (CI-gated).
 * **Graceful degradation.** The same three matches three ways: healthy (336 agent-written overlays, 48 template), unreliable model
   (16 first time, 150 recovered by retry, 218 template), outage (all 384 template, none lost).
-* **Live, in five seconds.** On the deployed Brain with `gpt-4.1-mini` (45 uncached model calls, 15 requests of three cohorts each):
+* **Live, inside six seconds.** The numbers below are from the earlier model, `gpt-4.1-mini`; with `gpt-6-luna` (registered agents, 27 uncached requests) the request took a median of 2.8 s, 90th percentile 3.8 s, slowest 4.7 s, all 27 written by the model. On the deployed Brain with `gpt-4.1-mini` (45 uncached model calls, 15 requests of three cohorts each):
   request time median 2.6 s, 95th percentile 4.2 s, no missed deadline; 43 overlays written by the model, 1 mended by the
   Repairer, 1 fell back to a template. A repeated request is served from cache in 2 ms, and from Cosmos DB after a restart in
   about 280 ms. Method and caveats: [docs/agents.md](docs/agents.md).
@@ -236,7 +236,7 @@ tests/ evals/    Python tests (3 slow) + 69 web tests      SOLUTION PLAN.md   de
 
 ## Honest limits
 
-* **Real-model quality is measured on a small scale.** The live numbers above come from one model (`gpt-4.1-mini`), 45 calls and one
+* **Real-model quality is measured on a small scale.** The live numbers above come from one model (`gpt-4.1-mini`; `gpt-6-luna` was measured on 27 requests), 45 calls and one
   afternoon; latency of a shared model endpoint varies by a second or more, which is why the live path has a hard deadline, template
   fallbacks and a hedged second call. The Foundry evaluation scores recorded text and uses a judge from the same model family.
 * **The first request after idle is slow.** The Brain scales to zero (free tier), so a cold start takes about 20 seconds; the page wakes it on load

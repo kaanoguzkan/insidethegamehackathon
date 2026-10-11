@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { t } from '../i18n'
+import { LoadBar } from './LoadBar'
 import { type AskAnswer, askBrain, BRAIN_URL, brainConfigured, prewarm, waitWarm, wakeBrain } from '../lib/brain'
 import type { Replay } from '../lib/data'
 import type { Profile } from '../lib/types'
@@ -89,7 +90,12 @@ export function AskPanel({ replay, profile, ms }: Props) {
             {turn.error && <p className="ask-a caveat">{t(lang, turn.error === 'rate' ? 'askRate' : 'askError')}</p>}
           </div>
         ))}
-        {busy && <p role="status" className="hint">{t(lang, busy === 'waking' ? 'askWaking' : busy === 'loading' ? 'askLoading' : 'askThinking')}</p>}
+        {busy && (
+          <>
+            <p role="status" className="hint">{t(lang, busy === 'waking' ? 'askWaking' : busy === 'loading' ? 'askLoading' : 'askThinking')}</p>
+            <LoadBar seconds={busy === 'asking' ? 6 : 30} />
+          </>
+        )}
         <div ref={end} />
       </div>
       <form className="ask-form" onSubmit={(e) => { e.preventDefault(); void send(text) }}>

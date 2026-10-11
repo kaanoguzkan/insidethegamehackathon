@@ -56,7 +56,8 @@
 * **Quality gates over the three replay packages (384 narrative overlays).** Numeric fidelity 1.0, verification 1.0, language 1.0, honesty about contradicting metrics 1.0, recaps 24 of 24 verified per match, analyst text 3 to 5 times as number-dense as casual.
 * **Resilience demo.** Healthy: 336 agent-written overlays, 48 template. Unreliable model: 16 first time, 150 recovered by retry, 218 template. Outage: all 384 template, none lost.
 * **Tactical shifts.** Defensive shape is compared like with like (opponent in possession, ball in the middle zone); thresholds re-derived at 7 m line / 10 m width: about 0.7 false alarms a match, the scripted shift found in 17 of 20 seeds.
-* **Live latency and quality (new).** Deployed Brain, `gpt-4.1-mini` through registered Foundry agents, 15 uncached requests of three cohorts: median 2.6 s, 95th percentile 4.2 s, no call past the deadline; 43 of 45 overlays written by the model and verified, 1 mended, 1 template; 16% of calls hedged; a repeated request 2 ms from memory and about 280 ms from Cosmos DB after a restart.
+* **Model switched (11 October).** `gpt-6-luna` replaced `gpt-4.1-mini` to cut cost: about a second slower, so the live deadline is 6 s, the hedge 4 s and the match center shows a loading bar; 27 of 27 overlays model-written, median 2.8 s, 90th percentile 3.8 s (`docs/agents.md`).
+* **Live latency and quality (new).** Measured earlier on the deployed Brain, `gpt-4.1-mini` through registered Foundry agents, 15 uncached requests of three cohorts: median 2.6 s, 95th percentile 4.2 s, no call past the deadline; 43 of 45 overlays written by the model and verified, 1 mended, 1 template; 16% of calls hedged; a repeated request 2 ms from memory and about 280 ms from Cosmos DB after a restart.
 * **Independent evaluation (new).** Foundry's evaluators over 30 overlays per group: groundedness, relevance, coherence 30/30 for agent-written text, fluency 26/30; the template control the same on the first three, fluency 24/30 (`docs/foundry.md`).
 * **Concurrency bug found and fixed (new).** A cold MCP call used to take 22 s and freeze `/health` for 20.8 s because loading a match re-simulates it on the event loop; it is now 0.3 s and `/health` answers in 0.3 s throughout. A test fails on the old code.
 * **Models tried (new).** `gpt-4.1-mini` is in use; `gpt-5-mini` took 96 s for the five-agent chain, Phi-4 50 s, Phi-4-mini never answered in five seconds, and the nano models were no faster in practice. Marketplace models cannot be bought on a free subscription.
@@ -845,7 +846,7 @@ Replays cost nothing at viewing time, because their text is generated once when 
 
 **What was measured (10 October).** The table above assumed 1 to 2.5 s per model call in a chain of five. On Foundry the calls take 2 to 4 s each
 (median about 2 s, 95th percentile about 3.7 s), so a five-call chain needs tens of seconds, not five to eight. The built answer is a separate
-**fast path**: one model call per cohort, in parallel, inside a hard five-second deadline, with template text rendered first and a hedged second call for
+**fast path**: one model call per cohort, in parallel, inside a hard deadline (five seconds with `gpt-4.1-mini`, six with `gpt-6-luna`), with template text rendered first and a hedged second call for
 the slow tail. On the deployed Brain (15 requests of three cohorts, 45 calls) the request took a median of 2.6 s and a 95th percentile of 4.2 s, with
 no call past the deadline; the browser adds the network and, after idle, a cold start of about 20 s (hidden by waking the Brain on page load). The
 SignalR hop of the table is not built. See `docs/agents.md` and `docs/brain-api.md`.
