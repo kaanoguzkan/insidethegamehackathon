@@ -124,6 +124,7 @@ class MatchSim(ShapeMixin, SetPieceMixin, ActionsMixin):
         # Phases of play: each team glides between six layouts (see tactics.py): ``phase_w`` is the weight on
         # each of PHASES, ``phase_name`` the one it is mainly in (announced with a phase_change event).
         self.phase_w = [np.array([0.0, 0.5, 0.0, 0.5, 0.0]), np.array([0.0, 0.5, 0.0, 0.5, 0.0])]
+        self.shift_y = [34.0, 34.0]  # the ball's lateral position as each team's shape follows it: smoothed, so a team slides rather than darts
         self.phase_name = ["", ""]
         self.phase_acc: list[dict[str, list[float]]] = [{}, {}]  # per phase: ticks, line height, length, width sums
         self.phase_cand: list[tuple[str, float]] = [("", 0.0), ("", 0.0)]

@@ -18,6 +18,15 @@ ACC = 6.0  # max acceleration, m/s^2
 BASE_URGENCY = 0.068  # urgency of ordinary positional jogging
 PHASE_RATE = 0.75  # how fast a team glides between its phases of play (1/s)
 PHASE_HOLD_S = 2.5  # a phase must hold this long before it is announced
+# A team is a unit around the ball, not a formation pinned to the pitch: the whole shape slides toward the ball's flank, players near the
+# ball lean toward it (support and overloads) and the far-side wide players tuck in instead of staying on their touchline.
+SHIFT_IN, SHIFT_OUT = 0.30, 0.40  # share of the ball's lateral offset the team's shape follows, with and without the ball
+PULL_IN, PULL_OUT = 0.08, 0.10  # share of the gap to the ball that a nearby player closes sideways, with and without the ball
+PULL_REACH = 28.0  # a player farther than this (in depth) from the ball is not drawn toward it
+PULL_MAX = 11.0  # metres, at most
+TUCK = 0.06  # how far the far-side wide players come in when the ball is on the other flank
+SLIDE_TAU_S = 2.2  # time constant of the slide toward the ball, in seconds
+MAX_LENGTH_IN = 43.0  # the team's depth in possession, back line to front line
 
 
 class ShapeMixin:
@@ -132,12 +141,27 @@ class ShapeMixin:
         self._apply_overrides(tgt, urg)
         return tgt, urg
 
+    @staticmethod
+    def _lean_to_ball(y_att: np.ndarray, x_att: np.ndarray, bx: float, by: float, in_poss: bool) -> np.ndarray:
+        """Players near the ball lean toward it (so the carrier always has short options and one flank gets overloaded), and the wide
+        players on the far side tuck in. Everything is in the team's attack frame; far-away players keep the formation's shape."""
+        near = np.clip(1.0 - np.abs(x_att - bx) / PULL_REACH, 0.0, 1.0)
+        side = by - G.CY
+        off = y_att - G.CY
+        central = 1.0 - 0.8 * np.clip(np.abs(off) / (0.45 * G.PITCH_W), 0.0, 1.0)  # wide players hold their width; the central ones close in on the ball
+        pull = np.clip((PULL_IN if in_poss else PULL_OUT) * (by - y_att) * near * central, -PULL_MAX, PULL_MAX)
+        weak = off * np.sign(side) < 0.0
+        tuck = np.where(weak, off * TUCK * min(1.0, abs(side) / (0.6 * G.PITCH_W / 2.0)), 0.0)
+        return y_att + pull - tuck
+
     def _team_targets(self, t: int, focus: np.ndarray, tgt: np.ndarray, urg: np.ndarray) -> None:
         d = self.dir[t]
         st = self.style[t]
         base = t * 11
         in_poss = self.team_in_possession(t)
-        bx, by = G.to_att(focus[0], focus[1], d)
+        bx, by_ball = G.to_att(focus[0], focus[1], d)
+        self.shift_y[t] += (by_ball - self.shift_y[t]) * (1.0 - np.exp(-self.DT / SLIDE_TAU_S))
+        by = self.shift_y[t]  # where the team's shape believes the ball is, laterally; presses and marking still use the real ball
 
         phase = self._target_phase(t, in_poss, bx)
         u_eff, fy = self._blend_phase(t, phase)
@@ -147,8 +171,8 @@ class ShapeMixin:
         if in_poss:
             back = min(62.0, max(12.0, bx - (28.0 + 10.0 * (1.0 - st.line_height))))
             front = min(95.0, max(back + 22.0, bx + 10.0 + 14.0 * st.directness))
-            front = min(front, back + 46.0)
-            shift = (by - G.CY) * 0.22
+            front = min(front, back + MAX_LENGTH_IN)
+            shift = (by - G.CY) * SHIFT_IN
             wscale = 0.85 + 0.30 * st.width
         else:
             line = 14.0 + 24.0 * st.line_height
@@ -157,13 +181,14 @@ class ShapeMixin:
             if phase == "low":  # a low block is short as well as deep
                 back -= 3.0
                 front = min(front, back + 24.0)
-            shift = (by - G.CY) * 0.35
+            shift = (by - G.CY) * SHIFT_OUT
             wscale = 0.72 + 0.14 * st.width
             if st.press_scheme == "wide_trap" and phase == "press":
                 wscale -= 0.05  # a narrow press shuts the middle and leaves the touchline open as the trap
 
         x_att = back + u_eff * (front - back)
         y_att = G.CY + (fy - 0.5) * G.PITCH_W * wscale + shift
+        y_att = self._lean_to_ball(y_att, x_att, bx, by, in_poss)
 
         if in_poss:
             # Stay onside unless running onto a pass (overrides take care of that).
