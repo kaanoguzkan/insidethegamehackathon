@@ -1,0 +1,8 @@
+# The interpreter stage only needs the core scientific/validation libraries: no agent framework, no model.
+azure-functions>=1.20
+azure-cosmos>=4.7
+azure-identity>=1.19
+numpy>=2.0
+pydantic>=2.7
+pyyaml>=6.0
+jsonschema>=4.22

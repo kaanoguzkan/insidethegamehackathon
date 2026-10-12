@@ -10,6 +10,7 @@
     "modelName": { "value": "${MATCHMIND_LLM_MODEL=}" },
     "appInsightsConnectionString": { "value": "${APPINSIGHTS_CONNECTION_STRING_OVERRIDE=}" },
     "adminKey": { "value": "${MATCHMIND_ADMIN_KEY=}" },
+    "liveKey": { "value": "${MATCHMIND_LIVE_KEY=}" },
     "agentsMode": { "value": "${MATCHMIND_AGENTS=}" },
     "corsOrigins": { "value": "${MATCHMIND_CORS_ORIGINS=}" },
     "budgetContact": { "value": "${BUDGET_CONTACT=}" }

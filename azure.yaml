@@ -17,6 +17,15 @@ services:
       # on Apple Silicon too.
       remoteBuild: false
       platform: linux/amd64
+  functions:
+    project: ./apps/functions
+    host: function
+    language: python
+    hooks:
+      # The Functions run the interpreter, so the package carries the matchmind code and the league data it is calibrated with.
+      prepackage:
+        shell: sh
+        run: rm -rf matchmind data && cp -R ../../src/matchmind ./matchmind && mkdir -p data && cp -R ../../data/league ./data/league && find matchmind -name __pycache__ -prune -exec rm -rf {} +
   web:
     project: ./web
     host: staticwebapp
@@ -26,3 +35,8 @@ services:
       prebuild:
         shell: sh
         run: pnpm install --frozen-lockfile && pnpm sync
+hooks:
+  # The simulator job runs the Brain's image. Bicep only knows a placeholder, so point the job at the image just deployed.
+  postdeploy:
+    shell: sh
+    run: az containerapp job update -g "rg-$AZURE_ENV_NAME" -n "caj-$AZURE_ENV_NAME-sim" --image "$SERVICE_BRAIN_IMAGE_NAME" -o none

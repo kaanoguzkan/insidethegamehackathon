@@ -43,6 +43,10 @@ param appInsightsConnectionString string = ''
 @description('Operator key for the Brain\'s expensive options (mode full, useCache false, long deadlines). Empty leaves them open.')
 param adminKey string = ''
 
+@secure()
+@description('Shared secret between the dispatcher Function and the Brain\'s internal live endpoint. Empty leaves that endpoint open.')
+param liveKey string = ''
+
 @description('Extra browser origins allowed to call the Brain API, comma separated (the GitHub Pages site).')
 param corsOrigins string = ''
 
@@ -83,6 +87,7 @@ module resources 'resources.bicep' = {
     agentsMode: agentsMode
     appInsightsConnectionString: appInsightsConnectionString
     adminKey: adminKey
+    liveKey: liveKey
   }
 }
 

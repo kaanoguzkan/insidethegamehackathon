@@ -56,6 +56,11 @@ from matchmind.analytics.report import MatchAnalytics
 from matchmind.analytics.season import load_season
 from matchmind.core.paths import replays_dir
 from matchmind.guards import ADMIN_HEADER, PUBLIC_MAX_DEADLINE_MS, RateLimitMiddleware, is_admin
+from matchmind.live.api import ContainerAppsJobStarter
+from matchmind.live.api import make_router as make_live_router
+from matchmind.live.simulator import make_store as make_live_store
+from matchmind.live.simulator import run as run_simulator
+from matchmind.live.store import LiveStore
 from matchmind.mcp_server.registry import MatchRegistry, UnknownMatch, preload
 from matchmind.mcp_server.server import build_server
 from matchmind.runner import build_analytics
@@ -104,7 +109,7 @@ def make_beat_cache() -> BeatCache | SharedBeatCache:
 
 
 def create_app(
-    registry: MatchRegistry | None = None, llm: str | None = None, director: bool | None = None
+    registry: MatchRegistry | None = None, llm: str | None = None, director: bool | None = None, live_store: LiveStore | None = None
 ) -> FastAPI:
     reg = registry or MatchRegistry()
     faults = Faults()
@@ -194,6 +199,8 @@ def create_app(
         RateLimitMiddleware,
         rules=[
             ("/api/beats", "POST", int(os.environ.get("MATCHMIND_BEATS_PER_MIN", "20")), 60.0),
+            ("/api/live/start", "POST", int(os.environ.get("MATCHMIND_LIVE_START_PER_MIN", "3")), 60.0),
+            ("/api/live", "GET", int(os.environ.get("MATCHMIND_LIVE_POLL_PER_MIN", "240")), 60.0),  # a viewer polls the feed about once a second
             ("/api/ask", "POST", int(os.environ.get("MATCHMIND_ASK_PER_MIN", "10")), 60.0),
             ("/mcp", None, int(os.environ.get("MATCHMIND_MCP_PER_MIN", "60")), 60.0),
         ],
@@ -218,6 +225,30 @@ def create_app(
             reg.want(match)
         start_preload(0.0)  # a replica that was just woken by this very call starts loading now, not after the boot delay
         return {"loaded": reg.loaded(), "status": "ok", "llm": kind, "agents": agents_mode[0], "sharedCache": beat_cache.status() if isinstance(beat_cache, SharedBeatCache) else {"enabled": False}, "version": __version__, "matches": len(reg.ids())}
+
+    # The live pipeline: a simulator job writes a match's feed to Cosmos DB, Functions interpret it and ask this Brain for the narrative overlays,
+    # viewers poll the feed below. See docs/live-pipeline.md.
+    live_holder: list[LiveStore] = [live_store] if live_store is not None else []
+
+    def get_live_store() -> LiveStore:
+        if not live_holder:
+            live_holder.append(make_live_store())
+        return live_holder[0]
+
+    def live_starter() -> ContainerAppsJobStarter | None:
+        job = os.environ.get("LIVE_JOB_ID")
+        return ContainerAppsJobStarter(job, float(os.environ.get("LIVE_SPEED", "5"))) if job else None
+
+    def live_in_process(match_id: str, scenario: str, from_minute: float) -> None:
+        import threading
+
+        threading.Thread(
+            target=run_simulator, daemon=True,
+            kwargs={"scenario_name": scenario, "speed": float(os.environ.get("LIVE_SPEED", "5")), "from_minute": from_minute, "match_id": match_id, "store": get_live_store()},
+        ).start()
+
+    in_process_ok = live_store is not None or os.environ.get("MATCHMIND_LIVE_LOCAL") == "1"  # tests and a laptop: no job, play it in this process
+    app.include_router(make_live_router(get_live_store, get_team, beat_cache, live_starter, live_in_process if in_process_ok else None))
 
     @app.get("/api/matches")
     def matches() -> list[str]:

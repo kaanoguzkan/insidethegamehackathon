@@ -1,0 +1,11 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "COSMOS__accountEndpoint": "https://<account>.documents.azure.com:443/",
+    "COSMOS_ENDPOINT": "https://<account>.documents.azure.com:443/",
+    "BRAIN_URL": "http://localhost:8000",
+    "MATCHMIND_LIVE_KEY": ""
+  }
+}

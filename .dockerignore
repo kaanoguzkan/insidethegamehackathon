@@ -11,3 +11,5 @@ runs
 tests
 docs
 *.png
+apps/functions/matchmind
+apps/functions/data
