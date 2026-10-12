@@ -14,6 +14,7 @@ import hmac
 import json
 import os
 import time
+import urllib.error
 import urllib.request
 from collections.abc import Callable
 from typing import Any, Literal, Protocol
@@ -65,8 +66,11 @@ class ContainerAppsJobStarter:
 
         token = DefaultAzureCredential().get_token("https://management.azure.com/.default").token
         req = urllib.request.Request(url, method=method, data=json.dumps(body).encode() if body is not None else None, headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=30) as r:  # noqa: S310 - a fixed https ARM address
-            raw = r.read()
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:  # noqa: S310 - a fixed https ARM address
+                raw = r.read()
+        except urllib.error.HTTPError as e:  # say what ARM said: a bare "400 Bad Request" hides the reason
+            raise RuntimeError(f"ARM {method} answered {e.code}: {e.read().decode(errors='replace')[:300]}") from e
         return json.loads(raw) if raw else {}
 
     def start(self, match_id: str, scenario: str, from_minute: float) -> None:
@@ -75,7 +79,17 @@ class ContainerAppsJobStarter:
         container = dict(job["properties"]["template"]["containers"][0])
         env = [e for e in container.get("env", []) if not e["name"].startswith("LIVE_")]
         env += [{"name": "LIVE_MATCH_ID", "value": match_id}, {"name": "LIVE_SCENARIO", "value": scenario}, {"name": "LIVE_FROM_MINUTE", "value": str(from_minute)}, {"name": "LIVE_SPEED", "value": str(self.speed)}]
-        self._call("POST", f"{base}/start?api-version={self.API}", {"template": {"containers": [{**container, "env": env}]}})
+        # The start API takes the containers themselves (a StartJobExecutionTemplate), not a job template around them.
+        self._call("POST", f"{base}/start?api-version={self.API}", {"containers": [{**container, "env": env}]})
+
+
+def live_key_ok(supplied: str | None) -> bool:
+    """The internal dispatch endpoint spends model tokens, so it fails closed: without ``MATCHMIND_LIVE_KEY`` nobody gets in, unless
+    ``MATCHMIND_LIVE_OPEN=1`` says this is a development machine."""
+    key = os.environ.get("MATCHMIND_LIVE_KEY")
+    if not key:
+        return os.environ.get("MATCHMIND_LIVE_OPEN") == "1"
+    return hmac.compare_digest(supplied or "", key)
 
 
 def summary(info: dict) -> dict:
@@ -144,8 +158,7 @@ def make_router(
 
     @router.post("/api/live/{match_id}/beats")
     async def beats(match_id: str, req: BeatsRequest, x_live_key: str | None = Header(None, alias=LIVE_KEY_HEADER)) -> dict:
-        key = os.environ.get("MATCHMIND_LIVE_KEY")
-        if key and not hmac.compare_digest(x_live_key or "", key):
+        if not live_key_ok(x_live_key):
             raise HTTPException(403, f"the {LIVE_KEY_HEADER} header is required")
         await asyncio.to_thread(_match, match_id)
         team = await asyncio.to_thread(get_team)
@@ -170,10 +183,15 @@ def make_router(
             raise HTTPException(503, "no simulator job is configured on this Brain")
         # Claim the slot now: the job needs a while to start, and a second visitor must see this match rather than start another.
         await asyncio.to_thread(store().put_match, match_id, {"status": "scheduled", "scenario": req.scenario, "scheduledMs": now, "fromMs": int(req.fromMinute * 60_000)})
-        if job is not None:
-            await asyncio.to_thread(job.start, match_id, req.scenario, req.fromMinute)
-        else:
-            in_process(match_id, req.scenario, req.fromMinute)  # type: ignore[misc]
+        try:
+            if job is not None:
+                await asyncio.to_thread(job.start, match_id, req.scenario, req.fromMinute)
+            else:
+                in_process(match_id, req.scenario, req.fromMinute)  # type: ignore[misc]
+        except Exception as e:  # noqa: BLE001 - release the slot, or the next visitor would wait for a job that never started
+            await asyncio.to_thread(store().put_match, match_id, {"status": "failed", "scenario": req.scenario, "scheduledMs": now, "error": str(e)[:300]})
+            print(f"WARN live start failed: {e}", flush=True)
+            raise HTTPException(502, "the simulator job could not be started") from e
         return {"matchId": match_id, "scenario": req.scenario, "fromMinute": req.fromMinute}
 
     return router

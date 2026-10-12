@@ -1,4 +1,5 @@
 import { INSIGHTS } from './i18n-insights'
+import { LIVE } from './i18n-live'
 import { NAV } from './i18n-nav'
 import type { Lang } from './lib/types'
 
@@ -433,7 +434,11 @@ const tr: Dict = {
   recapWait: 'Maç bu noktaya gelince görünür.',
 }
 
-const DICTS: Record<Lang, Dict> = { en: { ...en, ...INSIGHTS.en, ...NAV.en }, es: { ...es, ...INSIGHTS.es, ...NAV.es }, tr: { ...tr, ...INSIGHTS.tr, ...NAV.tr } }
+const DICTS: Record<Lang, Dict> = {
+  en: { ...en, ...INSIGHTS.en, ...NAV.en, ...LIVE.en },
+  es: { ...es, ...INSIGHTS.es, ...NAV.es, ...LIVE.es },
+  tr: { ...tr, ...INSIGHTS.tr, ...NAV.tr, ...LIVE.tr },
+}
 
 export function t(lang: Lang, key: string): string {
   return DICTS[lang][key] ?? DICTS.en[key] ?? key

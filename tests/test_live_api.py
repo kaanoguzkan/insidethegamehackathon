@@ -79,6 +79,29 @@ def test_the_dispatcher_writes_narrative_overlays_and_a_rerun_adds_none(client, 
     assert client.post("/api/live/nope/beats", json={"momentIds": ["x"]}, headers={"x-live-key": "k3y"}).status_code == 404
 
 
+def test_the_dispatch_endpoint_fails_closed_without_a_key(client, prepared, monkeypatch):
+    _, mid, new = prepared
+    monkeypatch.delenv("MATCHMIND_LIVE_KEY", raising=False)
+    monkeypatch.delenv("MATCHMIND_LIVE_OPEN", raising=False)
+    assert client.post(f"/api/live/{mid}/beats", json={"momentIds": new[:1]}).status_code == 403  # no key configured: nobody gets in
+    assert client.post(f"/api/live/{mid}/beats", json={"momentIds": new[:1]}, headers={"x-live-key": ""}).status_code == 403
+    monkeypatch.setenv("MATCHMIND_LIVE_OPEN", "1")  # a development machine says so explicitly
+    assert client.post(f"/api/live/{mid}/beats", json={"momentIds": new[:1]}).status_code == 200
+
+
+def test_a_job_that_cannot_start_does_not_hold_the_slot(monkeypatch):
+    class Broken:
+        def start(self, *a):  # noqa: ANN002, ANN202
+            raise RuntimeError("ARM POST answered 400")
+
+    monkeypatch.setenv("LIVE_JOB_ID", "/subscriptions/x/jobs/y")
+    monkeypatch.setattr(brain, "ContainerAppsJobStarter", lambda *a: Broken())
+    with TestClient(create_app(live_store=MemoryLiveStore())) as c:
+        assert c.post("/api/live/start", json={"scenario": "red-card-drama"}).status_code == 502
+        monkeypatch.setattr(brain, "ContainerAppsJobStarter", lambda *a: type("Ok", (), {"start": lambda self, *a: None})())
+        assert c.post("/api/live/start", json={"scenario": "red-card-drama"}).status_code == 200  # the failed attempt did not block it
+
+
 def test_starting_a_live_match_claims_the_slot_so_a_second_visitor_joins_it(monkeypatch):
     started: list[tuple] = []
     monkeypatch.setattr(brain, "run_simulator", lambda **kw: started.append((kw["match_id"], kw["scenario_name"], kw["from_minute"])))
