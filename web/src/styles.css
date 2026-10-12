@@ -610,3 +610,6 @@ body:has(.broadcast) { background: transparent; }
 .season-fx.pending .season-fx-score, .season-fx.simulating .season-fx-score { color: var(--muted); font-size: 12px; }
 .season-fx-score { font-variant-numeric: tabular-nums; font-weight: 600; }
 .season-story { color: var(--gold, var(--accent)); font-style: normal; font-size: 11px; }
+
+.season-note { margin: 0 0 6px; font-size: 12px; }
+.chip.aired { color: var(--good); border-color: var(--good); }

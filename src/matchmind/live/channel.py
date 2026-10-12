@@ -66,6 +66,16 @@ class Channel:
             return done[0]
         return None
 
+    def mark_aired(self, season_id: str, fixture_id: str) -> None:
+        key = f"{season_id}/{fixture_id}"
+        aired = list(self.store.get_state(CHANNEL, "aired", []))
+        if key not in aired:
+            self.store.put_state(CHANNEL, "aired", [*aired, key])
+
+    def aired(self, season_id: str) -> list[str]:
+        """The fixtures of the season that have been played on air to the end."""
+        return [k.split("/", 1)[1] for k in self.store.get_state(CHANNEL, "aired", []) if k.startswith(f"{season_id}/")]
+
     # ----- tuning in ------------------------------------------------------------------------------------
 
     def tune(self, fixture_id: str | None = None, speed: float | None = None, *, from_minute: float = 0.0, skip: bool = False) -> dict | None:
@@ -127,6 +137,8 @@ class Channel:
             except Exception as e:  # noqa: BLE001 - a match that cannot be played is taken off air; the next visitor starts the next fixture
                 print(f"WARN channel: {match_id} stopped: {e}", flush=True)
                 self.store.put_state(CHANNEL, "now", {**now, "heartbeatMs": 0})
+            else:  # it was played to the end: the fixture now counts in the table "as broadcast"
+                self.mark_aired(season_id, fx["id"])
 
         self._spawn(run)
         return now

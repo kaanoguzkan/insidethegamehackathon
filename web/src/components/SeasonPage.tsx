@@ -112,6 +112,7 @@ export function SeasonPage({ profile, onProfile }: Props) {
         <div className="season-cols">
           <section className="live-card" aria-label={t(lang, 'season.table')}>
             <h2>{t(lang, 'season.table')}</h2>
+            <p className="muted season-note">{t(lang, 'season.table.simulated')}</p>
             <div className="season-scroll"><SeasonTable rows={view.standings} clubs={view.clubs} lang={lang} /></div>
           </section>
           <section className="live-card" aria-label={t(lang, 'season.fixtures')}>
@@ -127,7 +128,7 @@ export function SeasonPage({ profile, onProfile }: Props) {
                         <span className="season-fx-score">
                           {f.status === 'done' && f.score ? `${f.score[f.home] ?? 0} – ${f.score[f.away] ?? 0}` : f.status === 'simulating' ? t(lang, 'season.running') : t(lang, 'season.pending')}
                         </span>
-                        {f.status === 'done' && <button type="button" className="chip" onClick={() => void watch(f.id)}>{t(lang, 'season.watch')}</button>}
+                        {f.status === 'done' && <button type="button" className={`chip${view.aired.includes(f.id) ? ' aired' : ''}`} onClick={() => void watch(f.id)}>{view.aired.includes(f.id) ? `✓ ${t(lang, 'season.watch')}` : t(lang, 'season.watch')}</button>}
                       </li>
                     ))}
                   </ul>

@@ -42,7 +42,10 @@ export interface SeasonView {
   done: number
   simulating: number
   fixtures: Fixture[]
+  /** Fixtures that have been played on air to the end: the home page's table counts only these (nothing is spoilt). */
+  aired: string[]
   standings: StandingRow[]
+  standingsAired: StandingRow[]
   clubs: Record<string, Club>
 }
 

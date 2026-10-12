@@ -63,6 +63,7 @@ def test_when_the_match_is_over_or_its_player_is_gone_the_next_fixture_goes_on_a
     assert second["fixtureId"] == "f02" and second["matchId"] != first["matchId"]
     third = ch.tune()  # both have been shown: the season starts over
     assert third["fixtureId"] == "f01"
+    assert ch.aired("s1") == ["f01", "f02"]  # a fixture counts once it has been played to the end, and once
     # a player that stopped being heard from (the Brain scaled down mid-match) no longer holds the channel
     store.put_state(CHANNEL, "now", {**store.get_state(CHANNEL, "now"), "heartbeatMs": now_ms() - STALE_MS - 1})
     store.put_match(third["matchId"], {**store.get_match(third["matchId"]), "status": "live"})
@@ -144,6 +145,7 @@ def test_the_season_endpoint_gives_fixtures_standings_and_progress(client):
     top = s["standings"][0]
     assert top["club"] == "SAL" and top["points"] == 3 and top["name"] == "Saltmarsh Town" and len(s["standings"]) == 6
     assert s["clubs"]["RED"]["primary"].startswith("#")
+    assert s["aired"] == [] and all(r["played"] == 0 for r in s["standingsAired"])  # nothing has been on air yet: the table as broadcast is empty
 
 
 def test_simulating_a_new_season_makes_it_current_and_only_one_at_a_time(monkeypatch, packs):

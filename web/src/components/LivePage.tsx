@@ -236,7 +236,8 @@ export function LivePage({ profile, matchId, onMatch, onProfile }: Props) {
               {season?.seasonId && (
                 <>
                   <h2>{t(lang, 'season.channel.table')} · <a href="#/season">{t(lang, 'season.link')}</a></h2>
-                  <SeasonTable rows={season.standings} clubs={season.clubs} lang={lang} compact highlight={m?.home && m.away ? [m.home.id, m.away.id] : []} />
+                  <p className="muted season-note">{t(lang, 'season.channel.asBroadcast')}</p>
+                  <SeasonTable rows={season.standingsAired} clubs={season.clubs} lang={lang} compact highlight={m?.home && m.away ? [m.home.id, m.away.id] : []} />
                 </>
               )}
               <h2>{t(lang, 'live.events')}</h2>
