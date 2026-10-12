@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EvidenceDrawer } from './components/EvidenceDrawer'
 import { Insights, isViewId, type ViewId } from './components/insights/Insights'
 import { LivePage } from './components/LivePage'
+import { SeasonPage } from './components/SeasonPage'
 import { MatchStrip } from './components/MatchStrip'
 import { Popover } from './components/Popover'
 import { ProfilePanel } from './components/ProfilePanel'
@@ -46,11 +47,12 @@ export function App() {
   }, [])
   // Only ids the index lists are loaded; anything else in the URL falls back to the first match.
   const known = new Set((index ?? []).map((m) => m.id))
-  const liveView = route.view === 'live'
+  const liveView = route.view === 'home' || route.view === 'season'
   const matchId = liveView ? null : route.match && known.has(route.match) ? route.match : (index?.[0]?.id ?? null)
   const { replay, error } = useReplay(matchId)
   const lang = route.profile.language
 
+  if (route.view === 'season') return <SeasonPage profile={route.profile} onProfile={(p) => setRoute({ profile: { ...route.profile, ...p } })} />
   if (liveView) {
     return <LivePage profile={route.profile} matchId={route.match} onMatch={(id) => setRoute({ match: id })} onProfile={(p) => setRoute({ profile: { ...route.profile, ...p } })} />
   }
@@ -219,7 +221,8 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
           )}
           <a className="btn" href={`${import.meta.env.BASE_URL}replays/${replay.id}/report.pdf`} target="_blank" rel="noreferrer" title={t(lang, 'reportHint')}>{t(lang, 'report')}</a>
           <a className="btn" href={broadcastHref} target="_blank" rel="noreferrer">{t(lang, 'broadcastLink')}</a>
-          <a className="btn" href="#/live">{t(lang, 'live.link')}</a>
+          <a className="btn" href="#/">{t(lang, 'live.link')}</a>
+          <a className="btn" href="#/season">{t(lang, 'season.link')}</a>
         </div>
       </header>
 

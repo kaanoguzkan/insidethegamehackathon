@@ -1,173 +1,94 @@
-"""Season history, the prediction, milestones, radars and the new cards and recaps."""
+"""A season: the schedule, the table, claiming fixtures from several workers, and the season job."""
 
 from __future__ import annotations
 
-import numpy as np
-import pytest
+import threading
 
-from matchmind.agents import recap as recap_writer
-from matchmind.agents import templates as T
-from matchmind.agents import verify as V
-from matchmind.analytics.season import (
-    FEATURED,
-    FEATURED_ROUND,
-    ROUNDS_PLAYED,
-    context_for,
-    fixtures,
-    goal_milestones,
-    load_season,
-    poisson_grid,
-    predict,
-    radars,
-    standings,
-    team_radars,
-)
-from matchmind.core.contracts import Chip, Cohort
-from matchmind.intel.recap import build_preview_pack
-
-SEASON = load_season()
-CLUBS = ["HAR", "NOR", "RED", "KES", "ALD", "SAL"]
+from matchmind.live import season as S
+from matchmind.live.blobs import MemoryBlobs
+from matchmind.live.packs import read_pack
+from matchmind.live.season_job import create_season, run_worker, simulate_fixture
 
 
-@pytest.fixture(scope="module")
-def ctx():
-    return context_for(SEASON, "HAR", "NOR")
+def test_the_schedule_is_a_double_round_robin_that_opens_with_the_three_stories():
+    sched = S.schedule()
+    assert len(sched) == 30 and {r for r, _, _ in sched} == set(range(1, 11))
+    assert all(sum(1 for r, *_ in sched if r == k) == 3 for k in range(1, 11))
+    for k in range(1, 11):  # every club plays once in every round
+        assert sorted(c for r, h, a in sched if r == k for c in (h, a)) == sorted(S.CLUB_ORDER)
+    pairs = [(h, a) for _, h, a in sched]
+    assert len(set(pairs)) == 30 and all(a != h for h, a in pairs)  # every ordered pair exactly once: home and away
+    assert [(h, a) for r, h, a in sched if r == 1] == [("RED", "SAL"), ("HAR", "NOR"), ("KES", "ALD")]
 
 
-def test_the_fixture_list_is_a_proper_double_round_robin():
-    fx = fixtures(CLUBS)
-    last = [m for ms in fx["2025/26"].values() for m in ms]
-    assert len(last) == 30 and len({tuple(m) for m in last}) == 30
-    for r, ms in fx["2025/26"].items():
-        assert sorted(c for m in ms for c in m) == sorted(CLUBS), f"round {r}: everyone plays once"
-    this = fx["2026/27"]
-    assert sorted(this) == list(range(1, ROUNDS_PLAYED + 1))
-    played = {frozenset(m) for ms in this.values() for m in ms}
-    assert not played & {frozenset(p) for p in FEATURED}, "the featured round has not been played yet"
-    assert FEATURED_ROUND == ROUNDS_PLAYED + 1
+def test_a_planned_season_gives_the_stories_to_round_one_and_its_own_seeds_to_the_rest():
+    season, fx = S.plan("s1", 7, featured=True)
+    assert season["total"] == 30 and [f["id"] for f in fx[:3]] == ["f01", "f02", "f03"]
+    assert [f["scenario"] for f in fx[:3]] == ["red-card-drama", "pressing-collapse", "high-line-gamble"] and all(f["scenario"] is None for f in fx[3:])
+    assert [f["seed"] for f in fx[:3]] == [102, 104, 85] and len({f["seed"] for f in fx}) == 30
+    _, other = S.plan("s2", 7, featured=False)
+    assert [f["seed"] for f in other[:3]] != [102, 104, 85] and all(f["status"] == "pending" for f in other)
 
 
-def test_the_history_is_complete_and_consistent():
-    assert SEASON and len(SEASON["matches"]) == 42
-    for m in SEASON["matches"]:
-        assert m["score"] == [sum(g["team"] == m["home"] for g in m["goals"]), sum(g["team"] == m["away"] for g in m["goals"])]
-        assert {p["team"] for p in m["players"]} == {m["home"], m["away"]}
-    table = standings([m for m in SEASON["matches"] if m["season"] == "2026/27"], CLUBS)
-    assert all(r["played"] == ROUNDS_PLAYED for r in table)
-    assert sum(r["gf"] for r in table) == sum(r["ga"] for r in table)
-    assert [r["pos"] for r in table] == list(range(1, 7))
-    assert table == sorted(table, key=lambda r: (-r["pts"], -r["gd"], -r["gf"], r["club"]))
-
-
-def test_context_has_form_streaks_head_to_head_and_records(ctx):
-    assert set(ctx["form"]) == {"HAR", "NOR"} and all(len(f) <= 5 and set(f) <= set("WDL") for f in ctx["form"].values())
-    rec = ctx["headToHead"]["record"]
-    assert sum(rec.values()) == len(ctx["headToHead"]["meetings"]) or len(ctx["headToHead"]["meetings"]) == 4
-    assert ctx["records"]["fastestGoal"]["minute"] < 5 and ctx["records"]["mostGoalsByPlayer"]["n"] >= 2
-    assert ctx["topScorers"][0]["goals"] >= ctx["topScorers"][-1]["goals"]
-    assert context_for({}, "HAR", "NOR") == {}
-
-
-def test_the_prediction_is_a_probability_and_prefers_the_stronger_side(ctx):
-    p = ctx["prediction"]
-    assert p["home"] + p["draw"] + p["away"] == pytest.approx(1.0, abs=0.01)
-    rating = ctx["ratings"]
-    stronger = "NOR" if rating["NOR"]["att"] * rating["HAR"]["def"] > rating["HAR"]["att"] * rating["NOR"]["def"] else "HAR"
-    assert (p["away"] > p["home"]) == (stronger == "NOR")
-    assert sum(s["p"] for s in p["scores"]) < 1 and p["strength"]["HAR"] > 0
-    assert poisson_grid(1.3, 1.1).sum() == pytest.approx(1.0, abs=0.01)
-    even = predict("HAR", "NOR", {"HAR": {"att": 1, "def": 1}, "NOR": {"att": 1, "def": 1}}, 1.3)
-    assert even["home"] == pytest.approx(even["away"], abs=1e-3)
-
-
-def test_milestones_fire_for_the_right_goals(ctx):
-    pid = "NOR-23"
-    tally = ctx["players"][pid]["goals"]
-    ms = goal_milestones(ctx, [], {"team": "NOR", "player": pid, "minute": 20.0}, "HAR")
-    if tally + 1 in (1, 5, 10, 15):
-        assert any(m["kind"] == "season_goals" and m["n"] == tally + 1 for m in ms)
-    two = [{"team": "NOR", "player": pid, "minute": 5.0}, {"team": "NOR", "player": pid, "minute": 9.0}]
-    assert goal_milestones(ctx, two, {"team": "NOR", "player": pid, "minute": 30.0}, "HAR")[0]["kind"] == "hat_trick"
-    fast = goal_milestones(ctx, [], {"team": "HAR", "player": "HAR-09", "minute": 0.05}, "NOR")
-    assert any(m["kind"] == "fastest_goal" for m in fast)
-    assert goal_milestones({}, [], {"team": "HAR", "player": "HAR-09", "minute": 1.0}, "NOR") == []
-    streak = {**ctx, "streaks": {**ctx["streaks"], "HAR": {**ctx["streaks"]["HAR"], "cleanSheets": 3}}}
-    assert any(m["kind"] == "ends_clean_sheet_run" and m["n"] == 3 for m in goal_milestones(streak, [], {"team": "NOR", "player": "NOR-21", "minute": 40.0}, "HAR"))
-
-
-def test_radars_are_percentiles_and_similar_players_are_peers():
-    rows = SEASON["matches"][-1]["players"]
-    out = radars(SEASON, rows)
-    assert out
-    for pid, r in out.items():
-        assert all(0.0 <= a["pct"] <= 1.0 for a in r["axes"])
-        assert len(r["similar"]) == 3 and all(s["id"] != pid for s in r["similar"])
-        pos = next(p["pos"] for p in rows if p["id"] == pid)
-        assert all(next(q["pos"] for m in SEASON["matches"] for q in m["players"] if q["id"] == s["id"]) is not None for s in r["similar"])
-        assert r["group"] in ("ATT", "MID", "DEF", "GK") and pos
-    tr = team_radars(SEASON, ["HAR", "NOR"])
-    assert all(0.0 <= a["scaled"] <= 1.0 for axes in tr.values() for a in axes)
-    assert radars({}, rows) == {} and team_radars({}, ["HAR"]) == {}
-
-
-# ---------------------------------------------------------------------------------------------
-# Cards and recaps
-# ---------------------------------------------------------------------------------------------
-
-NAMES = {"HAR": "Harbour", "NOR": "Northbridge", "NOR-23": "Callum Roweov", "HAR-09": "Marco Quinski"}
-
-
-@pytest.mark.parametrize("lang", ["en", "es", "tr"])
-def test_every_new_card_renders_in_every_language(lang):
-    facts = [
-        {"type": "line_break_card", "team": "HAR", "player": "HAR-09", "values": {"bypassed": 9, "lines": 3, "receiver": "NOR-23", "distanceM": 31.0}},
-        {"type": "run_card", "team": "HAR", "player": "HAR-09", "values": {"kind": "in_behind", "distanceM": 31.2, "peakKmh": 24.5}},
-        {"type": "run_card", "team": "HAR", "player": "HAR-09", "values": {"kind": "overlap", "distanceM": 27.0, "peakKmh": 18.0}},
-        {"type": "run_card", "team": "HAR", "player": "HAR-09", "values": {"kind": "drop", "distanceM": 22.0, "peakKmh": 14.0}},
-        {"type": "load_card", "team": "HAR", "player": "HAR-09", "values": {"km": 11.4, "hsrM": 1830, "sprintM": 240, "acc": 90, "half": False}},
-        {"type": "milestone_card", "team": "HAR", "player": "HAR-09", "values": {"kind": "hat_trick"}},
-        {"type": "milestone_card", "team": "HAR", "player": "HAR-09", "values": {"kind": "season_goals", "n": 5}},
-        {"type": "milestone_card", "team": "HAR", "player": "HAR-09", "values": {"kind": "fastest_goal", "minute": 0.3, "previous": 0.6}},
-        {"type": "milestone_card", "team": "NOR", "player": None, "values": {"kind": "ends_clean_sheet_run", "n": 3}},
+def test_the_table_counts_only_finished_fixtures_and_orders_by_points_then_goal_difference():
+    fx = [
+        {"home": "A", "away": "B", "status": "done", "score": {"A": 2, "B": 0}},
+        {"home": "C", "away": "A", "status": "done", "score": {"C": 1, "A": 1}},
+        {"home": "B", "away": "C", "status": "done", "score": {"B": 3, "C": 0}},
+        {"home": "B", "away": "A", "status": "pending", "score": None},
     ]
-    for f in facts:
-        card = T.fact_card(f, lang, NAMES)
-        assert card is not None, f
-        head, body, chips, kind = card
-        assert head and kind in ("stat_card", "pass_card")
-        assert "{" not in head + body and all(isinstance(c, Chip) for c in chips)
+    t = S.standings(fx, {"A": "Alpha", "B": "Bravo", "C": "Charlie"})
+    assert [(r["club"], r["points"], r["gd"], r["played"]) for r in t] == [("A", 4, 2, 2), ("B", 3, 1, 2), ("C", 1, -3, 2)]
+    assert t[0]["name"] == "Alpha" and (t[0]["won"], t[0]["drawn"], t[0]["lost"], t[0]["gf"], t[0]["ga"]) == (1, 1, 0, 3, 1)
 
 
-def test_the_goal_story_quotes_the_win_probability_in_every_language():
-    from packs import packs  # hand-built packs shaped like the interpreter's
+def test_several_workers_simulate_each_fixture_exactly_once():
+    store = S.MemorySeasonStore()
+    create_season(store, "s1", 1, featured=False)
+    seen: list[str] = []
+    lock = threading.Lock()
 
-    base = packs()["goal"]
-    goal = {**base, "metrics": {f"{base['subjectTeam']}.win_prob": {"before": 38.0, "after": 71.0, "delta": 33.0, "changePct": 87.0}}}
-    for lang, needle in (("en", "Win probability 38% to 71%"), ("es", "del 38% al 71%"), ("tr", "yüzde 38 iken yüzde 71")):
-        v = T.render(goal, Cohort(mode="analyst", language=lang))
-        assert needle in v.body, (lang, v.body)
-        assert not [i for i in V.verify_text(v.body, goal, lang) if i.severity == "error"]
+    def fake(fx, clubs, packs):  # noqa: ANN001, ANN202
+        with lock:
+            seen.append(fx["id"])
+        return {fx["home"]: 1, fx["away"]: 0}
 
-
-def test_the_preview_carries_the_prediction_and_verifies(ctx):
-    meta = {
-        "matchId": "m", "home": {"id": "HAR", "name": "Harbour City", "short": "Harbour", "formation": "4-3-3", "lineup": ["HAR-09"], "style": {},
-                                 "players": {"HAR-09": {"name": "Marco Quinski", "pos": "ST", "rating": 80}}},
-        "away": {"id": "NOR", "name": "Northbridge Athletic", "short": "Northbridge", "formation": "4-2-3-1", "lineup": ["NOR-23"], "style": {},
-                 "players": {"NOR-23": {"name": "Callum Roweov", "pos": "ST", "rating": 82}}},
-    }
-    pack = build_preview_pack(meta, ctx)
-    pred = pack["facts"]["prediction"]
-    assert pred["homePct"] + pred["drawPct"] + pred["awayPct"] in (99, 100, 101)
-    for lang in ("en", "es", "tr"):
-        for mode in ("analyst", "casual"):
-            r = recap_writer.render(pack, Cohort(mode=mode, language=lang))
-            assert "{" not in r.summary
-            if mode == "analyst":
-                assert str(pred["homePct"]) in r.summary and "position" in r.summary or lang != "en"
-            assert not [i for i in V.verify_text(f"{r.headline}. {r.summary}", pack, lang) if i.severity == "error"], (lang, mode, r.summary)
-    assert "prediction" not in build_preview_pack(meta, None)["facts"]
+    done = []
+    threads = [threading.Thread(target=lambda i=i: done.append(run_worker("s1", store, MemoryBlobs(), f"w{i}", simulate_one=fake, clubs={}))) for i in range(5)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert sorted(seen) == [f"f{i:02d}" for i in range(1, 31)] and sum(done) == 30  # nobody did a fixture twice, nobody left one
+    assert all(f["status"] == "done" and f["pack"] == f"s1/{f['id']}" for f in store.fixtures("s1"))
 
 
-def test_preview_percentages_are_whole_numbers():
-    assert np.isclose(sum(context_for(SEASON, "RED", "SAL")["prediction"][k] for k in ("home", "draw", "away")), 1.0, atol=0.01)
+def test_an_abandoned_claim_is_taken_over_and_a_failure_goes_back_to_pending():
+    store = S.MemorySeasonStore()
+    create_season(store, "s1", 1, featured=False)
+    first = store.claim("s1", "dead-worker")
+    assert first["id"] == "f01" and store.claim("s1", "other")["id"] == "f02"  # f01 is held, so the next one is handed out
+    store._fixtures["s1"]["f01"]["claimedMs"] = 1  # the claim is ancient
+    assert store.claim("s1", "rescuer")["id"] == "f01"
+    calls = {"n": 0}
+
+    def flaky(fx, clubs, packs):  # noqa: ANN001, ANN202
+        calls["n"] += 1
+        if fx["id"] == "f03" and calls["n"] < 4:
+            raise RuntimeError("boom")
+        return {fx["home"]: 0, fx["away"]: 0}
+
+    run_worker("s1", store, MemoryBlobs(), "w", simulate_one=flaky, clubs={})
+    f03 = next(f for f in store.fixtures("s1") if f["id"] == "f03")
+    assert f03["status"] == "done"  # it failed once, went back to pending, and was claimed again
+
+
+def test_a_real_fixture_is_simulated_into_a_pack_with_its_score(tmp_path):
+    from matchmind.core.paths import league_dir
+    from matchmind.sim.league import load_league
+
+    store, packs = S.MemorySeasonStore(), MemoryBlobs()
+    create_season(store, "s9", 3, featured=True)
+    fx = store.claim("s9", "t")  # f01: Redmoor v Saltmarsh, the red-card story
+    score = simulate_fixture(fx, load_league(league_dir() / "league.json"), packs)
+    assert set(score) == {"RED", "SAL"} and score == {"RED": 1, "SAL": 2}  # seed 102: the story's result
+    pack = read_pack(packs, "s9/f01")
+    assert pack is not None and pack.match_id == "s9-f01" and pack.meta["scenario"] == "red-card-drama" and pack.n_chunks > 1000

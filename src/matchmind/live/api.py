@@ -74,14 +74,18 @@ class ContainerAppsJobStarter:
             raise RuntimeError(f"ARM {method} answered {e.code}: {e.read().decode(errors='replace')[:300]}") from e
         return json.loads(raw) if raw else {}
 
-    def start(self, match_id: str, scenario: str, from_minute: float) -> None:
+    def run(self, env_overrides: dict[str, str]) -> None:
+        """Start an execution of the job with these environment variables added to its own."""
         base = f"https://management.azure.com{self.job_id}"
         job = self._call("GET", f"{base}?api-version={self.API}")
         container = dict(job["properties"]["template"]["containers"][0])
-        env = [e for e in container.get("env", []) if not e["name"].startswith("LIVE_")]
-        env += [{"name": "LIVE_MATCH_ID", "value": match_id}, {"name": "LIVE_SCENARIO", "value": scenario}, {"name": "LIVE_FROM_MINUTE", "value": str(from_minute)}, {"name": "LIVE_SPEED", "value": str(self.speed)}]
+        keep = [e for e in container.get("env", []) if e["name"] not in env_overrides]
+        env = [*keep, *({"name": k, "value": v} for k, v in env_overrides.items())]
         # The start API takes the containers themselves (a StartJobExecutionTemplate), not a job template around them.
         self._call("POST", f"{base}/start?api-version={self.API}", {"containers": [{**container, "env": env}]})
+
+    def start(self, match_id: str, scenario: str, from_minute: float) -> None:
+        self.run({"LIVE_MATCH_ID": match_id, "LIVE_SCENARIO": scenario, "LIVE_FROM_MINUTE": str(from_minute), "LIVE_SPEED": str(self.speed)})
 
 
 def live_key_ok(supplied: str | None) -> bool:

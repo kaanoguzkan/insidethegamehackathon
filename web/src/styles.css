@@ -585,3 +585,28 @@ body:has(.broadcast) { background: transparent; }
 .live-push { font-size: 12px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
 .live-push.live { color: var(--good); border-color: var(--good); }
 .live-push.down { color: var(--warn); border-color: var(--warn); }
+
+/* ---------- Home (live channel) and season ---------- */
+.live-nav { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; width: 100%; }
+.live-brand { font-size: 1.15rem; letter-spacing: .02em; margin-right: 6px; }
+.live-tuning { text-align: center; padding: 28px 16px; }
+.season-bar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 8px; }
+.season-progress { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin-bottom: 6px; }
+.season-progress span { display: block; height: 100%; background: var(--accent); transition: width .6s ease; }
+.season-cols { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .season-cols { grid-template-columns: 1fr; } }
+.season-scroll { overflow-x: auto; }
+.season-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.season-table th, .season-table td { padding: 5px 6px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.season-table th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.season-table .left { text-align: left; }
+.season-table tr.on td { background: var(--accent-soft); }
+.season-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: -1px; }
+.season-rounds { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.season-round { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+.season-round h3 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.season-round ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.season-fx { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; font-size: 13px; }
+.season-fx.pending .season-fx-score, .season-fx.simulating .season-fx-score { color: var(--muted); font-size: 12px; }
+.season-fx-score { font-variant-numeric: tabular-nums; font-weight: 600; }
+.season-story { color: var(--gold, var(--accent)); font-style: normal; font-size: 11px; }

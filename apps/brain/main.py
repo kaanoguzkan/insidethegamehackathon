@@ -59,6 +59,10 @@ from matchmind.guards import ADMIN_HEADER, PUBLIC_MAX_DEADLINE_MS, RateLimitMidd
 from matchmind.live.api import ContainerAppsJobStarter
 from matchmind.live.api import make_router as make_live_router
 from matchmind.live.blobs import Blobs
+from matchmind.live.channel import Channel
+from matchmind.live.season import SeasonStore
+from matchmind.live.season_api import make_season_router
+from matchmind.live.season_job import create_season, make_season_store, run_worker
 from matchmind.live.simulator import make_blobs as make_live_blobs
 from matchmind.live.simulator import make_store as make_live_store
 from matchmind.live.simulator import run as run_simulator
@@ -112,7 +116,7 @@ def make_beat_cache() -> BeatCache | SharedBeatCache:
 
 def create_app(
     registry: MatchRegistry | None = None, llm: str | None = None, director: bool | None = None, live_store: LiveStore | None = None,
-    live_frames: Blobs | None = None,
+    live_frames: Blobs | None = None, season_store: SeasonStore | None = None, live_packs: Blobs | None = None,
 ) -> FastAPI:
     reg = registry or MatchRegistry()
     faults = Faults()
@@ -203,6 +207,8 @@ def create_app(
         rules=[
             ("/api/beats", "POST", int(os.environ.get("MATCHMIND_BEATS_PER_MIN", "20")), 60.0),
             ("/api/live/start", "POST", int(os.environ.get("MATCHMIND_LIVE_START_PER_MIN", "3")), 60.0),
+            ("/api/season/simulate", "POST", 2, 60.0),
+            ("/api/channel/tune", "POST", 20, 60.0),
             ("/api/live", "GET", int(os.environ.get("MATCHMIND_LIVE_POLL_PER_MIN", "240")), 60.0),  # a viewer polls the feed about once a second
             ("/api/ask", "POST", int(os.environ.get("MATCHMIND_ASK_PER_MIN", "10")), 60.0),
             ("/mcp", None, int(os.environ.get("MATCHMIND_MCP_PER_MIN", "60")), 60.0),
@@ -245,6 +251,44 @@ def create_app(
             frames_holder.append(make_live_blobs("frames"))
         return frames_holder[0]
 
+    season_holder: list[SeasonStore] = [season_store] if season_store is not None else []
+    packs_holder: list[Blobs] = [live_packs] if live_packs is not None else []
+    channel_holder: list[Channel] = []
+
+    def get_seasons() -> SeasonStore:
+        if not season_holder:
+            season_holder.append(make_season_store())
+        return season_holder[0]
+
+    def get_packs() -> Blobs:
+        if not packs_holder:
+            packs_holder.append(make_live_blobs("packs"))
+        return packs_holder[0]
+
+    def get_channel() -> Channel:
+        if not channel_holder:
+            channel_holder.append(Channel(get_live_store(), get_seasons(), get_packs(), get_live_frames(), speed=float(os.environ.get("LIVE_SPEED", "5"))))
+        return channel_holder[0]
+
+    def run_season_job(season_id: str) -> None:
+        """Simulate a season: the season Container Apps Job (several replicas claim fixtures), or threads of this process on a laptop and in tests."""
+        job = os.environ.get("SEASON_JOB_ID")
+        if job:
+            ContainerAppsJobStarter(job, 0.0).run({"SEASON_ID": season_id})
+            return
+        import threading
+
+        for i in range(3):
+            threading.Thread(target=run_worker, args=(season_id, get_seasons(), get_packs(), f"local-{i}"), daemon=True).start()
+
+    def ensure_default_season() -> None:
+        """A site with no season yet (a fresh deployment) plans the default one and has it simulated, so the first visitor is not met by nothing."""
+        seasons = get_seasons()
+        if seasons.current() is None:
+            create_season(seasons, "season-1", 1, featured=True)
+            seasons.set_current("season-1")
+            run_season_job("season-1")
+
     def live_starter() -> ContainerAppsJobStarter | None:
         job = os.environ.get("LIVE_JOB_ID")
         return ContainerAppsJobStarter(job, float(os.environ.get("LIVE_SPEED", "5"))) if job else None
@@ -259,6 +303,8 @@ def create_app(
 
     in_process_ok = live_store is not None or os.environ.get("MATCHMIND_LIVE_LOCAL") == "1"  # tests and a laptop: no job, play it in this process
     app.include_router(make_live_router(get_live_store, get_team, beat_cache, live_starter, live_in_process if in_process_ok else None, get_live_frames))
+    season_ok = bool(os.environ.get("SEASON_JOB_ID")) or in_process_ok or season_store is not None
+    app.include_router(make_season_router(get_channel, get_seasons, get_live_store, run_season_job if season_ok else None, ensure_default_season if season_ok else None))
 
     @app.get("/api/matches")
     def matches() -> list[str]:

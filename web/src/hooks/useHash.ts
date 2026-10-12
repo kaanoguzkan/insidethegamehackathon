@@ -3,7 +3,8 @@ import { DEFAULT_PROFILE, type Lang, type Mode, type Profile } from '../lib/type
 import { CAMS, type Cam } from '../lib/webgl'
 
 export interface Route {
-  view: 'center' | 'broadcast' | 'live'
+  /** home: the live channel (a match is on when you arrive); season: the table and fixtures; center: the replay match center; broadcast: overlays only */
+  view: 'home' | 'season' | 'center' | 'broadcast'
   match: string | null
   profile: Profile
   split: boolean
@@ -26,7 +27,11 @@ export function parseHash(hash: string): Route {
   const lang = q.get('lang') as Lang | null
   const mode = q.get('mode') as Mode | null
   const broadcast = path.startsWith('/broadcast')
-  const live = path.startsWith('/live')
+  const season = path.startsWith('/season')
+  const replay = path.startsWith('/replay')
+  const requested = q.get('match')
+  // Links made before the live channel became the home page (`#/?match=red-card-drama`) name a replay: they still open one.
+  const oldReplayLink = (path === '' || path === '/') && requested !== null && !requested.startsWith('live-')
   const profile: Profile = {
     ...DEFAULT_PROFILE,
     language: lang && LANGS.includes(lang) ? lang : DEFAULT_PROFILE.language,
@@ -43,7 +48,7 @@ export function parseHash(hash: string): Route {
   const t = q.get('t')
   const step = STEPS.find((x) => x === q.get('step')) ?? 'watch'
   return {
-    view: broadcast ? 'broadcast' : live ? 'live' : 'center',
+    view: broadcast ? 'broadcast' : season ? 'season' : replay || oldReplayLink ? 'center' : 'home',
     match: q.get('match'),
     profile,
     split: q.get('split') === '1',
@@ -71,7 +76,8 @@ export function buildHash(r: Omit<Route, 't'> & { t?: number | null }): string {
   if (r.step === 'explore' && r.tab) q.set('tab', r.tab)
   if (r.cam) q.set('cam', r.cam)
   if (r.follow) q.set('follow', '1')
-  return `#/${r.view === 'broadcast' ? 'broadcast' : r.view === 'live' ? 'live' : ''}?${q.toString()}`
+  const path = { home: '', season: 'season', center: 'replay', broadcast: 'broadcast' }[r.view]
+  return `#/${path}?${q.toString()}`
 }
 
 /** The whole view state lives in the URL hash, so any view is shareable and refresh-safe. */

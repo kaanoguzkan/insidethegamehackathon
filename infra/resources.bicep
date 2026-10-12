@@ -83,7 +83,7 @@ resource blobs 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
   name: 'default'
 }
 
-resource containers 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = [for c in ['replays', 'frames', 'checkpoints', 'deployments']: {
+resource containers 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = [for c in ['replays', 'frames', 'checkpoints', 'packs', 'deployments']: {
   parent: blobs
   name: c
   properties: { publicAccess: 'None' }
@@ -134,6 +134,7 @@ var cosmosContainers = [
   { name: 'profiles', pk: '/profileId' }
   { name: 'players', pk: '/clubId' }
   { name: 'leases', pk: '/id' }
+  { name: 'season', pk: '/seasonId' } // the season's fixtures and results (live/season.py)
 ]
 
 resource cosmosContainerResources 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = [for c in cosmosContainers: {
@@ -325,6 +326,7 @@ resource brain 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'MATCHMIND_CORS_ORIGINS', value: corsOrigins } // other sites that call the API from the browser (GitHub Pages)
             { name: 'MATCHMIND_AGENT_TIMEOUT_S', value: '30' } // a model call may use up to this long, never more than the request has left
             { name: 'MATCHMIND_BEAT_BUDGET_S', value: '90' } // the five-agent workflow (mode "full") needs far more than the 15 s default
+            { name: 'SEASON_JOB_ID', value: seasonJob.id } // the job that simulates a season, several replicas at once
             { name: 'LIVE_JOB_ID', value: simJob.id } // the simulator job the "start a live match" endpoint runs
             { name: 'LIVE_PUSH_URL', value: 'https://${funcApp.properties.defaultHostName}/api' } // where browsers connect for SignalR pushes (the negotiate Function)
             { name: 'LIVE_SPEED', value: '5' } // match seconds per real second: a 15 s model call is then a 75 s delay in match time, so keep it low
@@ -382,6 +384,54 @@ resource simJob 'Microsoft.App/jobs@2024-03-01' = {
         }
       ]
     }
+  }
+}
+
+// The season job: several replicas at once, each claiming fixtures (simulate, store the match pack, record the result) until none is left.
+resource seasonJob 'Microsoft.App/jobs@2024-03-01' = {
+  dependsOn: [ rolePull ]
+  name: 'caj-${environmentName}-season'
+  location: appsRegion
+  tags: tags
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: { '${identity.id}': {} }
+  }
+  properties: {
+    environmentId: env.id
+    configuration: {
+      triggerType: 'Manual'
+      replicaTimeout: 1800
+      replicaRetryLimit: 0
+      manualTriggerConfig: { parallelism: 5, replicaCompletionCount: 5 }
+      registries: [ { server: registry.properties.loginServer, identity: identity.id } ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'season'
+          image: brainImage
+          command: [ 'python', '-m', 'matchmind.live.season_job' ]
+          resources: { cpu: json('1.0'), memory: '2Gi' }
+          env: [
+            { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
+            { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
+            { name: 'STORAGE_ACCOUNT', value: storage.name }
+            { name: 'MATCHMIND_DATA', value: '/app/data' }
+          ]
+        }
+      ]
+    }
+  }
+}
+
+resource roleStartSeasonJob 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(seasonJob.id, identity.id, roles.contributor)
+  scope: seasonJob
+  properties: {
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.contributor)
   }
 }
 
@@ -479,6 +529,7 @@ output registryEndpoint string = registry.properties.loginServer
 output brainUri string = 'https://${brain.properties.configuration.ingress.fqdn}'
 output webUri string = 'https://${web.properties.defaultHostname}'
 output simulatorJob string = simJob.name
+output seasonJob string = seasonJob.name
 output functionApp string = funcApp.name
 output cosmosEndpoint string = cosmos.properties.documentEndpoint
 output storageAccount string = storage.name

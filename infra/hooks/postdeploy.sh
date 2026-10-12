@@ -6,6 +6,7 @@ set -eu
 RG="rg-${AZURE_ENV_NAME}"
 
 az containerapp job update -g "$RG" -n "caj-${AZURE_ENV_NAME}-sim" --image "$SERVICE_BRAIN_IMAGE_NAME" -o none
+az containerapp job update -g "$RG" -n "caj-${AZURE_ENV_NAME}-season" --image "$SERVICE_BRAIN_IMAGE_NAME" -o none
 
 FUNC=$(az functionapp list -g "$RG" --query "[0].name" -o tsv)
 FUNC_ID=$(az functionapp show -g "$RG" -n "$FUNC" --query id -o tsv)

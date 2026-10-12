@@ -6,69 +6,79 @@ import { momentTypeLabel, t } from '../i18n'
 import { BRAIN_URL, brainConfigured, wakeBrain } from '../lib/brain'
 import { SAFE_ID } from '../lib/data'
 import {
-  clockLabel, getConfig, getMeta, listLive, liveClock, LiveBusy, type LiveConfig, type LiveEvent, type LiveMatch, type LiveOverlay, liveReplay, median, pipelineDelays,
-  playClock, scoreOf, stageDelays, startLive, writer,
+  clockLabel, getConfig, getMeta, liveClock, type LiveConfig, type LiveEvent, type LiveMatch, type LiveOverlay, liveReplay, median, pipelineDelays, playClock, scoreOf,
+  stageDelays, writer,
 } from '../lib/live'
+import { type ChannelNow, getSeason, SeasonWait, type SeasonView, tune } from '../lib/season'
 import type { Meta, Profile } from '../lib/types'
 import type { Cam } from '../lib/webgl'
 import { LoadBar } from './LoadBar'
 import { Screen } from './Screen'
+import { SeasonTable } from './SeasonTable'
 
-const SCENARIOS = ['red-card-drama', 'pressing-collapse', 'high-line-gamble']
-const STARTS: { minute: number; key: string }[] = [
-  { minute: 0, key: 'live.fromKick' },
-  { minute: 40, key: 'live.fromMinute' },
-  { minute: 55, key: 'live.fromMinute' },
-]
 const SHOWN_KINDS = new Set(['lower_third', 'ticker', 'fact_card', 'stat_card'])
 const DEFAULT_CONFIG: LiveConfig = { push: null, delayS: 25 }
+const INTERMISSION_S = 10 // between full time and the next fixture
 
 interface Props {
   profile: Profile
+  /** A live match named in the URL (a shared link); without it the page tunes in to whatever is on. */
   matchId: string | null
   onMatch: (id: string | null) => void
   onProfile: (p: Partial<Profile>) => void
 }
 
+/** The home page: a match is already on when you arrive. */
 export function LivePage({ profile, matchId, onMatch, onProfile }: Props) {
   const lang = profile.language
   const mode = profile.mode
-  const [list, setList] = useState<LiveMatch[] | null>(null)
   const [config, setConfig] = useState<LiveConfig>(DEFAULT_CONFIG)
-  const [scenario, setScenario] = useState(SCENARIOS[0])
-  const [from, setFrom] = useState(0)
-  const [starting, setStarting] = useState(false)
-  const [note, setNote] = useState<string | null>(null)
-  const [waking, setWaking] = useState(brainConfigured)
   const [cam, setCam] = useState<Cam>('bc')
+  const [tuned, setTuned] = useState<ChannelNow | null>(null)
+  const [season, setSeason] = useState<SeasonView | null>(null)
+  const [retune, setRetune] = useState(0) // bumped to tune in again (next match, full time)
 
-  // Wake the Brain (it scales to zero), then keep the list of live matches fresh.
+  const named = matchId && SAFE_ID.test(matchId) ? matchId : null
+  const id = named ?? tuned?.matchId ?? null
+
+  // Tune in: wake the Brain (it sleeps when idle), then join the match that is on or start the next fixture. While the season is still being simulated, say so and try again.
   useEffect(() => {
-    if (!brainConfigured) return
+    if (!brainConfigured || named) return
     const ctl = new AbortController()
     let timer: ReturnType<typeof setTimeout> | undefined
-    const load = async () => {
+    const attempt = async () => {
       try {
-        setList(await listLive(BRAIN_URL, AbortSignal.any([ctl.signal, AbortSignal.timeout(60_000)])))
-        setWaking(false)
-      } catch {
-        /* still waking */
+        setTuned(await tune({}, BRAIN_URL, AbortSignal.any([ctl.signal, AbortSignal.timeout(60_000)])))
+        return
+      } catch (e) {
+        if (e instanceof SeasonWait) void getSeason(BRAIN_URL, ctl.signal).then(setSeason).catch(() => undefined)
       }
-      if (!ctl.signal.aborted) timer = setTimeout(load, 5000)
+      if (!ctl.signal.aborted) timer = setTimeout(attempt, 3000)
     }
     void wakeBrain(BRAIN_URL, ctl.signal).then(() => {
       if (ctl.signal.aborted) return
       void getConfig(BRAIN_URL, ctl.signal).then(setConfig).catch(() => undefined)
-      void load()
+      void attempt()
     })
     return () => {
       ctl.abort()
       if (timer) clearTimeout(timer)
     }
-  }, [])
+  }, [named, retune])
 
-  // A match id from the URL has to look like one before it reaches a request.
-  const id = matchId && SAFE_ID.test(matchId) ? matchId : null
+  // The table, kept fresh.
+  useEffect(() => {
+    if (!brainConfigured) return
+    const ctl = new AbortController()
+    const load = () => void getSeason(BRAIN_URL, ctl.signal).then(setSeason).catch(() => undefined)
+    load()
+    const timer = setInterval(load, 12_000)
+    return () => {
+      ctl.abort()
+      clearInterval(timer)
+    }
+  }, [tuned?.matchId])
+
   const [pollMs, setPollMs] = useState(1200)
   const live = useLiveFeed(id, pollMs)
   const push = useLivePush(id, config.push, live.inject)
@@ -83,6 +93,21 @@ export function LivePage({ profile, matchId, onMatch, onProfile }: Props) {
   }, [id])
   const liveMs = m ? liveClock(m, live.receivedAt, now) : 0
   const playMs = playClock(liveMs, m?.speed, config.delayS)
+  const fullTime = !!m && m.status === 'finished' && playMs >= (m.durationMs ?? Infinity) - 1000
+
+  // At full time the next fixture goes on air after a short break (everyone who is watching asks; the first one starts it, the others join).
+  const [countdown, setCountdown] = useState(INTERMISSION_S)
+  useEffect(() => {
+    if (!fullTime || named) return setCountdown(INTERMISSION_S)
+    const timer = setInterval(() => setCountdown((c) => c - 1), 1000)
+    return () => clearInterval(timer)
+  }, [fullTime, named])
+  useEffect(() => {
+    if (fullTime && !named && countdown <= 0) {
+      setCountdown(INTERMISSION_S)
+      void tune({}).then(setTuned).catch(() => undefined)
+    }
+  }, [fullTime, named, countdown])
 
   // The pitch reads the playing clock every frame, not every render.
   const playMsRef = useRef(0)
@@ -111,26 +136,16 @@ export function LivePage({ profile, matchId, onMatch, onProfile }: Props) {
   const { tracking, ready } = useLiveTracking(meta ? id : null, playMsRef)
   const replay = useMemo(() => (id && meta ? liveReplay(id, meta, tracking, live.moments) : null), [id, meta, tracking, live.moments.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const start = async () => {
-    setStarting(true)
-    setNote(null)
-    try {
-      const r = await startLive(scenario, from)
-      onMatch(r.matchId)
-    } catch (e) {
-      if (e instanceof LiveBusy) {
-        setNote(t(lang, 'live.busy'))
-        onMatch(e.matchId)
-      } else setNote(t(lang, (e as Error).message === 'rate' ? 'live.rate' : 'live.failed'))
-    } finally {
-      setStarting(false)
-    }
+  const next = () => {
+    onMatch(null)
+    void tune({ next: true }).then(setTuned).catch(() => undefined)
+    setRetune((n) => n + 1)
   }
 
   if (!brainConfigured) {
     return (
       <main className="live-page">
-        <Head lang={lang} />
+        <Nav lang={lang} mode={mode} onProfile={onProfile} />
         <p className="caveat">{t(lang, 'live.nobrain')}</p>
       </main>
     )
@@ -151,50 +166,20 @@ export function LivePage({ profile, matchId, onMatch, onProfile }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [live.overlays, lang, mode, Math.floor(playMs / 5000)],
   )
+  const waiting = !id && season && season.seasonId && season.done < season.total
 
   return (
     <main className="live-page">
-      <Head lang={lang} />
+      <Nav lang={lang} mode={mode} onProfile={onProfile} onNext={id ? next : undefined} />
 
-      <section className="live-card" aria-label={t(lang, 'live.start')}>
-        <div className="live-controls">
-          <label>
-            {t(lang, 'live.scenario')}
-            <select value={scenario} onChange={(e) => setScenario(e.target.value)}>
-              {SCENARIOS.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </label>
-          <label>
-            {t(lang, 'live.from')}
-            <select value={from} onChange={(e) => setFrom(Number(e.target.value))}>
-              {STARTS.map((s) => <option key={s.minute} value={s.minute}>{s.minute === 0 ? t(lang, s.key) : `${t(lang, s.key)} ${s.minute}`}</option>)}
-            </select>
-          </label>
-          <button type="button" className="btn live-start" disabled={starting || waking} onClick={start}>{t(lang, 'live.start')}</button>
-          <span className="live-lang">
-            {(['en', 'es', 'tr'] as const).map((l) => <button key={l} type="button" className={`chip${l === lang ? ' on' : ''}`} aria-pressed={l === lang} onClick={() => onProfile({ language: l })}>{l.toUpperCase()}</button>)}
-            {(['casual', 'analyst'] as const).map((x) => <button key={x} type="button" className={`chip${x === mode ? ' on' : ''}`} aria-pressed={x === mode} onClick={() => onProfile({ mode: x })}>{t(lang, x)}</button>)}
-          </span>
-        </div>
-        {waking && <><p role="status" className="hint">{t(lang, 'live.waking')}</p><LoadBar seconds={25} /></>}
-        {starting && <><p role="status" className="hint">{t(lang, 'live.starting')}</p><LoadBar seconds={40} /></>}
-        {note && <p role="status" className="hint">{note}</p>}
-        {list && !waking && (
-          <div className="live-recent">
-            <strong>{t(lang, 'live.join')}</strong>
-            {list.length === 0 && <span className="muted"> {t(lang, 'live.none')}</span>}
-            <ul>
-              {list.slice(0, 5).map((r) => (
-                <li key={r.matchId}>
-                  <button type="button" className={`btn${r.matchId === id ? ' on' : ''}`} aria-pressed={r.matchId === id} onClick={() => onMatch(r.matchId)}>
-                    {r.home && r.away ? `${r.home.short} v ${r.away.short}` : r.matchId} · {t(lang, `live.status.${r.status ?? 'scheduled'}`)}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </section>
+      {!id && (
+        <section className="live-card live-tuning" aria-live="polite">
+          <p role="status" className="hint">
+            {waiting ? t(lang, 'season.channel.simulating').replace('{done}', String(season.done)).replace('{total}', String(season.total)) : t(lang, 'season.channel.tuning')}
+          </p>
+          <LoadBar seconds={waiting ? 60 : 25} />
+        </section>
+      )}
 
       {id && (
         <>
@@ -203,6 +188,7 @@ export function LivePage({ profile, matchId, onMatch, onProfile }: Props) {
               <>
                 <div className="live-score"><span>{m.home.name}</span><b>{hs} – {as}</b><span>{m.away.name}</span></div>
                 <div className="live-meta">
+                  {tuned && !named && <span className="muted">{t(lang, 'season.channel.round').replace('{n}', String(tuned.round))}</span>}
                   <span className={`live-status ${m.status}`}>{t(lang, `live.status.${m.status ?? 'scheduled'}`)}</span>
                   <span className="live-clock">{clockLabel(playMs)}</span>
                   <span className="muted">{t(lang, 'live.feedAt')} {clockLabel(liveMs)} · {m.speed}× {t(lang, 'live.speed')}</span>
@@ -210,42 +196,27 @@ export function LivePage({ profile, matchId, onMatch, onProfile }: Props) {
                 </div>
               </>
             ) : (
-              <><p role="status" className="hint">{t(lang, 'live.starting')}</p><LoadBar seconds={40} /></>
+              <><p role="status" className="hint">{t(lang, 'live.starting')}</p><LoadBar seconds={15} /></>
             )}
             {live.error && <p className="caveat">{t(lang, 'live.error')}</p>}
+            {fullTime && !named && <p role="status" className="hint">{t(lang, 'season.channel.fulltime').replace('{n}', String(Math.max(countdown, 0)))}</p>}
           </section>
 
-          {replay && (
-            <section className="live-card live-watch-card" aria-label={t(lang, 'live.watch')}>
-              <div className="live-watch-head">
-                <h2>{t(lang, 'live.watch')}</h2>
-                <span className="muted">{t(lang, 'live.behind').replace('{n}', String(config.delayS))}</span>
-                <span className="live-cams">
-                  {(['2d', 'bc', 'end', 'top'] as const).map((c) => <button key={c} type="button" className={`chip${c === cam ? ' on' : ''}`} aria-pressed={c === cam} onClick={() => setCam(c)}>{t(lang, `live.cam.${c}`)}</button>)}
-                </span>
-              </div>
-              <div className="live-watch">
-                {ready ? (
-                  <Screen replay={replay} ms={playMs} msRef={playMsRef} profile={profile} evidenceMoment={null} onWhy={() => undefined} overlays={live.overlays} cam={cam} />
-                ) : (
-                  <div className="live-watch-wait"><p role="status" className="hint">{t(lang, 'live.pitchWait')}</p><LoadBar seconds={20} /></div>
-                )}
-              </div>
-            </section>
-          )}
-
-          <section className="live-card" aria-label={t(lang, 'live.stages')}>
-            <h2>{t(lang, 'live.stages')}</h2>
-            <ol className="live-stages">
-              <Stage name={t(lang, 'live.stage.feed')} value={String(live.events.length ? live.events[live.events.length - 1].n : 0)} note={t(lang, 'live.stage.feed.d')} />
-              <Stage name={t(lang, 'live.stage.interpret')} value={String(live.moments.length)} note={t(lang, 'live.stage.interpret.d')} />
-              <Stage name={t(lang, 'live.stage.agents')} value={String(writers.model + writers.mended + writers.template)} note={`${writers.model} / ${writers.mended} / ${writers.template} ${t(lang, 'live.writers')}`} />
-              <Stage
-                name={t(lang, 'live.stage.delay')}
-                value={delay === null ? '–' : `${delay.toFixed(1)} ${t(lang, 'live.seconds')}`}
-                note={detectS === null || writeS === null ? t(lang, 'live.stage.delay.d') : `${t(lang, 'live.stage.delay.split').replace('{a}', detectS.toFixed(1)).replace('{b}', writeS.toFixed(1))}`}
-              />
-            </ol>
+          <section className="live-card live-watch-card" aria-label={t(lang, 'live.watch')}>
+            <div className="live-watch-head">
+              <h2>{t(lang, 'live.watch')}</h2>
+              <span className="muted">{t(lang, 'live.behind').replace('{n}', String(config.delayS))}</span>
+              <span className="live-cams">
+                {(['2d', 'bc', 'end', 'top'] as const).map((c) => <button key={c} type="button" className={`chip${c === cam ? ' on' : ''}`} aria-pressed={c === cam} onClick={() => setCam(c)}>{t(lang, `live.cam.${c}`)}</button>)}
+              </span>
+            </div>
+            <div className="live-watch">
+              {replay && ready ? (
+                <Screen replay={replay} ms={playMs} msRef={playMsRef} profile={profile} evidenceMoment={null} onWhy={() => undefined} overlays={live.overlays} cam={cam} />
+              ) : (
+                <div className="live-watch-wait"><p role="status" className="hint">{t(lang, 'live.pitchWait')}</p><LoadBar seconds={20} /></div>
+              )}
+            </div>
           </section>
 
           <div className="live-cols">
@@ -262,20 +233,40 @@ export function LivePage({ profile, matchId, onMatch, onProfile }: Props) {
               </ul>
             </section>
             <section className="live-card">
+              {season?.seasonId && (
+                <>
+                  <h2>{t(lang, 'season.channel.table')} · <a href="#/season">{t(lang, 'season.link')}</a></h2>
+                  <SeasonTable rows={season.standings} clubs={season.clubs} lang={lang} compact highlight={m?.home && m.away ? [m.home.id, m.away.id] : []} />
+                </>
+              )}
               <h2>{t(lang, 'live.events')}</h2>
               {shownEvents.length === 0 && <p className="muted">{t(lang, 'live.empty')}</p>}
               <ul className="live-events">
-                {[...shownEvents].slice(-12).reverse().map((e) => <li key={e.n}>{eventLine(e, m)}</li>)}
-              </ul>
-              <h2>{t(lang, 'live.moments')}</h2>
-              {live.moments.length === 0 && <p className="muted">{t(lang, 'live.empty')}</p>}
-              <ul className="live-moments">
-                {[...live.moments].reverse().slice(0, 10).map((mo) => (
-                  <li key={mo.id}><span className="muted">{Math.floor(mo.detectedAt.matchMs / 60000)}′</span> {momentTypeLabel(lang, mo.type)} <span className="muted">{mo.salience.toFixed(2)}</span></li>
-                ))}
+                {[...shownEvents].slice(-10).reverse().map((e) => <li key={e.n}>{eventLine(e, m)}</li>)}
               </ul>
             </section>
           </div>
+
+          <section className="live-card" aria-label={t(lang, 'live.stages')}>
+            <h2>{t(lang, 'live.stages')}</h2>
+            <ol className="live-stages">
+              <Stage name={t(lang, 'live.stage.feed')} value={String(live.events.length ? live.events[live.events.length - 1].n : 0)} note={t(lang, 'live.stage.feed.d')} />
+              <Stage name={t(lang, 'live.stage.interpret')} value={String(live.moments.length)} note={t(lang, 'live.stage.interpret.d')} />
+              <Stage name={t(lang, 'live.stage.agents')} value={String(writers.model + writers.mended + writers.template)} note={`${writers.model} / ${writers.mended} / ${writers.template} ${t(lang, 'live.writers')}`} />
+              <Stage
+                name={t(lang, 'live.stage.delay')}
+                value={delay === null ? '–' : `${delay.toFixed(1)} ${t(lang, 'live.seconds')}`}
+                note={detectS === null || writeS === null ? t(lang, 'live.stage.delay.d') : t(lang, 'live.stage.delay.split').replace('{a}', detectS.toFixed(1)).replace('{b}', writeS.toFixed(1))}
+              />
+            </ol>
+            <h2>{t(lang, 'live.moments')}</h2>
+            {live.moments.length === 0 && <p className="muted">{t(lang, 'live.empty')}</p>}
+            <ul className="live-moments">
+              {[...live.moments].reverse().slice(0, 8).map((mo) => (
+                <li key={mo.id}><span className="muted">{Math.floor(mo.detectedAt.matchMs / 60000)}′</span> {momentTypeLabel(lang, mo.type)} <span className="muted">{mo.salience.toFixed(2)}</span></li>
+              ))}
+            </ul>
+          </section>
         </>
       )}
 
@@ -287,12 +278,19 @@ export function LivePage({ profile, matchId, onMatch, onProfile }: Props) {
   )
 }
 
-function Head({ lang }: { lang: Profile['language'] }) {
+function Nav({ lang, mode, onProfile, onNext }: { lang: Profile['language']; mode: Profile['mode']; onProfile: (p: Partial<Profile>) => void; onNext?: () => void }) {
   return (
     <header className="live-head">
-      <a className="btn" href="#/">{t(lang, 'live.back')}</a>
-      <h1>{t(lang, 'live.title')}</h1>
-      <p>{t(lang, 'live.intro')}</p>
+      <nav className="live-nav">
+        <strong className="live-brand">MatchMind</strong>
+        <a className="btn" href="#/season">{t(lang, 'season.link')}</a>
+        <a className="btn" href="#/replay">{t(lang, 'season.replays')}</a>
+        {onNext && <button type="button" className="btn" onClick={onNext}>{t(lang, 'season.channel.next')}</button>}
+        <span className="live-lang">
+          {(['en', 'es', 'tr'] as const).map((l) => <button key={l} type="button" className={`chip${l === lang ? ' on' : ''}`} aria-pressed={l === lang} onClick={() => onProfile({ language: l })}>{l.toUpperCase()}</button>)}
+          {(['casual', 'analyst'] as const).map((x) => <button key={x} type="button" className={`chip${x === mode ? ' on' : ''}`} aria-pressed={x === mode} onClick={() => onProfile({ mode: x })}>{t(lang, x)}</button>)}
+        </span>
+      </nav>
     </header>
   )
 }
