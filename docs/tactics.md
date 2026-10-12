@@ -28,13 +28,25 @@ possession changes hands, so a 3-4-3 really does become a 5-4-1 when it loses th
 How far a team drops into its block depends on its pressing: a club that presses high keeps its nominal
 front line out of possession, a club that defends deep commits fully to the block.
 
-Measured from the tracking of simulated matches (average attack-frame position of each starter, over
-three matches), clubs look different. Kestrel Vale's wing-backs stand about 21 m higher up the pitch with
-the ball than without it, and 4 m from the touchline in possession against 12 m out of it. Harbour's
-inverted fullbacks stand about 19 m from the touchline while Redmoor's overlapping ones stand 6 m from
-it and 13 m higher. Harbour's false nine averages 55 m from his own goal against 73 m for Redmoor's
-strikers. Saltmarsh's pivot sits 26 m out, level with their centre-backs at 24 m, so they build with a
-back three.
+Measured from the tracking of simulated matches (average attack-frame position of each starter over three
+matches per club; "with the ball" is when a player of that team is the one nearest the ball), clubs look different.
+Kestrel Vale's wing-backs stand about 8 m higher up the pitch with the ball than without it, and 9 m from the
+touchline with it against 15 m without. Harbour's inverted fullbacks stand about 19 m from the touchline while
+Redmoor's overlapping ones stand 9 m from it. Harbour's false nine averages 59 m from his own goal with the ball
+against 65 m for Redmoor's strikers.
+
+**The team is a unit around the ball** (`shape.py`). Four behaviours sit on top of the formation, so a shape is not
+pinned to the pitch: the whole shape slides toward the ball's flank (smoothed over about three seconds, so a team
+slides rather than darts); players near the ball lean toward it, which gives the carrier short options and overloads
+one flank, while wide players keep their width; the far-side wide players tuck in; and players near the ball step
+off their formation spot to a nearby open one (away from opponents, with a clear line to the ball, within passing
+range). Measured over four matches before and after: the team's centre follows the ball's flank by 30% (was 20%)
+with the ball and 34% (was 27%) without it; the ball side holds 1.7 more outfield players than an even split (was
+1.1); the far-side wide player stands 16 m from the touchline (was 11 m); in build-up both wide players are on a
+touchline at once 6% of the time (was 21%); passes over 30 m are 13% of all passes (was 21%). Team width with the ball
+is 49 m and length 39 m; without it 41 m and 33 m. The league realism bands still hold ([data-card.md](data-card.md)),
+which needed four calibration changes: a lower cap on the team's length in possession, a heavier clearance weight, a
+higher offside rate and a slightly higher chance that a failed pass runs out of play.
 
 ## How a shape is played: tactic tags
 

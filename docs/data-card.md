@@ -16,17 +16,17 @@ top-flight football; a test enforces them. Means over 100 matches:
 
 | Metric (per match, both teams unless noted) | Mean | Band |
 |---|---|---|
-| Goals | 2.58 | 2.4-3.2 |
-| Shots / on target | 26.2 / 7.8 | 20-30 / 6.5-11.5 |
-| Passes / completion | 1,103 / 79% | 850-1,150 / 78-86% |
-| Possession of the larger side | 56% | 35-65% |
-| Distance per outfield starter | 11.9 km | 9.5-12 |
-| Fastest player speed | 34.8 km/h | 31-36.5 |
+| Goals | 2.77 | 2.4-3.2 |
+| Shots / on target | 28.6 / 8.1 | 20-30 / 6.5-11.5 |
+| Passes / completion | 1,110 / 84% | 850-1,150 / 78-86% |
+| Possession of the larger side | 57% | 35-65% |
+| Distance per outfield starter | 12.0 km | 9.5-12 |
+| Fastest player speed | 33.7 km/h | 31-36.5 |
 | Sprints per team | 73 | 35-120 |
-| Tackles / interceptions / fouls | 32.2 / 34.5 / 20.1 | 28-55 / 14-40 / 18-30 |
-| Corners / throw-ins / goal kicks | 10.7 / 67.8 / 26.2 | 7-14 / 60-110 / 12-28 |
-| Clearances / offsides / yellow cards | 32.4 / 5.1 / 2.8 | 28-70 / 3-11 / 1.5-5.5 |
-| Pressure events | 217 | 200-520 |
+| Tackles / interceptions / fouls | 30.6 / 26.7 / 20.5 | 28-55 / 14-40 / 18-30 |
+| Corners / throw-ins / goal kicks | 9.6 / 62.7 / 21.4 | 7-14 / 60-110 / 12-28 |
+| Clearances / offsides / yellow cards | 29.0 / 3.3 / 2.7 | 28-70 / 3-11 / 1.5-5.5 |
+| Pressure events | 225 | 200-520 |
 
 Adding phase shapes and set pieces meant re-calibrating (see [tactics.md](tactics.md)). Calibration fixed structural problems, not just numbers: unmarked attackers in the box (shots came from
 the six-yard box), pressure events that ignored the pressing dial, teleporting set-piece takers (250 km/h

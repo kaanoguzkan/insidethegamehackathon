@@ -20,13 +20,16 @@ PHASE_RATE = 0.75  # how fast a team glides between its phases of play (1/s)
 PHASE_HOLD_S = 2.5  # a phase must hold this long before it is announced
 # A team is a unit around the ball, not a formation pinned to the pitch: the whole shape slides toward the ball's flank, players near the
 # ball lean toward it (support and overloads) and the far-side wide players tuck in instead of staying on their touchline.
-SHIFT_IN, SHIFT_OUT = 0.30, 0.40  # share of the ball's lateral offset the team's shape follows, with and without the ball
-PULL_IN, PULL_OUT = 0.08, 0.10  # share of the gap to the ball that a nearby player closes sideways, with and without the ball
+SHIFT_IN, SHIFT_OUT = 0.36, 0.45  # share of the ball's lateral offset the team's shape follows, with and without the ball
+PULL_IN, PULL_OUT = 0.16, 0.22  # share of the gap to the ball that a nearby player closes sideways, with and without the ball
 PULL_REACH = 28.0  # a player farther than this (in depth) from the ball is not drawn toward it
 PULL_MAX = 11.0  # metres, at most
-TUCK = 0.06  # how far the far-side wide players come in when the ball is on the other flank
-SLIDE_TAU_S = 2.2  # time constant of the slide toward the ball, in seconds
-MAX_LENGTH_IN = 43.0  # the team's depth in possession, back line to front line
+TUCK = 0.12  # how far the far-side wide players come in when the ball is on the other flank
+SLIDE_TAU_S = 3.0  # time constant of the slide toward the ball, in seconds
+SEEK_REACH = 32.0  # players within this distance of the ball look for space
+SEEK_STEP = 6.5  # metres: how far from its shape position a player may step to find it
+SEEK_BLEND = 0.55  # how much of the best step is taken
+MAX_LENGTH_IN = 42.0  # the team's depth in possession, back line to front line
 
 
 class ShapeMixin:
@@ -154,6 +157,49 @@ class ShapeMixin:
         tuck = np.where(weak, off * TUCK * min(1.0, abs(side) / (0.6 * G.PITCH_W / 2.0)), 0.0)
         return y_att + pull - tuck
 
+    def _seek_space(self, t: int, px: np.ndarray, py: np.ndarray, focus: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Players near the ball step off their formation spot to a nearby open one: away from opponents, with a clear line to the ball and
+        within passing range of it. The formation still decides roughly where everyone is; this decides exactly where (and why a team
+        that is building up does not look like a diagram)."""
+        base = t * 11
+        o = 1 - t
+        osl = slice(o * 11, o * 11 + 11)
+        opp = self.pos[osl][self.active[osl]]
+        if len(opp) == 0:
+            return px, py
+        me = np.stack([px, py], axis=1)  # (10, 2) target positions
+        near = np.hypot(me[:, 0] - focus[0], me[:, 1] - focus[1]) < SEEK_REACH
+        near &= self.active[base + 1 : base + 11]
+        if self.holder is not None and base < self.holder <= base + 10:
+            near[self.holder - base - 1] = False  # the carrier goes where the ball goes
+        if not near.any():
+            return px, py
+        grid = np.array([(dx, dy) for dx in (-1.0, 0.0, 1.0) for dy in (-1.0, 0.0, 1.0)]) * SEEK_STEP  # (9, 2)
+        cand = me[near][:, None, :] + grid[None, :, :]  # (m, 9, 2)
+        cand[..., 0] = np.clip(cand[..., 0], 1.0, G.PITCH_L - 1.0)
+        cand[..., 1] = np.clip(cand[..., 1], 1.0, G.PITCH_W - 1.0)
+        dopp = np.hypot(cand[:, :, None, 0] - opp[None, None, :, 0], cand[:, :, None, 1] - opp[None, None, :, 1]).min(axis=2)  # (m, 9)
+        # How close the nearest opponent comes to the line from the ball to the candidate spot.
+        ball = focus[None, None, :]
+        seg = cand - ball
+        seg_len2 = np.maximum((seg**2).sum(-1), 1e-6)
+        rel = opp[None, None, :, :] - ball[:, :, None, :]
+        tproj = np.clip((rel * seg[:, :, None, :]).sum(-1) / seg_len2[..., None], 0.0, 1.0)
+        closest = ball[:, :, None, :] + tproj[..., None] * seg[:, :, None, :]
+        lane = np.hypot(*(opp[None, None, :, :] - closest).transpose(3, 0, 1, 2)).min(axis=2)  # (m, 9)
+        to_ball = np.sqrt(seg_len2)
+        score = (
+            0.6 * np.minimum(dopp, 12.0)
+            + 1.4 * np.minimum(lane, 4.0)
+            - 0.25 * np.hypot(cand[..., 0] - me[near][:, None, 0], cand[..., 1] - me[near][:, None, 1])
+            - 0.35 * np.maximum(to_ball - 24.0, 0.0)
+            - 0.45 * np.maximum(8.0 - to_ball, 0.0)
+        )
+        best = cand[np.arange(len(cand)), score.argmax(axis=1)]
+        out = me.copy()
+        out[near] = me[near] + SEEK_BLEND * (best - me[near])
+        return out[:, 0], out[:, 1]
+
     def _team_targets(self, t: int, focus: np.ndarray, tgt: np.ndarray, urg: np.ndarray) -> None:
         d = self.dir[t]
         st = self.style[t]
@@ -205,6 +251,8 @@ class ShapeMixin:
             run_urg = 0.42 + go * 0.40 * st.counter_bias
 
         px, py = G.from_att(x_att, y_att, d)
+        if in_poss and not trans and self.mode in ("carry", "flight"):
+            px, py = self._seek_space(t, px, py, focus)
 
         # Goalkeeper.
         gk_x_att = 3.0 + 7.0 * st.line_height * min(1.0, bx / G.PITCH_L)

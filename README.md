@@ -202,15 +202,15 @@ plan's status section.
 * **Realistic synthetic data.** 100 simulated matches, all 19 league averages inside target bands (goals
   2.6, shots 26, passes 1,103, pass completion 79%, distance 11.9 km, top speed 34.8 km/h ...).
   `uv run matchmind report-realism`; a test enforces it. See [docs/data-card.md](docs/data-card.md).
-* **Detects a hidden story.** The pressing collapse scripted at 55:00 is found in **15 of 16** seeds, a
-  median 9 minutes later, and never fires as a false collapse in 16 unscripted controls. Pressing is read
+* **Detects a hidden story.** The pressing collapse scripted at 55:00 is found in **16 of 16** seeds, a
+  median 10 minutes later, and never fires as a false collapse in 16 unscripted controls. Pressing is read
   from tracking (PPDA over five minutes rests on 0-3 actions and is too noisy); see
   [docs/metrics.md](docs/metrics.md).
-* **Quality gates.** Over the three replay packages (384 narrative overlays): numeric fidelity 1.0, 100% of narrative text
+* **Quality gates.** Over the three replay packages (472 narrative overlays): numeric fidelity 1.0, 100% of narrative text
   verified, 24/24 recaps verified per match, contradicting evidence always admitted, analyst text 3 to 5 times as
   number-dense as casual text. `uv run matchmind evals` (CI-gated).
-* **Graceful degradation.** The same three matches three ways: healthy (336 agent-written overlays, 48 template), unreliable model
-  (16 first time, 150 recovered by retry, 218 template), outage (all 384 template, none lost).
+* **Graceful degradation.** The same three matches three ways: healthy (440 agent-written overlays, 32 template), unreliable model
+  (none first time, 204 recovered by retry, 268 template), outage (all 472 template, none lost).
 * **Live, inside six seconds.** The numbers below are from the earlier model, `gpt-4.1-mini`; with `gpt-6-luna` (registered agents, 27 uncached requests) the request took a median of 2.8 s, 90th percentile 3.8 s, slowest 4.7 s, all 27 written by the model. On the deployed Brain with `gpt-4.1-mini` (45 uncached model calls, 15 requests of three cohorts each):
   request time median 2.6 s, 95th percentile 4.2 s, no missed deadline; 43 overlays written by the model, 1 mended by the
   Repairer, 1 fell back to a template. A repeated request is served from cache in 2 ms, and from Cosmos DB after a restart in

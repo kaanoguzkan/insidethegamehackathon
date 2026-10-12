@@ -49,8 +49,8 @@ rules against how often they fired by chance in the first hour of unscripted mat
 | gap of 3.0 m alone | 2% | 71% |
 
 On the full pipeline over 16 seeds, after teams learned to change shape with the ball (see
-[tactics.md](tactics.md)), the chosen rule caught 15, a median 9 minutes after the change, and never fired as
-a false collapse in 16 unscripted controls.
+[tactics.md](tactics.md)), the chosen rule caught 16, a median 10 minutes after the change, and never fired as
+a false collapse in 16 unscripted controls (it fired once too early, before the scripted change, in two of the scripted matches).
 
 ### Tactical shifts and shape that breathes with the ball
 

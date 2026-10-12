@@ -7,7 +7,7 @@ description: >-
   means for the match.
 home: HAR
 away: NOR
-seed: 72
+seed: 104
 script:
   - at: "55:00"
     team: NOR

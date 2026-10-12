@@ -32,7 +32,7 @@ TUNE: dict[str, float] = {
     "shot_w": 0.09,
     "shot_k": 3.9,
     "first_time_boost": 3.0,
-    "clear_w": 6.0,
+    "clear_w": 12.0,
     "duel_rate": 0.18,
     "pressure_base": 0.20,
     "pressure_gain": 0.90,
@@ -40,7 +40,7 @@ TUNE: dict[str, float] = {
     "tackle_win": 0.40,
     "yellow_p": 0.14,
     "red_p": 0.003,
-    "offside_p": 0.22,
+    "offside_p": 0.27,
     "dead_goal": 28.0,
     "dead_pen": 22.0,
 }
@@ -621,7 +621,7 @@ class ActionsMixin:
                 outcome, interceptor = "intercepted", k
             else:
                 edge = min(end[0], G.PITCH_L - end[0], end[1], G.PITCH_W - end[1])
-                p_out = 0.27 + 0.55 * math.exp(-edge / 8.0) + (0.08 if lofted else 0.0)
+                p_out = 0.33 + 0.55 * math.exp(-edge / 8.0) + (0.08 if lofted else 0.0)
                 if self.rng.random() < p_out:
                     end = self._nearest_exit(end)
                     outcome = "out"
