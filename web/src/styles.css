@@ -555,7 +555,7 @@ body:has(.broadcast) { background: transparent; }
 .live-score b { font-size: 1.8rem; font-variant-numeric: tabular-nums; }
 .live-meta { display: flex; gap: 12px; align-items: baseline; }
 .live-clock { font-variant-numeric: tabular-nums; font-size: 1.25rem; font-weight: 600; }
-.live-status { padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid var(--line); }
+.live-status { flex: none; white-space: nowrap; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid var(--line); }
 .live-status.live { color: var(--good); border-color: var(--good); }
 .live-status.live::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--good); animation: live-pulse 1.4s ease-in-out infinite; }
 @keyframes live-pulse { 50% { opacity: .25; } }

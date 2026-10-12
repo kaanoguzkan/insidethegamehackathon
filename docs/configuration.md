@@ -40,6 +40,20 @@ On Azure the Bicep sets the Brain's variables from `azd env` values (names in th
 | `MATCHMIND_ALLOWED_HOSTS`, `MATCHMIND_ALLOWED_ORIGINS` | none | The MCP library's DNS-rebinding guard: the host names the service answers to and the browser origins it accepts. Without hosts it accepts only localhost |
 | `MATCHMIND_DIRECTOR`, `MATCHMIND_DIRECTOR_KEY` | off | `1` exposes the model-fault switch of the resilience demo; the key, if set, must be sent as `X-Director-Key` |
 
+## The live pipeline
+
+| Variable | Default | Effect |
+|---|---|---|
+| `LIVE_JOB_ID` | none | The simulator job's resource id; with it the Brain's `POST /api/live/start` starts that job through Azure Resource Manager (set by Bicep) |
+| `LIVE_SPEED` | 5 | Match seconds per real second (the Brain passes it to the job; the job reads it too) |
+| `LIVE_SCENARIO`, `LIVE_FROM_MINUTE`, `LIVE_MATCH_ID` | red-card-drama, 0, generated | Read by the simulator job; the Brain sets them for each run |
+| `MATCHMIND_LIVE_KEY` | none | Shared secret between the dispatcher Function and the Brain's `/api/live/{id}/beats` (`x-live-key`). Set on both; a Container Apps secret on the Brain. `azd env set MATCHMIND_LIVE_KEY ...` |
+| `MATCHMIND_LIVE_OPEN` | off | `1` lets `/api/live/{id}/beats` be called without a key (development only; the endpoint otherwise fails closed) |
+| `MATCHMIND_LIVE_LOCAL` | off | `1` lets the Brain start the simulator in a thread of its own process when no job is configured (a laptop) |
+| `MATCHMIND_LIVE_START_PER_MIN`, `MATCHMIND_LIVE_POLL_PER_MIN` | 3, 240 | Per-client limits on `POST /api/live/start` and on the live read endpoints |
+| `COSMOS_ENDPOINT` | none | Also the live store: containers `matches`, `events`, `moments`, `overlays`, `state`. Without it the live store is in memory |
+| Function app: `COSMOS__accountEndpoint`, `COSMOS__credential`, `COSMOS__clientId`, `BRAIN_URL`, `MATCHMIND_LIVE_KEY`, `AZURE_CLIENT_ID` | set by Bicep | The change-feed triggers' connection (identity, no keys), the Brain's address and the shared key |
+
 ## Cost reporting
 
 | Variable | Default | Effect |

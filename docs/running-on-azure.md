@@ -10,10 +10,13 @@
 | Container App `ca-matchmind-brain` (1 vCPU, 2 GiB, 0 to 2 replicas, scales on 20 concurrent requests) | North Europe | The Brain: REST, MCP, both agent paths |
 | Static Web App `swa-matchmind` | East US 2 | The match center, built with the Brain's address (`BRAIN_URI`) |
 | Microsoft Foundry account and project `kaanoguzkan-9930` | Sweden Central | The models (`gpt-6-luna` in use, `gpt-4.1-mini` kept as a fallback deployment, 120 000 tokens a minute for the latter), eight registered prompt agents, the hosted agent `matchmind-newsroom`, evaluations |
-| Cosmos DB (free tier), database `matchmind`, container `beats` | Sweden Central | The Brain's shared cache of verified model text (7-day expiry per document); identity only, no keys |
+| Cosmos DB (free tier), database `matchmind` | Sweden Central | `beats`: the Brain's shared cache of verified model text (7-day expiry). `matches`, `events`, `moments`, `overlays`, `state`, `leases`: the live pipeline. Identity only, no keys |
 | Application Insights, Log Analytics (30 days, 0.5 GB a day cap) | Sweden Central | Traces and logs. The Brain exports to the **Foundry project's own** Application Insights so traces show in the Foundry portal |
 | Container Registry (Basic), user-assigned managed identity | Sweden Central | The Brain image; the identity pulls it and calls Cosmos, Storage and the model |
-| SignalR (Free), Storage, Key Vault | Sweden Central | **Provisioned, not used by the app yet** |
+| Container Apps Job `caj-matchmind-sim` (1 vCPU, 2 GiB, manual trigger) | North Europe | The live pipeline's simulator: plays a scenario as a feed into Cosmos DB. Runs the Brain's image with `python -m matchmind.live.simulator` |
+| Function App `func-matchmind-<id>` (Flex Consumption, Python 3.12, at most 4 instances) | North Europe | `interpret` and `dispatch`, two Cosmos DB change-feed triggers ([live-pipeline.md](live-pipeline.md)) |
+| Storage account | Sweden Central | The Functions host (deployment package, leases, queues) through the managed identity; no keys |
+| SignalR (Free), Key Vault | Sweden Central | **Provisioned, not used by the app yet** |
 | Consumption budget | subscription | Alerts at 25%, 50% and 90% of $20 a month |
 
 ## What was verified, and how
@@ -105,9 +108,9 @@ dependencies | where timestamp > ago(1h) and name == 'matchmind.beats'
 
 ## Not built yet
 
-The event-driven pipeline of the plan: Azure Functions on a Cosmos change feed, an Event Grid trigger and SignalR publishing to the browser,
-plus Microsoft Fabric. The Brain runs the agents on demand and the web app plays replay packages. SignalR, Storage and Key Vault are
-provisioned but nothing writes to them yet.
+The Event Grid-triggered physical analyzer (tracking chunks in Blob Storage) and SignalR publishing to the browser (the Live page polls instead),
+plus Microsoft Fabric. SignalR and Key Vault are provisioned but nothing uses them. The rest of the event-driven pipeline is built:
+[live-pipeline.md](live-pipeline.md).
 
 ## Running it in public (October 2026 hardening)
 
@@ -139,4 +142,14 @@ Foundry portal; set it with `az monitor app-insights component show --app <proje
 `matchmind foundry-register` must be re-run after any change to `prompts.py`: with `MATCHMIND_AGENTS=foundry` the Brain checks each
 registered agent's `promptVersion` at start-up and, if one is stale or missing, falls back to local agents and says so in `/health`.
 
-Provisioned but not used by the app yet: SignalR, Storage and Key Vault (the event-driven pipeline of the plan is not built).
+Provisioned but not used by the app: SignalR and Key Vault.
+
+### Deploying the live pipeline
+
+* `azd provision` creates the job, the Function App and their roles; **always run `azd deploy` after it** (provisioning alone resets the Brain's image to the
+  placeholder). `azd deploy` builds and pushes the Brain image, packages the Function App (the `prepackage` hook copies `src/matchmind` and `data/league` into
+  `apps/functions/`) and publishes the web app; a `postdeploy` hook then points the simulator job at the image just deployed.
+* `MATCHMIND_LIVE_KEY` is a shared secret between the dispatcher Function and the Brain: `azd env set MATCHMIND_LIVE_KEY "$(openssl rand -hex 24)"` before provisioning.
+  Without it the Brain refuses the dispatcher (the endpoint fails closed).
+* Things that went wrong: the job-start API takes the container list itself, not a job template wrapped around it (a bare 400); the Functions host needs Blob Data Owner
+  and Table Data Contributor on the storage account besides the roles the Brain uses.

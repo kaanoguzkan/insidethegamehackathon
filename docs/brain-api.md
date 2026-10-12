@@ -14,6 +14,9 @@ after idle takes about 20 seconds, so call `/health` first). Interactive docs ar
 | `GET /api/matches/{id}/report.pdf` | The printable 17-page match report |
 | `POST /api/beats` | **Overlays for chosen moments and viewer cohorts, written now** (below) |
 | `POST /api/ask` | **Ask the match a question**: an answer written from the match-data tools only, checked by the Verifier (below) |
+| `GET /api/live`, `GET /api/live/{id}`, `GET /api/live/{id}/feed` | **The live pipeline**: live and recent matches, one match with its clock, and what is new in it ([below](#live-pipeline)) |
+| `POST /api/live/start` | Start the simulator job on a scenario (public, limited) |
+| `POST /api/live/{id}/beats` | Internal: write the narrative overlays for new moments (the dispatcher Function calls it; needs `x-live-key`) |
 | `/mcp/` | The Match Data MCP server, streamable HTTP, stateless, 25 tools |
 | `GET/POST /api/director/faults` | The model-fault switch of the resilience demo. Only exists when `MATCHMIND_DIRECTOR=1`; key-protected by `X-Director-Key` |
 
@@ -119,6 +122,21 @@ against those results.
 * `usage` is the tokens the answer used and what they cost at the configured price (`costUsd`); a `cached` answer costs nothing.
 * An off-topic question is refused after the planner, with no tools run and no answerer call.
 * Errors: 404 unknown match, 422 a bound broken, 429 more than 10 questions a minute from one client (`MATCHMIND_ASK_PER_MIN`), 503 more than 4 questions being answered at once.
+
+## Live pipeline
+
+How it fits together: [live-pipeline.md](live-pipeline.md). A match is `{matchId, status (scheduled | live | finished), scenario, speed, fromMs, wallStartMs, durationMs, clockMs,
+serverNowMs, home, away, players}`; `clockMs` is where the match clock stands at `serverNowMs`, and a client advances it by the wall time since at `speed` times.
+
+* `GET /api/live` lists live and recent matches (newest first, at most 20). Failed starts and jobs that never began are not listed.
+* `GET /api/live/{id}/feed?event=<n>&since=<ms>` returns the match plus what is new: `events` (goals, shots, cards, substitutions, formation changes above feed sequence
+  `n`, at most 500 raw documents per call; `more` says to ask again at once with `eventCursor`), `overlays` emitted at or after `since` (the client drops repeats by id; use
+  `overlayCursor` next time) and every `moments` found so far. Start with `event=-1&since=0`.
+* `POST /api/live/start` with `{"scenario": "red-card-drama", "fromMinute": 40}` answers `{matchId, scenario, fromMinute}` at once; the job takes about half a minute to
+  simulate before the match goes live. **409** with `{"detail": {"matchId": ...}}` when a match is already running (join it); **422** for an unknown scenario or a start
+  minute outside 0 to 80; **429** over three starts a minute; **502** when the job could not be started; **503** on a Brain with no job configured.
+* `POST /api/live/{id}/beats` with `{"momentIds": [...]}` writes and stores the narrative overlays, once per moment (a repeat writes nothing). **403** without the right
+  `x-live-key`, which is required even when none is configured (set `MATCHMIND_LIVE_OPEN=1` on a development machine).
 
 ## MCP
 
