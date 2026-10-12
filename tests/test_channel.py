@@ -145,7 +145,7 @@ def test_the_season_endpoint_gives_fixtures_standings_and_progress(client):
     top = s["standings"][0]
     assert top["club"] == "SAL" and top["points"] == 3 and top["name"] == "Saltmarsh Town" and len(s["standings"]) == 6
     assert s["clubs"]["RED"]["primary"].startswith("#")
-    assert s["aired"] == [] and all(r["played"] == 0 for r in s["standingsAired"])  # nothing has been on air yet: the table as broadcast is empty
+    assert s["aired"] == [] and len(s["standingsAired"]) == 6 and all(r["played"] == 0 and r["points"] == 0 for r in s["standingsAired"])  # nothing on air yet: six clubs on zero
 
 
 def test_simulating_a_new_season_makes_it_current_and_only_one_at_a_time(monkeypatch, packs):

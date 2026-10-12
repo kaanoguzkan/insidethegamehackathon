@@ -45,6 +45,8 @@ On Azure the Bicep sets the Brain's variables from `azd env` values (names in th
 | Variable | Default | Effect |
 |---|---|---|
 | `LIVE_JOB_ID` | none | The simulator job's resource id; with it the Brain's `POST /api/live/start` starts that job through Azure Resource Manager (set by Bicep) |
+| `SEASON_JOB_ID` | none | The season job's resource id; with it `POST /api/season/simulate` starts that job (5 replicas) through Azure Resource Manager (set by Bicep). Without it, and with `MATCHMIND_LIVE_LOCAL=1`, the Brain simulates in threads of its own process |
+| `SEASON_ID`, `SEASON_SEED` | none, 1 | Read by the season job (the Brain sets `SEASON_ID` for each run) |
 | `LIVE_PUSH_URL` | none | The Function app's `/api` address, where browsers negotiate a SignalR connection; the Brain reports it in `GET /api/live/config` (set by Bicep). Without it the page polls |
 | `LIVE_DELAY_S` | 25 | How far behind the live feed viewers watch, in wall seconds |
 | `STORAGE_ACCOUNT` | none | The storage account of the tracking chunks (`frames`) and the workers' checkpoints (`checkpoints`); the job, the Function app and the Brain read it (identity, no keys). Without it chunks stay in memory |

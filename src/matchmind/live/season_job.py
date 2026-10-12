@@ -95,9 +95,10 @@ def main(argv: list[str] | None = None) -> int:
             pr.join()
     else:
         run_worker(a.season, store, packs)
-    left = sum(1 for f in store.fixtures(a.season) if f["status"] != "done")
-    print(f"{a.season}: season simulated in {time.monotonic() - t0:.0f} s, {left} fixtures not done", flush=True)
-    return 0 if left == 0 else 1
+    fixtures = store.fixtures(a.season)
+    pending = sum(1 for f in fixtures if f["status"] == "pending")  # unclaimed: nobody is going to do them (one still being simulated is another replica's)
+    print(f"{a.season}: this worker is done after {time.monotonic() - t0:.0f} s; {sum(1 for f in fixtures if f['status'] == 'done')} of {len(fixtures)} fixtures are done, {pending} still pending", flush=True)
+    return 0 if pending == 0 else 1
 
 
 if __name__ == "__main__":

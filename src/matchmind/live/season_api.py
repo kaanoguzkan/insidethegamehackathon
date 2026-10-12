@@ -62,7 +62,7 @@ def make_season_router(
             "total": len(fixtures), "done": done, "simulating": sum(1 for f in fixtures if f["status"] == "simulating"),
             "fixtures": [{k: f.get(k) for k in ("id", "round", "home", "away", "scenario", "status", "score")} for f in fixtures],
             "aired": sorted(aired), "standings": standings(fixtures, names),
-            "standingsAired": standings([f for f in fixtures if f["id"] in aired], names), "clubs": clubs(),
+            "standingsAired": standings([f if f["id"] in aired else {**f, "status": "pending"} for f in fixtures], names), "clubs": clubs(),  # every club, counting only what has been on air
         }
 
     @router.get("/api/channel")

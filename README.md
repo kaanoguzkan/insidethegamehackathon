@@ -12,12 +12,15 @@ number in every sentence is traced to computed evidence and checked by code befo
 
 All data is synthetic. The league, clubs, crests and players are fictional.
 
-**Try it:** the match center runs on Azure Static Web Apps (<https://happy-beach-0379fb50f.5.azurestaticapps.net>) and as a
-GitHub Pages mirror (<http://kaanoguzkan.com/insidethegamehackathon/>). Both play three pre-generated matches from static files, and
-both have a **Live AI** switch that asks the Azure-hosted Brain to write the story for the selected moment *now*, for your viewer
-settings, in about six seconds at most. The Brain's API is documented in [docs/brain-api.md](docs/brain-api.md).
+**Try it:** open the site on Azure Static Web Apps (<https://happy-beach-0379fb50f.5.azurestaticapps.net>) and **a match is already on**: the home page
+is a live channel playing a fixture of a simulated 30-match season, on a 3D pitch, with the overlays the agents write while it is played. **Season** shows
+the table and every fixture and can **simulate a whole new season** (five parallel workers, about two and a half minutes); **Replays** is the match center
+described below, which plays three pre-generated matches from static files (it is also the GitHub Pages mirror,
+<http://kaanoguzkan.com/insidethegamehackathon/>, and has a **Live AI** switch that asks the Azure-hosted Brain to write the story for the selected moment
+*now*, for your viewer settings, in about six seconds at most). The channel is described in [docs/live-pipeline.md](docs/live-pipeline.md), the Brain's API in
+[docs/brain-api.md](docs/brain-api.md).
 
-## How to use the match center
+## How to use the match center (Replays)
 
 The pitch always fits the screen. Depth comes from three steps in the top bar (keys `1`, `2`, `3`), so nobody has to scroll to find things:
 
@@ -108,7 +111,7 @@ uv run matchmind build-pdf                          # the printable match report
 uv run matchmind fit-models                         # win probability, possession value, post-shot xG
 uv run matchmind build-season                       # the league's simulated history
 uv run pytest -m "not slow"                         # the fast suite
-cd web && pnpm install && pnpm dev                  # the match center (86 tests: pnpm test)
+cd web && pnpm install && pnpm dev                  # the match center (92 tests: pnpm test)
 ```
 
 No keys, network or GPU needed: the default model client answers from the template engine so the real
@@ -193,7 +196,7 @@ Details: [docs/architecture.md](docs/architecture.md), the agents in [docs/agent
 | **Key Vault** | Provisioned by the same Bicep | Provisioned only; nothing uses it |
 | **GitHub Actions** | CI (lint, tests in parallel, quality gates, schema sync, web build, Bicep compile, container smoke test), Pages mirror, OIDC deploy | CI passes on GitHub. Two runs failed, both on a Docker Hub rate limit (HTTP 429) while pulling the base image; since the Dockerfile builds from `ghcr.io`, the last four runs pass. Pages is live |
 
-What is **not** built: Microsoft Fabric, and the replay match center's tabs (evidence drawer, recaps, tactics, the Explore workspace) in live mode. The replay path (static files, no backend) is what the demo and the judge link
+What is **not** built: Microsoft Fabric, and the replay match center's tabs (evidence drawer, recaps, tactics, the Explore workspace) on the live channel. The replay path (static files, no backend) is what the demo and the judge link
 use; the Brain runs the same agents on demand for Live AI, and the live pipeline plays a match through Azure as it is being played. See [docs/running-on-azure.md](docs/running-on-azure.md) and the
 plan's status section.
 
@@ -211,9 +214,10 @@ plan's status section.
   number-dense as casual text. `uv run matchmind evals` (CI-gated).
 * **Graceful degradation.** The same three matches three ways: healthy (440 agent-written overlays, 32 template), unreliable model
   (none first time, 204 recovered by retry, 268 template), outage (all 472 template, none lost).
-* **The live pipeline runs end to end on Azure.** A match started from the web page is played by a Container Apps Job into Cosmos DB, interpreted by a change-feed
-  Function, written up by the agents through the Brain and shown on the Live page: 13 moments, 91 of 104 story overlays model-written, and a median of 19.8 s (8 to 51 s)
-  from a moment being detected to its overlay being stored, at 5 times real time (one run; [docs/live-pipeline.md](docs/live-pipeline.md)).
+* **The live pipeline runs end to end on Azure.** The home page's match is played from a pack by the Brain into Cosmos DB and Blob Storage, its tracking analyzed by an Event Grid-triggered Function,
+  its feed interpreted by a change-feed Function, written up by the agents through the Brain and pushed to the page over SignalR. In one run of a match (15 moments, 91 of 120 story overlays model-written) a moment took a median of 9.6 s (9.0 to 13.3 s, seven moments)
+  from being detectable to its overlay being stored, at 5 times real time; the first version measured 19.8 s with a worst case of 51 s. A 30-match season is simulated in about 140 s by five replicas.
+  One match, one viewer, a small sample ([docs/live-pipeline.md](docs/live-pipeline.md)).
 * **Live, inside six seconds.** The numbers below are from the earlier model, `gpt-4.1-mini`; with `gpt-6-luna` (registered agents, 27 uncached requests) the request took a median of 2.8 s, 90th percentile 3.8 s, slowest 4.7 s, all 27 written by the model. On the deployed Brain with `gpt-4.1-mini` (45 uncached model calls, 15 requests of three cohorts each):
   request time median 2.6 s, 95th percentile 4.2 s, no missed deadline; 43 overlays written by the model, 1 mended by the
   Repairer, 1 fell back to a template. A repeated request is served from cache in 2 ms, and from Cosmos DB after a restart in
@@ -236,7 +240,7 @@ data/            league, scenarios (3 stories), replay packages (3 matches, ~10 
 infra/           Bicep + azure.yaml          schemas/   JSON Schemas of the public contracts
 docs/            architecture, agents, live-pipeline, brain-api, configuration, foundry, running-on-azure, tactics, analytics, metrics,
                  overlay contract, data card, responsible AI, report
-tests/ evals/    Python tests (3 slow) + 86 web tests      SOLUTION PLAN.md   design, schedule, status
+tests/ evals/    Python tests (3 slow) + 92 web tests      SOLUTION PLAN.md   design, schedule, status
 ```
 
 ## Honest limits
@@ -246,7 +250,7 @@ tests/ evals/    Python tests (3 slow) + 86 web tests      SOLUTION PLAN.md   de
   fallbacks and a hedged second call. The Foundry evaluation scores recorded text and uses a judge from the same model family.
 * **The first request after idle is slow.** The Brain scales to zero (free tier), so a cold start takes about 20 seconds; the page wakes it on load
   and shows "Waking the AI service" meanwhile.
-* **The live pipeline is a feed, not a broadcast.** A simulator job stands in for the data provider and plays at a chosen speed (default 5 times real time, so
+* **The live channel plays simulated matches.** Matches are simulated ahead of time into packs (by a five-replica job) and played at a chosen speed (default 5 times real time, so
   the pipeline's real-time delay is five times longer in match time), and viewers watch 25 seconds behind it. The live page shows the pipeline and the 3D pitch with the overlays,
   not the replay match center's other tabs. One live match runs at a time, and it was run one viewer at a time: there is no load measurement (SignalR's free tier allows 20 concurrent
   connections).

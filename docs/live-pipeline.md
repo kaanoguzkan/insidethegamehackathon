@@ -1,12 +1,48 @@
 # The live pipeline
 
-A simulated match is played as a live feed. Its events and its tracking are stored as they arrive, a chain of event-driven Functions turns them into moments and
-verified overlays while the match is still being played, and the browser shows the match on a 3D pitch with the overlays arriving by push. Open the
-**Live pipeline** page of the web app (`#/live`), press **Start a live match** and watch it.
+**Open the site and a match is on.** The home page is a live channel: a fixture of a simulated season is being played, and the page shows it on a 3D pitch with the
+scoreboard, the overlays and the pipeline working. Behind it, a match's events and its tracking are stored as they arrive, a chain of event-driven Functions turns them
+into moments and verified overlays while the match is still being played, and the overlays reach the browser by push. Nothing is simulated while a viewer waits: matches
+are simulated ahead of time into **packs**, a **season** of 30 fixtures is simulated in parallel by a job, and starting a match means reading a pack.
+
+* [The channel and the season](#the-channel-and-the-season): what happens when you open the site, packs, the season job.
+* [The pipeline](#the-pipeline): what happens to a match once it is on air.
+
+## The channel and the season
 
 ```mermaid
 flowchart LR
-  JOB["Simulator job<br/>Container Apps Job"] -->|"events,<br/>feed watermark"| EV[("Cosmos DB<br/>events")]
+  SJ["Season job<br/>5 replicas"] -->|"claim fixture,<br/>simulate, store pack"| PK[("Blob Storage<br/>packs")]
+  SJ -->|"result"| SE[("Cosmos DB<br/>season")]
+  V["Visitor opens the site"] -->|"POST /api/channel/tune"| CH["Channel (Brain)"]
+  CH -->|"read pack (~1 s)"| PK
+  CH -->|"play at 5x"| PIPE["the pipeline below"]
+```
+
+* **Packs** (`live/packs.py`). A finished simulation stored once: the metadata, the full event list, and the tracking as the compact bundle the replay packages use (about 2 MB a
+  match; a season is about 60 MB in the `packs` blob container, not in the repository). From a pack the player builds the feed documents and the tracking chunks, byte for byte what
+  `build_feed` / `build_chunks` give from the simulation (`tests/test_packs.py`); chunks are cut and encoded when they are due.
+* **The season** (`live/season.py`). Six clubs, home and away: 30 fixtures in 10 rounds, **round 1 being the three scripted stories** (Redmoor v Saltmarsh with the red card, Harbour v
+  Northbridge with the pressing collapse, Kestrel v Aldergate with the high-line gamble). Fixtures, results and the table live in the `season` Cosmos container.
+* **The season job** (`live/season_job.py`, Container Apps Job `caj-<env>-season`, 5 replicas). The replicas are not told which fixtures are theirs: each **claims** the next pending
+  one (an atomic change of its status guarded by the document's etag; an abandoned claim expires after five minutes), simulates it, writes the pack and records the score, until none
+  is left. **The whole 30-match season took about two and a half minutes** on 1 vCPU replicas (see "Measured"). *Simulate a new season* on the Season page starts it; the site
+  switches to the new season at once and its table and fixtures fill in as results arrive.
+* **The channel** (`live/channel.py`). `POST /api/channel/tune` joins the match that is on air or starts the next fixture: it reads the pack and a thread of the Brain plays it with the same loop
+  the simulator job uses. Every viewer shares one match, like a broadcast. A heartbeat says the player is alive; when the last viewer leaves the Brain scales to zero and the match
+  stops with it, and the next visitor finds a stale heartbeat and starts the next fixture. At full time the page asks for the next one after a 10 s break (the first to ask starts it,
+  the others join); **Next match** skips. Asking for a fixture on the Season page takes the match on air off (its player stops) and plays that one.
+* **The table "as broadcast".** The home page's table counts only fixtures that have been played on air to the end, so it does not spoil the match you are watching; the Season page
+  shows the whole simulated season and marks the fixtures you have seen.
+* **What a visitor sees on arrival.** The page wakes the Brain if it is asleep (about 20 s with a cold container, the usual scale-to-zero price), tunes in, and shows the pitch as soon
+  as the first tracking chunks are there: a few seconds more. If the season has not been simulated yet (a fresh deployment) the first visit plans the default season and starts the job,
+  and the page says so while its first match is simulated.
+
+## The pipeline
+
+```mermaid
+flowchart LR
+  JOB["Player<br/>(the Brain's channel, or the simulator job)"] -->|"events,<br/>feed watermark"| EV[("Cosmos DB<br/>events")]
   JOB -->|"5 s tracking chunks"| BL[("Blob Storage<br/>frames")]
   BL -->|"BlobCreated<br/>(Event Grid)"| AN["Function: analyze<br/>physical analyzer"]
   AN -->|"physical facts,<br/>analyzer watermark"| EV
@@ -26,7 +62,7 @@ flowchart LR
 
 | Stage | Where | Code | What it does |
 |---|---|---|---|
-| **Feed** | Container Apps Job `caj-<env>-sim` | `live/simulator.py`, `live/feed.py` | Simulates the scenario (seconds), then releases the match at `speed` times real time: the **events** into Cosmos DB (after each batch it states the *feed watermark*: every document up to that match time is written) and the **tracking** as five-second chunks into Blob Storage. A late start (`--from-minute`) publishes the part already played at once. |
+| **Feed** | The channel's player thread in the Brain (from a pack); or the Container Apps Job `caj-<env>-sim` for an ad hoc match (`POST /api/live/start`) | `live/channel.py`, `live/feed.py`, `live/simulator.py` | Releases the match at `speed` times real time: the **events** into Cosmos DB (after each batch it states the *feed watermark*: every document up to that match time is written) and the **tracking** as five-second chunks into Blob Storage. A late start (`--from-minute`) publishes the part already played at once. |
 | **Analyze** | Function `analyze` (Event Grid trigger on blobs created in `frames`) | `apps/functions/function_app.py`, `live/analysis.py` | The physical analyzer (sprints, top speed, distance, team shape, pass and shot context) as an event-driven worker. It drains the chunks in order under a lock, writes the physical documents, **then** states the *analyzer watermark*. |
 | **Interpret** | Function `interpret` (Cosmos DB change-feed trigger on `events`) | `live/pipeline.py` | Reads only the documents it has not seen, up to the lower of the two watermarks, in arrival order; stores the new **moments** and the overlays that need no model. |
 | **Dispatch** | Function `dispatch` (change-feed trigger on `moments`) | `apps/functions/function_app.py` | Asks the Brain to write the narrative overlays for the new moments. |
@@ -71,10 +107,11 @@ score, the events, the overlays) follows that one playing clock.
 
 ## Using it
 
-* In the web app: **Live pipeline** in the header of the match center, or `#/live`. Pick a scenario and a start time, press **Start a live match**. The Brain starts the job
-  through Azure Resource Manager with its own identity (Contributor on that one job and nothing else). One live match runs at a time: a visitor who arrives meanwhile is shown the
-  running match instead.
-* Over HTTP (see [brain-api.md](brain-api.md#live-pipeline)): `POST /api/live/start`, then `GET /api/live/{id}/feed`, `/meta` and `/chunks/{n}`.
+* In the web app: just open it. **Season** shows the table and fixtures and **Simulate a new season**; **Replays** is the recorded match center (`#/replay`); **Next match** skips the
+  match on air. The Brain starts the season job through Azure Resource Manager with its own identity (Contributor on that one job and nothing else).
+* Over HTTP (see [brain-api.md](brain-api.md#live-pipeline)): `POST /api/channel/tune`, `GET /api/season`, `POST /api/season/simulate`, then `GET /api/live/{id}/feed`, `/meta` and
+  `/chunks/{n}`; `POST /api/live/start` still starts an ad hoc scenario through the simulator job.
+* Simulating a season from a laptop: `uv run python -m matchmind.live.season_job --season season-2 --create --seed 2 --make-current --workers 8` (needs the Cosmos DB and Blob Storage environment variables, since the processes share the work through them).
 * On a laptop, without Azure: `uv run python -m matchmind.live.simulator --scenario red-card-drama --speed 50` plays the match into memory and runs the analyzer and the
   interpreter in the same process after each tick; with `MATCHMIND_LIVE_LOCAL=1` the Brain's start endpoint does the same in a thread. There is no dispatch or push locally (they need
   the Brain's agents and Azure SignalR).
@@ -82,8 +119,9 @@ score, the events, the overlays) follows that one playing clock.
 
 ## Protection
 
-* `POST /api/live/start` is public but limited: three starts a minute per client, one live match at a time, scenarios from a fixed list, a start minute between 0 and 80.
-  A job that was asked for and never began playing stops holding the slot after ten minutes, and a failed start releases it at once.
+* `POST /api/season/simulate` is public but limited: two a minute per client and one season being simulated at a time (the second caller is told which). `POST /api/channel/tune` is
+  limited to 20 a minute per client and accepts only speeds of 5, 10 and 20. `POST /api/live/start` (the ad hoc simulator job) is limited to three a minute, one live match at a time, scenarios from a fixed
+  list; a job that never began playing stops holding the slot after ten minutes, and a failed start releases it at once.
 * `POST /api/live/{id}/beats` spends model tokens, so it needs the shared key (`x-live-key`, `MATCHMIND_LIVE_KEY`, set on the Brain and on the Function app) and
   **fails closed**: with no key configured nobody gets in, unless `MATCHMIND_LIVE_OPEN=1` marks a development machine.
 * The read endpoints (feed, metadata, chunks) are limited to 240 requests a minute per client. Chunks are immutable and cacheable.
@@ -92,7 +130,35 @@ score, the events, the overlays) follows that one playing clock.
 
 ## Measured
 
-Results are in this section once the run below has been recorded.
+All on Azure, October 2026, `gpt-6-luna` through the registered agents, 5x speed, one match and one viewer at a time.
+
+**Simulating a season.** 30 fixtures, 5 replicas of 1 vCPU, started from the Season page's button: the first result about 50 s after the click (a container starting, then a
+simulation), the last about 140 s after it. Each fixture took 18 to 19 s to simulate and store on a replica. A single replica would need about 9 minutes: the claim-based design
+turns the parallelism into a setting.
+
+**Opening the site.** With the Brain warm the pitch was on screen with a match at kick-off within 10 to 12 s of loading the page, without any click. With a cold Brain add the
+container start (about 20 s). Starting a fixture is a pack read of about a second; the 45 s the earlier version spent simulating while the viewer waited is gone.
+
+**A match through the pipeline** (the red-card story, 11 minutes of wall time, run on the previous version of the home page; the pipeline is the same):
+
+| | Result |
+|---|---|
+| Moments the interpreter found | 15 (7 of them after the start of the run) |
+| **Delay from a moment being detectable to its first overlay being stored** | **median 9.6 s, 90th percentile 13.3 s, from 9.0 s to 13.3 s** over the 7 moments |
+| of which detecting the moment (feed, analyzer, interpreter) | median 3.8 s, at most 6.8 s |
+| of which writing it up (dispatch, the Brain, the model, the Verifier, the store) | median 6.1 s, at most 6.5 s |
+| Narrative overlays (lower thirds, all cohorts) | 120: 91 written by the model, 29 template (the model call missed the then 6 s deadline) |
+
+The first version of the pipeline (replaying the whole match from the store on every change-feed batch, no push) measured a **median of 19.8 s with a worst case of 51 s** on the same
+scenario; the incremental interpreter with watermarks, the Event Grid analyzer and the push removed that. After the run the dispatcher's deadline was raised to 12 s (nobody waits on it:
+viewers watch 25 s behind the feed), which should lower the template share; **that was not re-measured over a whole match**.
+
+Read this carefully:
+
+* The delay is **real time**: at 5x a delay of 10 s is 50 s of match time, which is why the speed is not higher.
+* Seven moments in one match is a small sample, and one scenario.
+* Catch-up after a late start was the weak point: the first analyzer processed about 10 match-seconds per wall second; after prefetching chunks, buffering events and writing documents in
+  parallel it keeps within about 10 match-seconds of the live feed. The channel starts matches at kick-off, so it does not need it.
 
 ## What is not built
 

@@ -15,7 +15,9 @@ after idle takes about 20 seconds, so call `/health` first). Interactive docs ar
 | `POST /api/beats` | **Overlays for chosen moments and viewer cohorts, written now** (below) |
 | `POST /api/ask` | **Ask the match a question**: an answer written from the match-data tools only, checked by the Verifier (below) |
 | `GET /api/live`, `GET /api/live/{id}`, `GET /api/live/{id}/feed`, `/meta`, `/chunks/{n}`, `GET /api/live/config` | **The live pipeline**: live and recent matches, one match with its clock, what is new in it, its metadata and tracking chunks, and the deployment's push address ([below](#live-pipeline)) |
-| `POST /api/live/start` | Start the simulator job on a scenario (public, limited) |
+| `GET /api/channel`, `POST /api/channel/tune` | **The channel**: what is on air, and join it or start the next fixture |
+| `GET /api/season`, `POST /api/season/simulate` | **The season**: fixtures, results, tables and simulation progress; plan and simulate a new season (public, limited) |
+| `POST /api/live/start` | Start the simulator job on an ad hoc scenario (public, limited) |
 | `POST /api/live/{id}/beats` | Internal: write the narrative overlays for new moments (the dispatcher Function calls it; needs `x-live-key`) |
 | `/mcp/` | The Match Data MCP server, streamable HTTP, stateless, 25 tools |
 | `GET/POST /api/director/faults` | The model-fault switch of the resilience demo. Only exists when `MATCHMIND_DIRECTOR=1`; key-protected by `X-Director-Key` |
@@ -122,6 +124,17 @@ against those results.
 * `usage` is the tokens the answer used and what they cost at the configured price (`costUsd`); a `cached` answer costs nothing.
 * An off-topic question is refused after the planner, with no tools run and no answerer call.
 * Errors: 404 unknown match, 422 a bound broken, 429 more than 10 questions a minute from one client (`MATCHMIND_ASK_PER_MIN`), 503 more than 4 questions being answered at once.
+
+## The channel and the season
+
+* `GET /api/channel` → `{now, seasonId, speeds}`. `now` is the match on air (`matchId`, `seasonId`, `fixtureId`, `round`, `speed`, `heartbeatMs`, and `match`: the same summary as `GET /api/live/{id}`) or null.
+* `POST /api/channel/tune` with `{}` joins the match on air or starts the next fixture of the current season from its pack; `{"fixtureId": "f07"}` plays that (simulated) fixture, replacing the
+  match on air; `{"next": true}` skips to the next one; `{"speed": 10}` sets the speed of the match it starts (5, 10 or 20, anything else is a 422). **503** with `Retry-After: 5` while no fixture of the
+  season is simulated yet; **429** over 20 a minute.
+* `GET /api/season` → the current season: `seasonId`, `total`, `done`, `simulating`, `fixtures` (`id`, `round`, `home`, `away`, `scenario`, `status`: pending, simulating or done, `score`), `aired` (the
+  fixtures played on air to the end), `standings` (the table over every simulated fixture), `standingsAired` (over the aired ones only: what the home page shows) and `clubs` (names and kit colours).
+  On a deployment with no season it plans the default one (`season-1`, round 1 being the three stories) and starts the season job.
+* `POST /api/season/simulate` plans a new season (new seeds) and starts the season job; it becomes the current season at once. **409** with the id of a season that is still being simulated, **429** over two a minute.
 
 ## Live pipeline
 
