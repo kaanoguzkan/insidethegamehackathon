@@ -14,9 +14,11 @@
 | Application Insights, Log Analytics (30 days, 0.5 GB a day cap) | Sweden Central | Traces and logs. The Brain exports to the **Foundry project's own** Application Insights so traces show in the Foundry portal |
 | Container Registry (Basic), user-assigned managed identity | Sweden Central | The Brain image; the identity pulls it and calls Cosmos, Storage and the model |
 | Container Apps Job `caj-matchmind-sim` (1 vCPU, 2 GiB, manual trigger) | North Europe | The live pipeline's simulator: plays a scenario as a feed into Cosmos DB. Runs the Brain's image with `python -m matchmind.live.simulator` |
-| Function App `func-matchmind-<id>` (Flex Consumption, Python 3.12, at most 4 instances) | North Europe | `interpret` and `dispatch`, two Cosmos DB change-feed triggers ([live-pipeline.md](live-pipeline.md)) |
-| Storage account | Sweden Central | The Functions host (deployment package, leases, queues) through the managed identity; no keys |
-| SignalR (Free), Key Vault | Sweden Central | **Provisioned, not used by the app yet** |
+| Function App `func-matchmind-<id>` (Flex Consumption, Python 3.12, at most 4 instances) | North Europe | `analyze` (Event Grid), `interpret`, `dispatch`, `push_overlays`, `push_moments`, `push_events` (Cosmos DB change feeds), `negotiate` (SignalR), `sweep` (timer) ([live-pipeline.md](live-pipeline.md)) |
+| Event Grid system topic on the storage account, subscription `analyze-chunks` | Sweden Central | Routes `BlobCreated` events of the `frames` container to the `analyze` Function (the subscription is created by the postdeploy hook, after the Function exists) |
+| Storage account | Sweden Central | Containers `frames` (tracking chunks), `checkpoints` (the workers' signed checkpoints), `deployments` (the Functions package) and the Functions host's own state, through the managed identity; no keys |
+| SignalR (Free, serverless mode, Entra authentication only) | Sweden Central | Pushes overlays, moments and events to the Live page ([live-pipeline.md](live-pipeline.md)) |
+| Key Vault | Sweden Central | **Provisioned, not used by the app** |
 | Consumption budget | subscription | Alerts at 25%, 50% and 90% of $20 a month |
 
 ## What was verified, and how
@@ -109,9 +111,8 @@ dependencies | where timestamp > ago(1h) and name == 'matchmind.beats'
 
 ## Not built yet
 
-The Event Grid-triggered physical analyzer (tracking chunks in Blob Storage) and SignalR publishing to the browser (the Live page polls instead),
-plus Microsoft Fabric. SignalR and Key Vault are provisioned but nothing uses them. The rest of the event-driven pipeline is built:
-[live-pipeline.md](live-pipeline.md).
+Microsoft Fabric. Key Vault is provisioned but nothing uses it. The event-driven pipeline of the plan (simulator job, Event Grid analyzer, change-feed
+Functions, SignalR push) is built: [live-pipeline.md](live-pipeline.md).
 
 ## Running it in public (October 2026 hardening)
 
@@ -143,7 +144,7 @@ Foundry portal; set it with `az monitor app-insights component show --app <proje
 `matchmind foundry-register` must be re-run after any change to `prompts.py`: with `MATCHMIND_AGENTS=foundry` the Brain checks each
 registered agent's `promptVersion` at start-up and, if one is stale or missing, falls back to local agents and says so in `/health`.
 
-Provisioned but not used by the app: SignalR and Key Vault.
+Provisioned but not used by the app: Key Vault.
 
 ### Deploying the live pipeline
 
@@ -152,5 +153,9 @@ Provisioned but not used by the app: SignalR and Key Vault.
   `apps/functions/`) and publishes the web app; a `postdeploy` hook then points the simulator job at the image just deployed.
 * `MATCHMIND_LIVE_KEY` is a shared secret between the dispatcher Function and the Brain: `azd env set MATCHMIND_LIVE_KEY "$(openssl rand -hex 24)"` before provisioning.
   Without it the Brain refuses the dispatcher (the endpoint fails closed).
-* Things that went wrong: the job-start API takes the container list itself, not a job template wrapped around it (a bare 400); the Functions host needs Blob Data Owner
+* The postdeploy hook (`infra/hooks/postdeploy.sh`) points the job at the new image and (re)creates the Event Grid subscription of the `analyze` Function; the Event Grid provider
+  (`Microsoft.EventGrid`) has to be registered on the subscription.
+* Things that went wrong: SignalR answered 403 to the Function's token request because the Bicep role called "SignalR Service Owner" carried the GUID of the management-plane
+  Contributor (the data-plane role is `7e4f1700-ea5a-4f59-8f37-079cfe29dce3`); the SignalR JavaScript client sends credentialed requests by default, which a CORS list without credentials
+  rejects (`withCredentials: false`); the job-start API takes the container list itself, not a job template wrapped around it (a bare 400); the Functions host needs Blob Data Owner
   and Table Data Contributor on the storage account besides the roles the Brain uses.

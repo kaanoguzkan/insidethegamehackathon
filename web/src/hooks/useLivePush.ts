@@ -23,7 +23,7 @@ export function useLivePush(matchId: string | null, pushUrl: string | null, onMe
     // The client is loaded when it is needed: the replay player never pays for it.
     void import('@microsoft/signalr').then(async ({ HubConnectionBuilder, LogLevel }) => {
       if (stopped) return
-      const conn = new HubConnectionBuilder().withUrl(pushUrl).withAutomaticReconnect().configureLogging(LogLevel.Error).build()
+      const conn = new HubConnectionBuilder().withUrl(pushUrl, { withCredentials: false }).withAutomaticReconnect().configureLogging(LogLevel.Error).build()
       stop = () => conn.stop()
       for (const kind of ['overlays', 'moments', 'events'] as const) {
         conn.on(kind, (m: { matchId: string; items: never[] }) => {

@@ -17,7 +17,7 @@
 
 *Updated Monday 12 October 2026 (UTC+3), six days into the Submission Period (it closes 27 October, 11:59 pm Pacific). The first status text was written on 5 October, before anything was deployed or run against a real model; this replaces it.*
 
-**In one paragraph.** All five pipeline stages run end to end, offline on a laptop and live on Azure. The simulator produces matches and tracking, the interpreter finds moments and builds evidence packs, Microsoft Agent Framework agents explain them (checked by a code Verifier, with a degradation ladder), the Overlay Producer emits schema-validated overlay JSON and recaps in three languages for eight audiences, and a React match center plays it with a personalization panel, evidence drawer and a model-health switch. An Opta-style analytics layer and broadcast-style pitch graphics sit on top. Since 7 October the system is **deployed on a free Azure subscription** (Container Apps and Jobs, Functions, Static Web Apps, Cosmos DB, Application Insights, a Foundry project) and has been **run against a real model** (`gpt-4.1-mini`, then `gpt-6-luna`, on Foundry): a live endpoint writes a personalized overlay in about three seconds (median 2.8 s with `gpt-6-luna`) behind a six-second deadline and template fallbacks, rule-based Router, Cache and Repairer agents surround the model, the agents are registered and evaluated in Foundry, a hosted Foundry agent serves the same pipeline, and the public API guards itself. Since 12 October the **event-driven live pipeline is built and run end to end on Azure** (a simulator job feeds Cosmos DB, change-feed Functions interpret it and have the Brain write the overlays, a web page shows it), and the simulated teams move as a unit around the ball. What is **not** done: SignalR push and the Event Grid analyzer (the page polls; the analyzer runs in the job), the 3D pitch in live mode, and the demo video.
+**In one paragraph.** All five pipeline stages run end to end, offline on a laptop and live on Azure. The simulator produces matches and tracking, the interpreter finds moments and builds evidence packs, Microsoft Agent Framework agents explain them (checked by a code Verifier, with a degradation ladder), the Overlay Producer emits schema-validated overlay JSON and recaps in three languages for eight audiences, and a React match center plays it with a personalization panel, evidence drawer and a model-health switch. An Opta-style analytics layer and broadcast-style pitch graphics sit on top. Since 7 October the system is **deployed on a free Azure subscription** (Container Apps and Jobs, Functions, Static Web Apps, Cosmos DB, Application Insights, a Foundry project) and has been **run against a real model** (`gpt-4.1-mini`, then `gpt-6-luna`, on Foundry): a live endpoint writes a personalized overlay in about three seconds (median 2.8 s with `gpt-6-luna`) behind a six-second deadline and template fallbacks, rule-based Router, Cache and Repairer agents surround the model, the agents are registered and evaluated in Foundry, a hosted Foundry agent serves the same pipeline, and the public API guards itself. Since 12 October the **event-driven live pipeline is built and run end to end on Azure** (a simulator job feeds Cosmos DB and Blob Storage, an Event Grid Function analyzes the tracking, change-feed Functions interpret the feed and have the Brain write the overlays, SignalR pushes them to a web page that draws the match in 3D), and the simulated teams move as a unit around the ball. What is **not** done: the replay match center's other tabs in live mode, Microsoft Fabric, and the demo video.
 
 ### Build status
 
@@ -43,12 +43,11 @@
 | Opta-style analytics | Done | Win probability, possession value (VAEP style), xGOT, pitch control, packing and line breaks, networks, measured formations, runs, load, transitions, set-piece review; models fitted from simulated matches (`docs/analytics.md`) |
 | Season history, milestones, prediction, radars | Done | 42 simulated matches; table, form, head-to-head, records, Poisson prediction, goal milestones, player radars and "plays like" |
 | Pitch graphics | Done | `pitch_graphic` overlays with geometry; live pitch control, team shape, offside line, passing options and run layers in the match center |
-| **Live pipeline** (simulator job, Cosmos change feed, Functions, Brain, web page) | **Done, deployed and run end to end** | A Container Apps Job plays a scenario as a feed into Cosmos DB; a change-feed Function interprets it; a second asks the Brain for the narrative overlays (fast path); the Live page polls the result. Idempotent stages, live equals batch (`docs/live-pipeline.md`) |
-| Event Grid physical analyzer on blob chunks, SignalR publishing | Not built | The analyzer runs inside the simulator job; the page polls. SignalR and Key Vault are provisioned and unused |
+| **Live pipeline** (simulator job, Event Grid analyzer, Cosmos change feed, Functions, Brain, SignalR, web page) | **Done, deployed and run end to end** | A Container Apps Job plays a scenario: events into Cosmos DB, 5 s tracking chunks into Blob Storage. An Event Grid-triggered Function runs the physical analyzer (ordered, locked, checkpointed); a change-feed Function interprets the feed up to the lower of two watermarks; a second asks the Brain for the narrative overlays (fast path); Functions push everything stored to the browser over Azure SignalR; the Live page draws the 3D pitch from the chunks. Idempotent stages, live equals batch (`docs/live-pipeline.md`) |
 | Foundry red-teaming, content-safety policy, hosted recap agent | Not built | |
 | Demo video | Not recorded | Required: under two minutes, public link |
 
-641 Python tests (3 slow; all pass; the 638 fast ones in about 70 seconds in parallel) plus 80 web tests; ruff clean. About 17,100 lines of Python in `src`, `apps` and `foundry`, 4,400 of Python tests and 7,500 of web code.
+649 Python tests (3 slow; all pass; the 646 fast ones in about 70 seconds in parallel) plus 86 web tests; ruff clean. About 17,700 lines of Python in `src`, `apps` and `foundry`, 4,600 of Python tests and 8,000 of web code.
 
 ### Measured results
 
@@ -87,8 +86,7 @@
 
 1. Record the under-2-minute demo video from the running app (replays, Live AI, Ask, and the live pipeline).
 2. The written submission.
-3. If time allows: SignalR push instead of polling, the Event Grid physical analyzer, the 3D pitch in live mode.
-4. Foundry extras: red-teaming and a content-safety policy on the agents.
+3. If time allows: Foundry extras: red-teaming and a content-safety policy on the agents; a load test of the live pipeline.
 
 ---
 

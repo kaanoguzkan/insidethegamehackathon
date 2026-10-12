@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Protocol
 
 FINAL = "final"
@@ -163,6 +164,7 @@ class CosmosLiveStore:
         client = CosmosClient(endpoint, credential=credential or DefaultAzureCredential())
         db = client.get_database_client(database)
         self._c = {name: db.get_container_client(name) for name in self.CONTAINERS}
+        self._pool = ThreadPoolExecutor(max_workers=8)  # a chunk's documents are written side by side, not one round trip after another
 
     def _query(self, name: str, match_id: str | None, sql: str, params: list[dict] | None = None) -> list[dict]:
         kw: dict = {"query": sql, "parameters": params or []}
@@ -195,9 +197,11 @@ class CosmosLiveStore:
     def list_matches(self) -> list[dict]:
         return self._query("matches", None, "SELECT * FROM c")
 
+    def _create_many(self, name: str, docs: list[dict]) -> list[bool]:
+        return list(self._pool.map(lambda d: self._create_if_absent(name, d), docs))
+
     def add_docs(self, match_id: str, docs: list[dict]) -> None:
-        for d in docs:
-            self._create_if_absent("events", {**d, "matchId": match_id})
+        self._create_many("events", [{**d, "matchId": match_id} for d in docs])
 
     def docs(self, match_id: str) -> list[dict]:
         return sorted(self._query("events", match_id, "SELECT * FROM c"), key=sort_key)
@@ -210,7 +214,8 @@ class CosmosLiveStore:
         return self._query("events", match_id, f"SELECT TOP {int(limit)} * FROM c WHERE c.n > @n ORDER BY c.n", [{"name": "@n", "value": n}])
 
     def add_moments(self, match_id: str, moments: list[dict]) -> list[str]:
-        return [m["id"] for m in moments if self._create_if_absent("moments", {"id": m["id"], "matchId": match_id, "createdMs": now_ms(), "moment": m})]
+        made = self._create_many("moments", [{"id": m["id"], "matchId": match_id, "createdMs": now_ms(), "moment": m} for m in moments])
+        return [m["id"] for m, ok in zip(moments, made, strict=True) if ok]
 
     def moments(self, match_id: str) -> list[dict]:
         rows = self._query("moments", match_id, "SELECT c.moment, c.createdMs FROM c")
@@ -218,7 +223,8 @@ class CosmosLiveStore:
 
     def add_overlays(self, match_id: str, overlays: list[dict], emitted_ms: int | None = None) -> list[str]:
         at = emitted_ms if emitted_ms is not None else now_ms()
-        return [o["id"] for o in overlays if self._create_if_absent("overlays", {"id": o["id"], "matchId": match_id, "emittedMs": at, "overlay": o})]
+        made = self._create_many("overlays", [{"id": o["id"], "matchId": match_id, "emittedMs": at, "overlay": o} for o in overlays])
+        return [o["id"] for o, ok in zip(overlays, made, strict=True) if ok]
 
     def overlays_since(self, match_id: str, since_ms: int) -> list[dict]:
         return self._query("overlays", match_id, "SELECT * FROM c WHERE c.emittedMs > @s ORDER BY c.emittedMs", [{"name": "@s", "value": since_ms}])

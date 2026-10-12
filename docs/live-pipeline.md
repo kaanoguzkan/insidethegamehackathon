@@ -1,60 +1,84 @@
 # The live pipeline
 
-A simulated match is played as a live feed. Each event is stored, interpreted by an event-driven Function, explained by the agents and shown in the
-browser while the match is still being played. Open the **Live pipeline** page of the web app (`#/live`), press **Start a live match** and watch it.
+A simulated match is played as a live feed. Its events and its tracking are stored as they arrive, a chain of event-driven Functions turns them into moments and
+verified overlays while the match is still being played, and the browser shows the match on a 3D pitch with the overlays arriving by push. Open the
+**Live pipeline** page of the web app (`#/live`), press **Start a live match** and watch it.
 
 ```mermaid
 flowchart LR
-  JOB["Simulator job<br/>Container Apps Job"] -->|"feed documents,<br/>at N x real time"| EV[("Cosmos DB<br/>events")]
+  JOB["Simulator job<br/>Container Apps Job"] -->|"events,<br/>feed watermark"| EV[("Cosmos DB<br/>events")]
+  JOB -->|"5 s tracking chunks"| BL[("Blob Storage<br/>frames")]
+  BL -->|"BlobCreated<br/>(Event Grid)"| AN["Function: analyze<br/>physical analyzer"]
+  AN -->|"physical facts,<br/>analyzer watermark"| EV
   EV -->|change feed| INT["Function: interpret"]
   INT -->|"moments +<br/>model-free overlays"| MO[("Cosmos DB<br/>moments, overlays")]
   MO -->|change feed| DIS["Function: dispatch"]
   DIS -->|"POST /api/live/{id}/beats<br/>(shared key)"| BRAIN["Brain<br/>fast path"]
   BRAIN <-->|"one call per<br/>viewer cohort"| FOUNDRY["Foundry<br/>registered agents"]
   BRAIN -->|"verified overlays"| MO
-  WEB["Web: Live pipeline page"] -->|"poll /api/live/{id}/feed"| BRAIN
+  EV & MO -->|change feed| PUSH["Functions: push_*"]
+  PUSH -->|output binding| SR["Azure SignalR Service"]
+  SR -->|"WebSocket push"| WEB["Web: Live pipeline page"]
+  WEB -->|"catch-up, reconcile,<br/>chunks"| BRAIN
   BRAIN -->|read| MO
-  BRAIN -->|read| EV
+  BRAIN -->|"read chunks"| BL
 ```
 
 | Stage | Where | Code | What it does |
 |---|---|---|---|
-| **Feed** | Container Apps Job `caj-<env>-sim` | `live/simulator.py`, `live/feed.py` | Simulates the scenario (seconds), stamps every document with its arrival time (`arrivalMs`, the order the interpreter has always assumed) and releases the documents into Cosmos DB at `speed` times real time. A late start (`--from-minute`) writes the part already played at once. |
-| **Interpret** | Azure Function `interpret` (Cosmos DB change-feed trigger on `events`) | `apps/functions/function_app.py`, `live/pipeline.py` | Replays the match's documents through the interpreter in arrival order, stores the new **moments** and the overlays that need no model (facts, graphics, momentum). |
-| **Dispatch** | Azure Function `dispatch` (change-feed trigger on `moments`) | `apps/functions/function_app.py` | Asks the Brain to write the narrative overlays for the new moments. |
+| **Feed** | Container Apps Job `caj-<env>-sim` | `live/simulator.py`, `live/feed.py` | Simulates the scenario (seconds), then releases the match at `speed` times real time: the **events** into Cosmos DB (after each batch it states the *feed watermark*: every document up to that match time is written) and the **tracking** as five-second chunks into Blob Storage. A late start (`--from-minute`) publishes the part already played at once. |
+| **Analyze** | Function `analyze` (Event Grid trigger on blobs created in `frames`) | `apps/functions/function_app.py`, `live/analysis.py` | The physical analyzer (sprints, top speed, distance, team shape, pass and shot context) as an event-driven worker. It drains the chunks in order under a lock, writes the physical documents, **then** states the *analyzer watermark*. |
+| **Interpret** | Function `interpret` (Cosmos DB change-feed trigger on `events`) | `live/pipeline.py` | Reads only the documents it has not seen, up to the lower of the two watermarks, in arrival order; stores the new **moments** and the overlays that need no model. |
+| **Dispatch** | Function `dispatch` (change-feed trigger on `moments`) | `apps/functions/function_app.py` | Asks the Brain to write the narrative overlays for the new moments. |
 | **Explain** | The Brain, `POST /api/live/{id}/beats` | `live/dispatch.py`, `agents/` | The same fast path as `/api/beats`: the Editor, the cache, one model call per viewer cohort, the Verifier, the template fallback. Overlays are stored in Cosmos DB. |
-| **Show** | The Brain's read API and the web page | `live/api.py`, `web/src/components/LivePage.tsx` | `GET /api/live`, `/api/live/{id}` and `/api/live/{id}/feed`; the page polls the feed about once a second. |
+| **Push** | Functions `negotiate` and `push_overlays`, `push_moments`, `push_events` (change-feed triggers with the SignalR output binding) | `apps/functions/function_app.py` | The browser negotiates a connection to Azure SignalR (serverless mode, Microsoft Entra authentication, no keys); every overlay, moment and event that is stored is pushed to it in batches. |
+| **Show** | The Brain's read API and the web page | `live/api.py`, `web/src/components/LivePage.tsx` | Catch-up (`GET /api/live/{id}/feed`), the match's metadata, the tracking chunks (the Brain serves them: the storage account is private), and a slow reconciling poll while push works. The page draws the 3D pitch from the chunks with the same components as the replay player. |
+| **Safety net** | Function `sweep` (timer, every 30 s) | `apps/functions/function_app.py` | For each live match, does what the triggers would have done: drain the chunks, interpret. A lost Event Grid event or a restarted instance cannot stall a match for long. |
 
 ## Why it is built this way
 
-* **Both stages are stateless and idempotent.** The interpreter is deterministic, so the `interpret` Function replays the match from the store on every
-  invocation and gets the same moments; moments and overlays are created only if absent. A change feed delivers at least once, the Brain scales to zero and may be
-  asleep for the first attempt (the dispatcher retries), and the job may be restarted: none of that can duplicate or lose an overlay. The Functions keep no state,
-  so they scale to zero too.
-* **The live and the batch pipeline are the same code.** `tests/test_live.py` checks that interpreting the live feed finds exactly the moments the batch pipeline
-  finds on the same match, that interpretation can run while the match is half played and a re-delivered batch changes nothing, and that the story budget
-  (three optional beats in ten minutes) is shared across dispatches.
-* **Narrative overlays are written by the Brain, not by a Function**: the Brain already holds the agents, the cache and the Foundry connection, and a model call
-  is I/O, not compute. The Function only decides *when*.
-* **The job runs the Brain's image** with another command, so the simulator, the interpreter and the agents are one code base.
+* **Event time and watermarks.** Two producers (the job's events, the analyzer's physical facts) feed one interpreter, and the physical facts for a stretch of the match are
+  only known some seconds after the stretch itself. The interpreter must see a fixed order whatever the order of production, or the moments it finds and their ids would
+  depend on timing. So each producer states a **watermark** (everything up to this match time is written) and the interpreter only consumes up to the lower of the two.
+  The analyzer writes its documents first and the watermark after, and a physical document is never emitted more than one chunk (5.2 s, measured on all three scenarios)
+  after its own match time, so after chunk *k* everything up to the chunk's end minus 6 s is complete.
+* **Incremental, with recovery.** The interpreter and the analyzer keep their state in memory while the instance is warm and checkpoint it to blob storage (every 20 s;
+  every 30 chunks) so that a cold instance restores and carries on. A checkpoint is a pickle, so it is **signed** with an HMAC of the shared key and ignored if the signature
+  does not verify (and checkpointing is off when no key is configured). Replaying from a checkpoint re-reads documents already seen; ids are deterministic and everything is
+  created only if absent, so replaying changes nothing.
+* **At-least-once everywhere, so everything is idempotent.** Event Grid and the change feed deliver at least once and in no particular order. The analyzer's `analyze`
+  does not process "the chunk in the event": it processes **the next chunks in order, as many as exist**, under a lock with an expiry (a crashed holder cannot block it),
+  and looks once more after releasing the lock so that a chunk that arrived at the wrong moment is not forgotten. The Brain scales to zero and may be asleep for the first
+  dispatch (it retries).
+* **The live and the batch pipeline are the same code.** `tests/test_live.py` plays a match through the real playback loop on a fake clock, calling the workers as the triggers
+  would, and checks that the analyzer worker produces exactly the documents the sequential analyzer produces over the same chunks, that the interpreter finds the batch
+  pipeline's moments, that cold workers restoring from checkpoints give the same result, that a planted unsigned checkpoint is ignored, that the interpreter waits for the
+  slower watermark, and that concurrent invocations do not run at once.
+* **The live analyzer sees what a provider delivers.** Chunks carry positions rounded to 0.1 m, so the physical numbers derived from them differ slightly from the recorded
+  replays' (which were analysed from the simulator's raw floats). The tests compare the worker with the analyzer run over the same rounded chunks.
+* **Narrative overlays are written by the Brain, not by a Function**: the Brain already holds the agents, the cache and the Foundry connection, and a model call is I/O, not
+  compute. The Function only decides *when*.
+* **The job runs the Brain's image** with another command, so the simulator, the interpreter, the analyzer and the agents are one code base.
 
-## Speed and delay
+## Speed, delay and what the viewer sees
 
-`LIVE_SPEED` (default 5) is the number of match seconds per real second. A match of 95 minutes then takes 19 minutes; starting at minute 50 takes 9. The delay
-between a moment happening and its story being stored is real time, so in match time it is multiplied by the speed: that is why the default is 5 and not 60.
-Measured on Azure with `gpt-6-luna` through the registered agents: see "Measured" below.
+`LIVE_SPEED` (default 5) is the number of match seconds per real second. A match of 95 minutes then takes 19 minutes; starting at minute 40 takes 11. The delay between a
+moment happening and its overlay being stored is real time, so in match time it is multiplied by the speed: that is why the default is 5 and not 60.
+
+The page does not show the live feed: it shows the match `LIVE_DELAY_S` (25) wall seconds behind it, the way a broadcast runs behind the match. That is the time the pipeline
+needs to write what the viewer is about to see, and it also gives the tracking chunks (published when they are complete) time to arrive. Everything on the page (the pitch, the
+score, the events, the overlays) follows that one playing clock.
 
 ## Using it
 
-* In the web app: **Live pipeline** in the header of the match center, or `#/live`. Pick a scenario and a start time, press **Start a live match**. The Brain
-  starts the job through Azure Resource Manager with its own identity (Contributor on that one job and nothing else). One live match runs at a time: a visitor
-  who arrives meanwhile is shown the running match instead.
-* Over HTTP (see [brain-api.md](brain-api.md#live-pipeline)): `POST /api/live/start`, then poll `GET /api/live/{id}/feed`.
-* On a laptop, without Azure: `uv run python -m matchmind.live.simulator --scenario red-card-drama --speed 50` plays the feed into memory and prints what it did; with
-  `MATCHMIND_LIVE_LOCAL=1` the Brain's start endpoint runs the simulator in a thread of the same process. The Functions are not part of a local run (the interpreter
-  and the dispatcher are tested against an in-memory store instead, `tests/test_live.py`).
-* Starting the job by hand: `az containerapp job start -g rg-matchmind -n caj-matchmind-sim` (it uses the scenario and speed set in the job; the Brain's endpoint
-  overrides them per match).
+* In the web app: **Live pipeline** in the header of the match center, or `#/live`. Pick a scenario and a start time, press **Start a live match**. The Brain starts the job
+  through Azure Resource Manager with its own identity (Contributor on that one job and nothing else). One live match runs at a time: a visitor who arrives meanwhile is shown the
+  running match instead.
+* Over HTTP (see [brain-api.md](brain-api.md#live-pipeline)): `POST /api/live/start`, then `GET /api/live/{id}/feed`, `/meta` and `/chunks/{n}`.
+* On a laptop, without Azure: `uv run python -m matchmind.live.simulator --scenario red-card-drama --speed 50` plays the match into memory and runs the analyzer and the
+  interpreter in the same process after each tick; with `MATCHMIND_LIVE_LOCAL=1` the Brain's start endpoint does the same in a thread. There is no dispatch or push locally (they need
+  the Brain's agents and Azure SignalR).
+* Starting the job by hand: `az containerapp job start -g rg-matchmind -n caj-matchmind-sim`.
 
 ## Protection
 
@@ -62,35 +86,18 @@ Measured on Azure with `gpt-6-luna` through the registered agents: see "Measured
   A job that was asked for and never began playing stops holding the slot after ten minutes, and a failed start releases it at once.
 * `POST /api/live/{id}/beats` spends model tokens, so it needs the shared key (`x-live-key`, `MATCHMIND_LIVE_KEY`, set on the Brain and on the Function app) and
   **fails closed**: with no key configured nobody gets in, unless `MATCHMIND_LIVE_OPEN=1` marks a development machine.
-* The read endpoints are limited to 240 requests a minute per client (a viewer polls about 60).
+* The read endpoints (feed, metadata, chunks) are limited to 240 requests a minute per client. Chunks are immutable and cacheable.
+* The Function app's CORS lists the web app's origins only; SignalR, Cosmos DB and Blob Storage are reached with managed identities (no keys; shared-key access to the storage
+  account is off).
 
 ## Measured
 
-Two runs of `red-card-drama` on the deployed pipeline (12 October 2026; `gpt-6-luna` through the registered agents, 5x speed). The first started at minute 50, the second
-at minute 40, started with the page's own button.
-
-| | Run 2 (from minute 40) |
-|---|---|
-| Moments the interpreter found | 13 (6 of them after the start of the run, the others in the part that was replayed at once) |
-| Narrative overlays (lower thirds, all cohorts) | 104: 91 written by the model and verified first time, 1 mended, 12 template |
-| All overlays stored (including facts, graphics, momentum, tickers) | 1,069 |
-| **Delay from a moment being detected to its first overlay being stored** | **median 19.8 s, 90th percentile 26.7 s, from 8.2 s to 51.3 s** over the 6 moments (run 1: 16.2 s for the red card) |
-
-Read this carefully:
-
-* The delay is **real time**. At 5x a delay of 20 s is 100 s of match time, which is why the speed is not higher; at 1x it would be about the 15 s broadcast delay of
-  the plan. It includes the change-feed hops (each polled every half second), a replay of the match through the interpreter, the Brain's fast path (one model call per
-  cohort, a few seconds) and the stores. It was **not broken down per stage**: the Functions' own timing logs were not read back.
-* Six moments is a small sample, and the spread is wide (the slowest, a tactical shift, took 51 s). I did not find out why; a Function that had scaled to zero and a
-  Brain asleep for the first call are the likely suspects, and the interpreter replays the whole match on every invocation, which grows with the match.
-* 12 of 104 story overlays are template text: moments whose model call missed the six-second deadline or that the Verifier refused. They are still verified.
-* One match, one scenario, one afternoon.
+Results are in this section once the run below has been recorded.
 
 ## What is not built
 
-* **Tracking chunks to Blob Storage and an Event Grid-triggered physical analyzer.** The simulator job computes the physical facts (sprints, top speed, distance) with the same
-  analyzer as the batch pipeline and writes them into the feed as documents. The plan has the chunks land in Blob Storage and an Event Grid trigger run the analyzer;
-  that hop is not built.
-* **SignalR push.** The page polls once a second instead; the SignalR service stays provisioned but unused.
-* **The 3D pitch in live mode.** The live page shows the pipeline (scoreboard, stages, overlays, events, moments); the pitch and the tracking playback are in the replay
-  match center, which plays the same overlays from a recorded package.
+* **The live page is not the whole match center.** It shows the pipeline and the 3D pitch with the overlays; the evidence drawer, recaps, the tactics tab and the Explore workspace
+  (which need analytics computed over a finished match) are in the replay match center.
+* **One live match at a time**, started from a fixed list of scenarios, with the Brain scaled to at most two replicas.
+* **No load measurement.** The pipeline was run one match and one viewer at a time; what happens with several matches or many viewers at once was not measured (the SignalR
+  free tier allows 20 concurrent connections and 20,000 messages a day).

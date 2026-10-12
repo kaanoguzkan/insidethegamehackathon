@@ -74,6 +74,6 @@ flowchart LR
 
 Used by the app: Container Apps (the Brain, scales to zero, at most 2 replicas), Static Web Apps, Cosmos DB free tier (the shared cache),
 Application Insights and Log Analytics (daily cap), the Container Registry, a budget with alerts, and the Foundry project (model, eight registered
-agents, the hosted agent, evaluations). The live pipeline adds a Container Apps Job (the simulator), a Function App on the Flex Consumption plan (two change-feed
-triggers) and the Storage account the Functions host needs ([live-pipeline.md](live-pipeline.md)). Provisioned but not used: SignalR (free) and Key Vault. A user-assigned managed identity holds every role assignment; there are no keys in configuration. What is deployed, how
+agents, the hosted agent, evaluations). The live pipeline adds a Container Apps Job (the simulator), a Function App on the Flex Consumption plan (an Event Grid trigger, change-feed triggers, a SignalR
+negotiate endpoint and a timer), Blob Storage for tracking chunks and checkpoints, an Event Grid system topic and Azure SignalR ([live-pipeline.md](live-pipeline.md)). Provisioned but not used: Key Vault. A user-assigned managed identity holds every role assignment; there are no keys in configuration. What is deployed, how
 it was verified and what went wrong on a free subscription: [running-on-azure.md](running-on-azure.md). Every setting: [configuration.md](configuration.md).

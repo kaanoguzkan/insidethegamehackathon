@@ -21,7 +21,8 @@ from __future__ import annotations
 import gzip
 import os
 import pickle  # noqa: S403 - only ever loads blobs that carry a valid HMAC from this service's own key
-from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 
 from ..tracking.analyzer import PhysicalAnalyzer
 from ..tracking.frames import decode_chunk
@@ -33,6 +34,8 @@ LOOKBACK_MS = 6000  # a physical document is emitted at most 5.2 s after its own
 CHECKPOINT_EVERY = 30  # chunks (2.5 minutes of match time)
 LOCK = "analyzer"
 LOCK_TTL_MS = 60_000
+PREFETCH = 12  # chunks fetched from blob storage ahead of the one being processed
+STATE_EVERY = 5  # chunks between watermark writes while there is more to do (the last one before stopping is always written)
 EVENT_TYPES = ("period_start", "pass", "shot", "offside")  # the events the analyzer needs from the feed
 
 
@@ -48,6 +51,7 @@ class _Run:
     analyzer: PhysicalAnalyzer
     next: int = 0  # the next chunk to process
     seen_n: int = -1  # the last feed document handed to the analyzer
+    buf: list[dict] = field(default_factory=list)  # feed documents read ahead (their sequence numbers follow seen_n without a gap)
 
 
 class AnalyzerWorker:
@@ -55,6 +59,7 @@ class AnalyzerWorker:
         self.store, self.frames, self.checkpoints = store, frames, checkpoints
         self.key = key if key is not None else signing_key()  # None: no checkpoints; a cold instance replays from the first chunk
         self._cache: dict[str, _Run] = {}
+        self._pool = ThreadPoolExecutor(max_workers=6)
 
     # ----- the entry point --------------------------------------------------------------------------
 
@@ -86,18 +91,28 @@ class AnalyzerWorker:
         if run is None or run.next != state["next"]:
             run = self._restore(match_id, info, state["next"])
         count = 0
+        fetching: dict[int, object] = {}
+        last_end, dirty = -1, False
         while run.next < total:
-            data = self.frames.get(chunk_name(match_id, run.next))
+            for j in range(run.next, min(total, run.next + PREFETCH)):
+                if j not in fetching:
+                    fetching[j] = self._pool.submit(self.frames.get, chunk_name(match_id, j))
+            data = fetching.pop(run.next).result()  # type: ignore[attr-defined]
             if data is None:
                 break
-            out_docs, end = self._step(run, match_id, decode_chunk(data), last=run.next == total - 1)
+            out_docs, last_end = self._step(run, match_id, decode_chunk(data), last=run.next == total - 1)
             self.store.add_docs(match_id, out_docs)  # the documents first ...
             run.next += 1
             last = run.next >= total
-            self.store.put_state(match_id, "analyzer", {"next": run.next, "wmMs": INF if last else end - LOOKBACK_MS, "final": last})  # ... then the watermark
+            dirty = True
+            if last or run.next % STATE_EVERY == 0:
+                self.store.put_state(match_id, "analyzer", {"next": run.next, "wmMs": INF if last else last_end - LOOKBACK_MS, "final": last})  # ... then the watermark
+                dirty = False
             if run.next % CHECKPOINT_EVERY == 0:
                 self._checkpoint(match_id, run)
             count += 1
+        if dirty:
+            self.store.put_state(match_id, "analyzer", {"next": run.next, "wmMs": last_end - LOOKBACK_MS, "final": False})
         self._cache[match_id] = run
         return count
 
@@ -112,19 +127,21 @@ class AnalyzerWorker:
         return docs, end
 
     def _feed_events(self, run: _Run, match_id: str, upto_ms: int) -> None:
-        """Hand the analyzer the feed events up to ``upto_ms`` that it has not seen (it needs the passes and shots to enrich them)."""
+        """Hand the analyzer the feed events up to ``upto_ms`` that it has not seen (it needs the passes and shots to enrich them). Events are read a page
+        at a time into a buffer, so a long catch-up does not query the store once per chunk."""
+        take: list[dict] = []
         while True:
+            while run.buf and run.buf[0]["arrivalMs"] <= upto_ms:
+                take.append(run.buf.pop(0))
+            if run.buf:  # the next event is later than this chunk
+                break
             page = self.store.docs_after(match_id, run.seen_n, 200)
-            take = []
-            for d in page:
-                if d["arrivalMs"] > upto_ms:
-                    break
-                take.append(d)
-            if take:
-                run.seen_n = take[-1]["n"]
-                run.analyzer.add_events([d["doc"] for d in take if d["doc"].get("type") in EVENT_TYPES])
-            if len(take) < len(page) or len(page) < 200:
-                return
+            if not page:
+                break
+            run.buf.extend(page)
+            run.seen_n = page[-1]["n"]
+        if take:
+            run.analyzer.add_events([d["doc"] for d in take if d["doc"].get("type") in EVENT_TYPES])
 
     def _restore(self, match_id: str, info: dict, next_index: int) -> _Run:
         """A run at chunk ``next_index``: from the last checkpoint if there is a valid one, replaying the chunks since without writing anything."""
@@ -150,5 +167,6 @@ class AnalyzerWorker:
     def _checkpoint(self, match_id: str, run: _Run) -> None:
         if not self.key:
             return
-        blob = gzip.compress(pickle.dumps({"next": run.next, "seenN": run.seen_n, "analyzer": run.analyzer}, protocol=5), compresslevel=1)
+        handed = run.buf[0]["n"] - 1 if run.buf else run.seen_n  # what the analyzer has actually been given: the buffer's events are not its yet
+        blob = gzip.compress(pickle.dumps({"next": run.next, "seenN": handed, "analyzer": run.analyzer}, protocol=5), compresslevel=1)
         self.checkpoints.put(f"analyzer/{match_id}.bin", sign(blob, self.key))

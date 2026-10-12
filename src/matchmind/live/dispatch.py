@@ -13,6 +13,10 @@ from ..agents.verify import Registry
 from ..runner import BATCH_WINDOW_MS, STORY_BUDGET_PER_10_MIN, default_cohorts
 from .store import LiveStore
 
+# Nobody waits on this call: viewers watch ~25 s behind the live feed, so the dispatcher can give the model twice the interactive deadline (6 s) and
+# keep text that would otherwise have fallen back to a template. Detecting a moment takes about 4 s, writing it up to this, and the viewer's delay is 25 s.
+LIVE_DEADLINE_MS = 12_000
+
 
 def _batches(moments: list[dict]) -> list[list[dict]]:
     out: list[list[dict]] = []
@@ -26,7 +30,7 @@ def _batches(moments: list[dict]) -> list[list[dict]]:
 
 
 async def write_beats(
-    store: LiveStore, match_id: str, moment_ids: list[str], *, team: AgentTeam, cache=None, deadline_ms: int = 6000,  # noqa: ANN001
+    store: LiveStore, match_id: str, moment_ids: list[str], *, team: AgentTeam, cache=None, deadline_ms: int = LIVE_DEADLINE_MS,  # noqa: ANN001
 ) -> dict:
     """The narrative overlays for the given moments of a live match, written with the fast path and stored. Returns what happened."""
     info = store.get_match(match_id)

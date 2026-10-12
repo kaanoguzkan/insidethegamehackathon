@@ -14,7 +14,7 @@ after idle takes about 20 seconds, so call `/health` first). Interactive docs ar
 | `GET /api/matches/{id}/report.pdf` | The printable 17-page match report |
 | `POST /api/beats` | **Overlays for chosen moments and viewer cohorts, written now** (below) |
 | `POST /api/ask` | **Ask the match a question**: an answer written from the match-data tools only, checked by the Verifier (below) |
-| `GET /api/live`, `GET /api/live/{id}`, `GET /api/live/{id}/feed` | **The live pipeline**: live and recent matches, one match with its clock, and what is new in it ([below](#live-pipeline)) |
+| `GET /api/live`, `GET /api/live/{id}`, `GET /api/live/{id}/feed`, `/meta`, `/chunks/{n}`, `GET /api/live/config` | **The live pipeline**: live and recent matches, one match with its clock, what is new in it, its metadata and tracking chunks, and the deployment's push address ([below](#live-pipeline)) |
 | `POST /api/live/start` | Start the simulator job on a scenario (public, limited) |
 | `POST /api/live/{id}/beats` | Internal: write the narrative overlays for new moments (the dispatcher Function calls it; needs `x-live-key`) |
 | `/mcp/` | The Match Data MCP server, streamable HTTP, stateless, 25 tools |
@@ -132,6 +132,11 @@ serverNowMs, home, away, players}`; `clockMs` is where the match clock stands at
 * `GET /api/live/{id}/feed?event=<n>&since=<ms>` returns the match plus what is new: `events` (goals, shots, cards, substitutions, formation changes above feed sequence
   `n`, at most 500 raw documents per call; `more` says to ask again at once with `eventCursor`), `overlays` emitted at or after `since` (the client drops repeats by id; use
   `overlayCursor` next time) and every `moments` found so far. Start with `event=-1&since=0`.
+* `GET /api/live/{id}/meta` is the match's metadata (teams, kits, line-ups, periods): the same document as a replay package's `meta.json`, which the pitch draws from.
+  `GET /api/live/{id}/chunks/{n}` is one five-second tracking chunk (gzip JSON, `Content-Encoding: gzip`, immutable and cacheable; 404 until the simulator job has published
+  it): the storage account is private, so the Brain serves the chunks. `GET /api/live/config` says where browsers connect for SignalR pushes (`push`, the Function app's `/api`
+  address or null) and how far behind the live feed to watch (`delayS`, 25).
+* `GET /api/live/{id}/feed` also returns each moment's `createdMs` (when the interpreter stored it), so a client can split the delay between detecting a moment and writing its overlay.
 * `POST /api/live/start` with `{"scenario": "red-card-drama", "fromMinute": 40}` answers `{matchId, scenario, fromMinute}` at once; the job takes about half a minute to
   simulate before the match goes live. **409** with `{"detail": {"matchId": ...}}` when a match is already running (join it); **422** for an unknown scenario or a start
   minute outside 0 to 80; **429** over three starts a minute; **502** when the job could not be started; **503** on a Brain with no job configured.

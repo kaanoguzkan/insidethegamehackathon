@@ -108,7 +108,7 @@ uv run matchmind build-pdf                          # the printable match report
 uv run matchmind fit-models                         # win probability, possession value, post-shot xG
 uv run matchmind build-season                       # the league's simulated history
 uv run pytest -m "not slow"                         # the fast suite
-cd web && pnpm install && pnpm dev                  # the match center (80 tests: pnpm test)
+cd web && pnpm install && pnpm dev                  # the match center (86 tests: pnpm test)
 ```
 
 No keys, network or GPU needed: the default model client answers from the template engine so the real
@@ -189,12 +189,11 @@ Details: [docs/architecture.md](docs/architecture.md), the agents in [docs/agent
 | **Microsoft Foundry** | The model (`gpt-6-luna`), eight agents registered as versioned prompt agents that the Brain calls, a hosted agent (`matchmind-newsroom`), Foundry evaluations, and traces in Application Insights | **Run against a live project** (Oct 2026); the SDK parts are experimental. Results and caveats: [docs/foundry.md](docs/foundry.md) |
 | **GitHub Copilot** | Built with it; `.github/copilot-instructions.md` and the MCP config for agent mode | In use |
 | **Azure Container Apps, Static Web Apps, Cosmos DB, Application Insights, Log Analytics, Container Registry** | `infra/` Bicep on the free tier: the Brain, the web app, a shared cache in Cosmos DB (identity only, no keys), traces, a budget with alerts, a daily log cap | **Deployed and verified** (Oct 2026): scale-to-zero cold start, rate limits, the shared cache across a restart, traces. See [docs/running-on-azure.md](docs/running-on-azure.md) |
-| **Azure Functions (Flex Consumption), Container Apps Jobs, Cosmos DB change feed** | The **live pipeline**: a simulator job plays a scenario as a feed into Cosmos DB, a change-feed Function interprets it, a second one asks the Brain for the narrative overlays, the web page polls the result | **Deployed and verified end to end** (Oct 2026): [docs/live-pipeline.md](docs/live-pipeline.md) |
-| **SignalR, Key Vault** | Provisioned by the same Bicep | Provisioned only; the page polls instead of using SignalR (below) |
+| **Azure Functions (Flex Consumption), Container Apps Jobs, Event Grid, Cosmos DB change feed, Blob Storage, SignalR** | The **live pipeline**: a simulator job plays a scenario into Cosmos DB (events) and Blob Storage (tracking chunks); an Event Grid-triggered Function runs the physical analyzer on each chunk; a change-feed Function interprets the feed up to a watermark; another asks the Brain for the narrative overlays; Functions push everything stored to the browser over Azure SignalR, which draws the match on a 3D pitch | **Deployed and verified end to end** (Oct 2026): [docs/live-pipeline.md](docs/live-pipeline.md) |
+| **Key Vault** | Provisioned by the same Bicep | Provisioned only; nothing uses it |
 | **GitHub Actions** | CI (lint, tests in parallel, quality gates, schema sync, web build, Bicep compile, container smoke test), Pages mirror, OIDC deploy | CI passes on GitHub. Two runs failed, both on a Docker Hub rate limit (HTTP 429) while pulling the base image; since the Dockerfile builds from `ghcr.io`, the last four runs pass. Pages is live |
 
-What is **not** built: the Event Grid-triggered physical analyzer on tracking chunks in Blob Storage, SignalR publishing to the browser (the Live
-page polls once a second), the 3D pitch in live mode, and Microsoft Fabric. The replay path (static files, no backend) is what the demo and the judge link
+What is **not** built: Microsoft Fabric, and the replay match center's tabs (evidence drawer, recaps, tactics, the Explore workspace) in live mode. The replay path (static files, no backend) is what the demo and the judge link
 use; the Brain runs the same agents on demand for Live AI, and the live pipeline plays a match through Azure as it is being played. See [docs/running-on-azure.md](docs/running-on-azure.md) and the
 plan's status section.
 
@@ -237,7 +236,7 @@ data/            league, scenarios (3 stories), replay packages (3 matches, ~10 
 infra/           Bicep + azure.yaml          schemas/   JSON Schemas of the public contracts
 docs/            architecture, agents, live-pipeline, brain-api, configuration, foundry, running-on-azure, tactics, analytics, metrics,
                  overlay contract, data card, responsible AI, report
-tests/ evals/    Python tests (3 slow) + 80 web tests      SOLUTION PLAN.md   design, schedule, status
+tests/ evals/    Python tests (3 slow) + 86 web tests      SOLUTION PLAN.md   design, schedule, status
 ```
 
 ## Honest limits
@@ -248,8 +247,9 @@ tests/ evals/    Python tests (3 slow) + 80 web tests      SOLUTION PLAN.md   de
 * **The first request after idle is slow.** The Brain scales to zero (free tier), so a cold start takes about 20 seconds; the page wakes it on load
   and shows "Waking the AI service" meanwhile.
 * **The live pipeline is a feed, not a broadcast.** A simulator job stands in for the data provider and plays at a chosen speed (default 5 times real time, so
-  the pipeline's real-time delay is five times longer in match time). The physical analyzer runs inside the job instead of on Event Grid blob triggers, the page polls
-  instead of using SignalR, and the live page shows the pipeline, not the 3D pitch. One live match runs at a time.
+  the pipeline's real-time delay is five times longer in match time), and viewers watch 25 seconds behind it. The live page shows the pipeline and the 3D pitch with the overlays,
+  not the replay match center's other tabs. One live match runs at a time, and it was run one viewer at a time: there is no load measurement (SignalR's free tier allows 20 concurrent
+  connections).
 * **Experimental SDK parts.** Registered Foundry agents, the hosted agent and Foundry evaluations use experimental Agent Framework APIs that may change.
   The hosted agent's first call to a new session can time out while its container starts.
 * The demo video is not recorded.

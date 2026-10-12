@@ -193,7 +193,7 @@ resource signalr 'Microsoft.SignalRService/signalR@2023-02-01' = {
 var roles = {
   storageBlob: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe' // Storage Blob Data Contributor
   storageQueue: '974c5e8b-45b9-4653-ba55-5f855dd0fb88' // Storage Queue Data Contributor
-  signalr: '8cf5e20a-e4b2-4e9d-b3a1-5ceb692c2761' // SignalR Service Owner
+  signalr: '7e4f1700-ea5a-4f59-8f37-079cfe29dce3' // SignalR Service Owner (the data-plane role: generate client tokens, send messages). 8cf5e20a-... is the management-plane Contributor, which is not enough
   storageBlobOwner: 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b' // Storage Blob Data Owner (the Functions host keeps its leases in blobs)
   storageTable: '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3' // Storage Table Data Contributor
   contributor: 'b24988ac-6180-42a0-ab88-20f7382dd24c' // Contributor, scoped to the simulator job only
