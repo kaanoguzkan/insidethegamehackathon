@@ -576,3 +576,12 @@ body:has(.broadcast) { background: transparent; }
 @keyframes live-in { from { opacity: 0; transform: translateY(6px); } }
 .live-about { color: var(--muted); font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { .live-ov { animation: none; } .live-status.live::before { animation: none; } }
+
+.live-watch-head { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; margin-bottom: 8px; }
+.live-watch-head h2 { margin: 0; }
+.live-cams { display: flex; gap: 6px; margin-left: auto; }
+.live-watch { container-type: size; height: min(64vh, 560px); display: flex; justify-content: center; align-items: center; }
+.live-watch-wait { text-align: center; }
+.live-push { font-size: 12px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.live-push.live { color: var(--good); border-color: var(--good); }
+.live-push.down { color: var(--warn); border-color: var(--warn); }

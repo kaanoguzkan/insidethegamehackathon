@@ -139,3 +139,29 @@ def test_starting_a_live_match_claims_the_slot_so_a_second_visitor_joins_it(monk
 def test_a_brain_without_a_job_refuses_to_start_a_match():
     with TestClient(create_app()) as c:  # no LIVE_JOB_ID and no local mode
         assert c.post("/api/live/start", json={"scenario": "red-card-drama"}).status_code == 503
+
+
+def test_config_meta_and_chunks_for_the_pitch(prepared, match, monkeypatch):
+    from matchmind.live import feed as F
+    from matchmind.live.blobs import MemoryBlobs
+
+    store, mid, _ = prepared
+    frames = MemoryBlobs()
+    chunks = F.build_chunks(match)
+    for _, name, data in chunks[:3]:
+        frames.put(name, data)
+    monkeypatch.setenv("LIVE_PUSH_URL", "https://push.test/api")
+    with TestClient(create_app(live_store=store, live_frames=frames)) as c:
+        assert c.get("/api/live/config").json() == {"push": "https://push.test/api", "delayS": 25.0}
+        m = c.get(f"/api/live/{mid}/meta").json()
+        assert m["home"]["players"] and m["hz"] == 5 and m["package"]["llm"] == "live"
+        r = c.get(f"/api/live/{mid}/chunks/1")
+        assert r.status_code == 200 and "immutable" in r.headers["cache-control"] and r.headers["content-encoding"] == "gzip"
+        body = r.json()  # the client decodes the gzip: what is left is the chunk
+        assert body["chunk"] == 1 and body["startMs"] == 5000 and len(body["players"]) == 25 and len(body["slots"]) == 22
+        assert c.get(f"/api/live/{mid}/chunks/9").status_code == 404  # not published yet
+        assert c.get(f"/api/live/{mid}/chunks/-1").status_code == 404
+        assert c.get("/api/live/nope/chunks/0").status_code == 404
+    monkeypatch.delenv("LIVE_PUSH_URL")
+    with TestClient(create_app(live_store=store)) as c:
+        assert c.get("/api/live/config").json()["push"] is None

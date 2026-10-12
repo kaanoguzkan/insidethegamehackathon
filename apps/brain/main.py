@@ -58,6 +58,8 @@ from matchmind.core.paths import replays_dir
 from matchmind.guards import ADMIN_HEADER, PUBLIC_MAX_DEADLINE_MS, RateLimitMiddleware, is_admin
 from matchmind.live.api import ContainerAppsJobStarter
 from matchmind.live.api import make_router as make_live_router
+from matchmind.live.blobs import Blobs
+from matchmind.live.simulator import make_blobs as make_live_blobs
 from matchmind.live.simulator import make_store as make_live_store
 from matchmind.live.simulator import run as run_simulator
 from matchmind.live.store import LiveStore
@@ -109,7 +111,8 @@ def make_beat_cache() -> BeatCache | SharedBeatCache:
 
 
 def create_app(
-    registry: MatchRegistry | None = None, llm: str | None = None, director: bool | None = None, live_store: LiveStore | None = None
+    registry: MatchRegistry | None = None, llm: str | None = None, director: bool | None = None, live_store: LiveStore | None = None,
+    live_frames: Blobs | None = None,
 ) -> FastAPI:
     reg = registry or MatchRegistry()
     faults = Faults()
@@ -235,6 +238,13 @@ def create_app(
             live_holder.append(make_live_store())
         return live_holder[0]
 
+    frames_holder: list[Blobs] = [live_frames] if live_frames is not None else []
+
+    def get_live_frames() -> Blobs:
+        if not frames_holder:
+            frames_holder.append(make_live_blobs("frames"))
+        return frames_holder[0]
+
     def live_starter() -> ContainerAppsJobStarter | None:
         job = os.environ.get("LIVE_JOB_ID")
         return ContainerAppsJobStarter(job, float(os.environ.get("LIVE_SPEED", "5"))) if job else None
@@ -248,7 +258,7 @@ def create_app(
         ).start()
 
     in_process_ok = live_store is not None or os.environ.get("MATCHMIND_LIVE_LOCAL") == "1"  # tests and a laptop: no job, play it in this process
-    app.include_router(make_live_router(get_live_store, get_team, beat_cache, live_starter, live_in_process if in_process_ok else None))
+    app.include_router(make_live_router(get_live_store, get_team, beat_cache, live_starter, live_in_process if in_process_ok else None, get_live_frames))
 
     @app.get("/api/matches")
     def matches() -> list[str]:

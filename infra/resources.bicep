@@ -83,7 +83,7 @@ resource blobs 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
   name: 'default'
 }
 
-resource containers 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = [for c in ['replays', 'frames', 'deployments']: {
+resource containers 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = [for c in ['replays', 'frames', 'checkpoints', 'deployments']: {
   parent: blobs
   name: c
   properties: { publicAccess: 'None' }
@@ -326,6 +326,7 @@ resource brain 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'MATCHMIND_AGENT_TIMEOUT_S', value: '30' } // a model call may use up to this long, never more than the request has left
             { name: 'MATCHMIND_BEAT_BUDGET_S', value: '90' } // the five-agent workflow (mode "full") needs far more than the 15 s default
             { name: 'LIVE_JOB_ID', value: simJob.id } // the simulator job the "start a live match" endpoint runs
+            { name: 'LIVE_PUSH_URL', value: 'https://${funcApp.properties.defaultHostName}/api' } // where browsers connect for SignalR pushes (the negotiate Function)
             { name: 'LIVE_SPEED', value: '5' } // match seconds per real second: a 15 s model call is then a 75 s delay in match time, so keep it low
           ], concat(empty(adminKey) ? [] : [ { name: 'MATCHMIND_ADMIN_KEY', secretRef: 'admin-key' } ], empty(liveKey) ? [] : [ { name: 'MATCHMIND_LIVE_KEY', secretRef: 'live-key' } ]))
           probes: [
@@ -375,6 +376,7 @@ resource simJob 'Microsoft.App/jobs@2024-03-01' = {
           env: [
             { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
             { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
+            { name: 'STORAGE_ACCOUNT', value: storage.name }
             { name: 'MATCHMIND_DATA', value: '/app/data' }
           ]
         }
@@ -429,20 +431,37 @@ resource funcApp 'Microsoft.Web/sites@2023-12-01' = {
       runtime: { name: 'python', version: '3.12' }
     }
     siteConfig: {
+      cors: { allowedOrigins: concat([ 'https://${web.properties.defaultHostname}', 'http://localhost:5173', 'http://localhost:4173' ], empty(corsOrigins) ? [] : split(corsOrigins, ',')) }
       appSettings: [
         { name: 'AzureWebJobsStorage__accountName', value: storage.name }
         { name: 'AzureWebJobsStorage__credential', value: 'managedidentity' }
         { name: 'AzureWebJobsStorage__clientId', value: identity.properties.clientId }
+        { name: 'AzureSignalRConnectionString__serviceUri', value: 'https://${signalr.properties.hostName}' }
+        { name: 'AzureSignalRConnectionString__credential', value: 'managedidentity' }
+        { name: 'AzureSignalRConnectionString__clientId', value: identity.properties.clientId }
         { name: 'COSMOS__accountEndpoint', value: cosmos.properties.documentEndpoint }
         { name: 'COSMOS__credential', value: 'managedidentity' }
         { name: 'COSMOS__clientId', value: identity.properties.clientId }
         { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
+        { name: 'STORAGE_ACCOUNT', value: storage.name }
         { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
         { name: 'BRAIN_URL', value: 'https://${brainHost}' }
         { name: 'MATCHMIND_LIVE_KEY', value: liveKey }
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: insights.properties.ConnectionString }
       ]
     }
+  }
+}
+
+// Every blob created in the storage account raises an Event Grid event; the subscription that routes the tracking chunks to the `analyze` Function is created
+// after the Function is deployed (the postdeploy hook in azure.yaml: a Function endpoint has to exist before it can be subscribed to).
+resource storageEvents 'Microsoft.EventGrid/systemTopics@2022-06-15' = {
+  name: 'evgt-${environmentName}-storage'
+  location: location
+  tags: tags
+  properties: {
+    source: storage.id
+    topicType: 'Microsoft.Storage.StorageAccounts'
   }
 }
 

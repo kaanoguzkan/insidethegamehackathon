@@ -52,7 +52,7 @@ export function App() {
   const lang = route.profile.language
 
   if (liveView) {
-    return <LivePage lang={lang} mode={route.profile.mode} matchId={route.match} onMatch={(id) => setRoute({ match: id })} onProfile={(p) => setRoute({ profile: { ...route.profile, ...p } })} />
+    return <LivePage profile={route.profile} matchId={route.match} onMatch={(id) => setRoute({ match: id })} onProfile={(p) => setRoute({ profile: { ...route.profile, ...p } })} />
   }
   if (indexError || error) {
     return (

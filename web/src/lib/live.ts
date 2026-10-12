@@ -1,6 +1,8 @@
 import { BRAIN_URL } from './brain'
 import { SAFE_ID } from './data'
-import type { Overlay } from './types'
+import type { ChunkJson, TrackingSource } from './tracking'
+import type { Meta, Moment, Overlay } from './types'
+import type { Replay } from './data'
 
 /** The live pipeline as the Brain serves it (src/matchmind/live/api.py). */
 
@@ -43,6 +45,8 @@ export interface LiveMoment {
   salience: number
   detectedAt: { matchMs: number }
   subjectTeam?: string | null
+  /** Wall time at which the interpreter stored the moment. */
+  createdMs?: number | null
 }
 
 export type LiveOverlay = Overlay & { emittedMs: number }
@@ -54,6 +58,13 @@ export interface LiveFeed extends LiveMatch {
   overlays: LiveOverlay[]
   overlayCursor: number
   moments: LiveMoment[]
+}
+
+export interface LiveConfig {
+  /** The Function app's `/api` address where browsers connect for SignalR pushes; null when the deployment has none. */
+  push: string | null
+  /** How far behind the live feed viewers watch, in wall seconds: time for the pipeline to write what they are about to see. */
+  delayS: number
 }
 
 export class LiveBusy extends Error {
@@ -146,4 +157,54 @@ export function median(xs: number[]): number | null {
 /** Who wrote an overlay: the model (verified first time), the model after the Verifier's repair, or the template. */
 export function writer(o: Overlay): 'model' | 'mended' | 'template' {
   return o.provenance.fallbackLevel === 0 ? 'model' : o.provenance.fallbackLevel === 1 ? 'mended' : 'template'
+}
+
+export const getConfig = (base = BRAIN_URL, signal?: AbortSignal): Promise<LiveConfig> => fetch(`${base}/api/live/config`, { signal }).then((r) => json<LiveConfig>(r))
+
+export function getMeta(matchId: string, base = BRAIN_URL, signal?: AbortSignal): Promise<Meta> {
+  if (!SAFE_ID.test(matchId)) return Promise.reject(new Error('invalid id'))
+  return fetch(`${base}/api/live/${matchId}/meta`, { signal }).then((r) => json<Meta>(r))
+}
+
+/** One tracking chunk, or null while it has not been published (the Brain answers 404 until the simulator job has written it). */
+export async function getChunk(matchId: string, index: number, base = BRAIN_URL, signal?: AbortSignal): Promise<ChunkJson | null> {
+  if (!SAFE_ID.test(matchId)) throw new Error('invalid id')
+  const res = await fetch(`${base}/api/live/${matchId}/chunks/${index}`, { signal })
+  if (res.status === 404) return null
+  return json<ChunkJson>(res)
+}
+
+/** The pieces the pitch components read from a replay, for a match that is still being played: tracking that grows, moments and overlays supplied separately. */
+export function liveReplay(id: string, meta: Meta, tracking: TrackingSource, moments: LiveMoment[]): Replay {
+  return { id, meta, moments: moments as unknown as Moment[], overlays: [], snapshots: [], recaps: [], events: [], eventsById: new Map(), tracking, analytics: null }
+}
+
+/**
+ * Where the time between a moment and its overlay goes, in wall seconds, for each moment that has a story: from the moment being detectable (match time
+ * turned into wall time through the speed) to its being stored by the interpreter (``createdMs``), and from there to its first overlay being stored.
+ * A moment with no creation time (older runs) is left out.
+ */
+export function stageDelays(m: Pick<LiveMatch, 'wallStartMs' | 'speed' | 'fromMs'>, moments: LiveMoment[], overlays: LiveOverlay[]): { interpret: number[]; write: number[] } {
+  const out = { interpret: [] as number[], write: [] as number[] }
+  if (!m.wallStartMs || !m.speed) return out
+  const from = m.fromMs ?? 0
+  const first = new Map<string, number>()
+  for (const o of overlays) {
+    if ((o.kind !== 'lower_third' && o.kind !== 'ticker') || !o.momentId) continue
+    const at = first.get(o.momentId)
+    if (at === undefined || o.emittedMs < at) first.set(o.momentId, o.emittedMs)
+  }
+  for (const mo of moments) {
+    const emitted = first.get(mo.id)
+    if (emitted === undefined || mo.createdMs == null || mo.detectedAt.matchMs < from) continue
+    const happened = m.wallStartMs + (mo.detectedAt.matchMs - from) / m.speed
+    out.interpret.push(Math.max(0, (mo.createdMs - happened) / 1000))
+    out.write.push(Math.max(0, (emitted - mo.createdMs) / 1000))
+  }
+  return out
+}
+
+/** What the page shows is `delayS` seconds behind the live feed, in match time (never before the start of the match). */
+export function playClock(liveMs: number, speed: number | null | undefined, delayS: number): number {
+  return Math.max(0, liveMs - delayS * 1000 * (speed ?? 1))
 }

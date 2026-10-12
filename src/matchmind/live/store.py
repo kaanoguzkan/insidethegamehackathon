@@ -29,17 +29,25 @@ class LiveStore(Protocol):
     def list_matches(self) -> list[dict]: ...
     def add_docs(self, match_id: str, docs: list[dict]) -> None: ...
     def docs(self, match_id: str) -> list[dict]: ...
+    def docs_between(self, match_id: str, after_ms: int, upto_ms: int) -> list[dict]: ...
     def docs_after(self, match_id: str, n: int, limit: int = 200) -> list[dict]: ...
     def add_moments(self, match_id: str, moments: list[dict]) -> list[str]: ...
     def moments(self, match_id: str) -> list[dict]: ...
     def add_overlays(self, match_id: str, overlays: list[dict], emitted_ms: int | None = None) -> list[str]: ...
     def overlays_since(self, match_id: str, since_ms: int) -> list[dict]: ...
     def get_state(self, match_id: str, key: str, default: Any = None) -> Any: ...
+    def acquire(self, match_id: str, name: str, ttl_ms: int) -> bool: ...
+    def release(self, match_id: str, name: str) -> None: ...
     def put_state(self, match_id: str, key: str, value: Any) -> None: ...
 
 
 def now_ms() -> int:
     return int(time.time() * 1000)
+
+
+def sort_key(d: dict) -> tuple:
+    """The order documents reach the interpreter in: arrival time, then events before the analyzer's events before the enrichments, then sequence."""
+    return (d["arrivalMs"], d.get("order", 0), d.get("seq") or 0, d.get("n") if d.get("n") is not None else 0)
 
 
 def doc_key(n: int) -> str:
@@ -56,6 +64,7 @@ class MemoryLiveStore:
         self._moments: dict[str, dict[str, dict]] = {}
         self._overlays: dict[str, dict[str, dict]] = {}
         self._state: dict[tuple[str, str], Any] = {}
+        self._locks: dict[tuple[str, str], int] = {}
 
     def put_match(self, match_id: str, info: dict) -> None:
         with self._lock:
@@ -78,11 +87,15 @@ class MemoryLiveStore:
 
     def docs(self, match_id: str) -> list[dict]:
         with self._lock:
-            return sorted(self._docs.get(match_id, {}).values(), key=lambda d: d["n"])
+            return sorted(self._docs.get(match_id, {}).values(), key=sort_key)
+
+    def docs_between(self, match_id: str, after_ms: int, upto_ms: int) -> list[dict]:
+        """The documents that arrived in ``(after_ms, upto_ms]``, in arrival order. This is how the interpreter reads: only what it has not seen."""
+        return [d for d in self.docs(match_id) if after_ms < d["arrivalMs"] <= upto_ms]
 
     def docs_after(self, match_id: str, n: int, limit: int = 200) -> list[dict]:
         """The feed documents with a sequence number above ``n`` (what a poller has not seen), oldest first."""
-        return [d for d in self.docs(match_id) if d["n"] > n][:limit]
+        return [d for d in self.docs(match_id) if d.get("n") is not None and d["n"] > n][:limit]
 
     def add_moments(self, match_id: str, moments: list[dict]) -> list[str]:
         """Store the moments that are new; returns their ids (what the dispatcher has to write overlays for)."""
@@ -91,13 +104,13 @@ class MemoryLiveStore:
             bucket = self._moments.setdefault(match_id, {})
             for m in moments:
                 if m["id"] not in bucket:
-                    bucket[m["id"]] = {"id": m["id"], "matchId": match_id, "moment": m}
+                    bucket[m["id"]] = {"id": m["id"], "matchId": match_id, "createdMs": now_ms(), "moment": m}
                     new.append(m["id"])
         return new
 
     def moments(self, match_id: str) -> list[dict]:
         with self._lock:
-            ms = [d["moment"] for d in self._moments.get(match_id, {}).values()]
+            ms = [{**d["moment"], "createdMs": d.get("createdMs")} for d in self._moments.get(match_id, {}).values()]
         return sorted(ms, key=lambda m: m["detectedAt"]["matchMs"])
 
     def add_overlays(self, match_id: str, overlays: list[dict], emitted_ms: int | None = None) -> list[str]:
@@ -123,6 +136,19 @@ class MemoryLiveStore:
     def put_state(self, match_id: str, key: str, value: Any) -> None:
         with self._lock:
             self._state[(match_id, key)] = value
+
+    def acquire(self, match_id: str, name: str, ttl_ms: int) -> bool:
+        """Take a named lock for ``ttl_ms`` (a crashed holder's lock expires on its own). False if someone else holds it."""
+        with self._lock:
+            held = self._locks.get((match_id, name))
+            if held is not None and held > now_ms():
+                return False
+            self._locks[(match_id, name)] = now_ms() + ttl_ms
+            return True
+
+    def release(self, match_id: str, name: str) -> None:
+        with self._lock:
+            self._locks.pop((match_id, name), None)
 
 
 class CosmosLiveStore:
@@ -174,17 +200,21 @@ class CosmosLiveStore:
             self._create_if_absent("events", {**d, "matchId": match_id})
 
     def docs(self, match_id: str) -> list[dict]:
-        return self._query("events", match_id, "SELECT * FROM c ORDER BY c.n")
+        return sorted(self._query("events", match_id, "SELECT * FROM c"), key=sort_key)
+
+    def docs_between(self, match_id: str, after_ms: int, upto_ms: int) -> list[dict]:
+        rows = self._query("events", match_id, "SELECT * FROM c WHERE c.arrivalMs > @a AND c.arrivalMs <= @b", [{"name": "@a", "value": after_ms}, {"name": "@b", "value": upto_ms}])
+        return sorted(rows, key=sort_key)
 
     def docs_after(self, match_id: str, n: int, limit: int = 200) -> list[dict]:
         return self._query("events", match_id, f"SELECT TOP {int(limit)} * FROM c WHERE c.n > @n ORDER BY c.n", [{"name": "@n", "value": n}])
 
     def add_moments(self, match_id: str, moments: list[dict]) -> list[str]:
-        return [m["id"] for m in moments if self._create_if_absent("moments", {"id": m["id"], "matchId": match_id, "moment": m})]
+        return [m["id"] for m in moments if self._create_if_absent("moments", {"id": m["id"], "matchId": match_id, "createdMs": now_ms(), "moment": m})]
 
     def moments(self, match_id: str) -> list[dict]:
-        rows = self._query("moments", match_id, "SELECT c.moment FROM c")
-        return sorted((r["moment"] for r in rows), key=lambda m: m["detectedAt"]["matchMs"])
+        rows = self._query("moments", match_id, "SELECT c.moment, c.createdMs FROM c")
+        return sorted(({**r["moment"], "createdMs": r.get("createdMs")} for r in rows), key=lambda m: m["detectedAt"]["matchMs"])
 
     def add_overlays(self, match_id: str, overlays: list[dict], emitted_ms: int | None = None) -> list[str]:
         at = emitted_ms if emitted_ms is not None else now_ms()
@@ -203,3 +233,38 @@ class CosmosLiveStore:
 
     def put_state(self, match_id: str, key: str, value: Any) -> None:
         self._c["state"].upsert_item({"id": key, "matchId": match_id, "value": value})
+
+    def acquire(self, match_id: str, name: str, ttl_ms: int) -> bool:
+        """A lock as a document: created if absent, taken over (with its etag, so only one taker wins) if its holder's time ran out."""
+        from azure.core import MatchConditions
+        from azure.cosmos.exceptions import (
+            CosmosAccessConditionFailedError,
+            CosmosResourceExistsError,
+            CosmosResourceNotFoundError,
+        )
+
+        doc = {"id": f"lock-{name}", "matchId": match_id, "expiresMs": now_ms() + ttl_ms}
+        try:
+            self._c["state"].create_item(doc)
+            return True
+        except CosmosResourceExistsError:
+            pass
+        try:
+            held = self._c["state"].read_item(item=doc["id"], partition_key=match_id)
+        except CosmosResourceNotFoundError:
+            return self.acquire(match_id, name, ttl_ms)
+        if held.get("expiresMs", 0) > now_ms():
+            return False
+        try:
+            self._c["state"].replace_item(item=doc["id"], body=doc, etag=held["_etag"], match_condition=MatchConditions.IfNotModified)
+            return True
+        except CosmosAccessConditionFailedError:
+            return False
+
+    def release(self, match_id: str, name: str) -> None:
+        from azure.cosmos.exceptions import CosmosResourceNotFoundError
+
+        try:
+            self._c["state"].delete_item(item=f"lock-{name}", partition_key=match_id)
+        except CosmosResourceNotFoundError:
+            pass

@@ -19,12 +19,13 @@ import urllib.request
 from collections.abc import Callable
 from typing import Any, Literal, Protocol
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from ..core.paths import scenarios_dir
+from .blobs import Blobs
 from .dispatch import write_beats
-from .feed import live_clock_ms
+from .feed import chunk_name, live_clock_ms
 from .store import LiveStore, now_ms
 
 LIVE_KEY_HEADER = "x-live-key"
@@ -109,7 +110,7 @@ def summary(info: dict) -> dict:
 
 def make_router(
     get_store: Callable[[], LiveStore], get_team: Callable[[], Any], beat_cache: Any, starter: Callable[[], JobStarter | None],
-    in_process: Callable[[str, str, float], None] | None = None,
+    in_process: Callable[[str, str, float], None] | None = None, get_frames: Callable[[], Blobs] | None = None,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -128,6 +129,11 @@ def make_router(
             return False
         return not (r.get("status") == "scheduled" and now - (r.get("scheduledMs") or 0) >= MAX_SCHEDULED_AGE_MS)
 
+    @router.get("/api/live/config")
+    async def config() -> dict:
+        """What a viewer needs that depends on the deployment: where pushes come from (SignalR, through the Function app) and how far behind the live feed to watch."""
+        return {"push": os.environ.get("LIVE_PUSH_URL") or None, "delayS": float(os.environ.get("LIVE_DELAY_S", "25"))}
+
     @router.get("/api/live")
     async def list_live() -> list[dict]:
         rows = await asyncio.to_thread(store().list_matches)
@@ -138,6 +144,26 @@ def make_router(
     @router.get("/api/live/{match_id}")
     async def one(match_id: str) -> dict:
         return summary(await asyncio.to_thread(_match, match_id))
+
+    @router.get("/api/live/{match_id}/meta")
+    async def meta(match_id: str) -> dict:
+        """The match's metadata (teams, kits, line-ups, periods), the same document as a replay package's ``meta.json``, which the pitch draws from."""
+        info = await asyncio.to_thread(_match, match_id)
+        m = info.get("meta")
+        if not m:
+            raise HTTPException(404, "the match has not started yet")
+        return {**m, "package": {"llm": "live", "cohorts": [], "levels": {}, "moments": 0, "overlays": 0}}
+
+    @router.get("/api/live/{match_id}/chunks/{index}")
+    async def chunk(match_id: str, index: int) -> Response:
+        """One five-second tracking chunk (gzip JSON). The browser cannot read the private storage account, so the Brain serves it; chunks never change."""
+        if get_frames is None or index < 0 or index > 5000:
+            raise HTTPException(404, "no such chunk")
+        await asyncio.to_thread(_match, match_id)
+        data = await asyncio.to_thread(get_frames().get, chunk_name(match_id, index))
+        if data is None:
+            raise HTTPException(404, "that chunk has not been published yet")
+        return Response(data, media_type="application/json", headers={"Content-Encoding": "gzip", "Cache-Control": "public, max-age=31536000, immutable"})
 
     @router.get("/api/live/{match_id}/feed")
     async def feed(match_id: str, event: int = -1, since: int = 0) -> dict:
@@ -153,7 +179,7 @@ def make_router(
             ]
             rows = s.overlays_since(match_id, max(since - 1, 0))
             moments = [
-                {k: m.get(k) for k in ("id", "type", "label", "salience", "detectedAt", "subjectTeam", "facts")} for m in s.moments(match_id)
+                {k: m.get(k) for k in ("id", "type", "label", "salience", "detectedAt", "subjectTeam", "facts", "createdMs")} for m in s.moments(match_id)
             ]
             return {
                 "events": events, "eventCursor": docs[-1]["n"] if docs else event, "more": len(docs) >= FEED_PAGE,

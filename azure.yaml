@@ -36,7 +36,7 @@ services:
         shell: sh
         run: pnpm install --frozen-lockfile && pnpm sync
 hooks:
-  # The simulator job runs the Brain's image. Bicep only knows a placeholder, so point the job at the image just deployed.
+  # Things that need the deployed code: the simulator job's image, and the Event Grid subscription of the analyze Function.
   postdeploy:
     shell: sh
-    run: az containerapp job update -g "rg-$AZURE_ENV_NAME" -n "caj-$AZURE_ENV_NAME-sim" --image "$SERVICE_BRAIN_IMAGE_NAME" -o none
+    run: sh infra/hooks/postdeploy.sh

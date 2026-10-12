@@ -1,6 +1,6 @@
 import type { Analytics } from './analytics'
 import type { MatchEvent, Meta, Moment, Overlay, Recap, ReplayIndexEntry, Snapshot } from './types'
-import { gunzip, type SlotRow, Tracking } from './tracking'
+import { gunzip, type SlotRow, Tracking, type TrackingSource } from './tracking'
 
 export interface Replay {
   id: string
@@ -11,7 +11,7 @@ export interface Replay {
   recaps: Recap[]
   events: MatchEvent[]
   eventsById: Map<string, MatchEvent>
-  tracking: Tracking
+  tracking: TrackingSource
   analytics: Analytics | null // older packages have none
 }
 

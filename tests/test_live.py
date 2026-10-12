@@ -12,7 +12,7 @@ from matchmind.agents.team import AgentSettings, AgentTeam
 from matchmind.analytics.season import context_for
 from matchmind.intel.pipeline import interpret_match
 from matchmind.live import dispatch, feed, pipeline
-from matchmind.live.store import FINAL, MemoryLiveStore
+from matchmind.live.store import FINAL, MemoryLiveStore, sort_key
 
 
 @pytest.fixture(scope="module")
@@ -130,3 +130,159 @@ def test_the_story_budget_is_shared_across_dispatches(match, docs, intel):
     for t in kept:  # never more than the budget inside any ten minutes
         assert sum(1 for u in kept if 0 <= t - u < 10 * 60_000) <= 3 + 1
     assert len(kept) <= len(optional)
+
+
+# ---------------------------------------------------------------------------------------------
+# The chunked path: tracking chunks in blob storage, the analyzer worker, the incremental interpreter
+# ---------------------------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def chunked(match):
+    return feed.build_feed(match, physical="chunks"), feed.build_chunks(match)
+
+
+def _batch_over_delivered_chunks(match):
+    """The analyzer run sequentially over the chunks as a provider delivers them (positions rounded to 0.1 m): the reference for the live worker.
+    The recorded replays were analysed from the raw floats, whose derived numbers differ slightly; the live path never sees them."""
+    from matchmind.tracking.analyzer import AnalyzerOutput, PhysicalAnalyzer
+    from matchmind.tracking.frames import decode_chunk, encode_chunk, iter_chunks
+
+    an = PhysicalAnalyzer(match.meta)
+    an.add_events(match.events)
+    out = AnalyzerOutput()
+    for ch in iter_chunks(match):
+        out.extend(an.process_chunk(decode_chunk(encode_chunk(ch))))
+    out.extend(an.flush())
+    return out
+
+
+def _run_chunked(match, chunked, intel, *, speed=120.0, from_ms=0, key=b"k", fresh_workers_every=None):
+    """Play the match through the real loop on a fake clock; after every tick the workers run, as the triggers would."""
+    from matchmind.live.analysis import AnalyzerWorker
+    from matchmind.live.blobs import MemoryBlobs
+    from matchmind.live.pipeline import InterpretWorker
+
+    docs, chunks = chunked
+    mid = match.meta["matchId"]
+    store, frames, ckpts = MemoryLiveStore(), MemoryBlobs(), MemoryBlobs()
+    feed.start_match(store, mid, match.meta, docs, scenario=None, speed=speed, from_ms=from_ms, chunks=len(chunks))
+    box = {"an": AnalyzerWorker(store, frames, ckpts, key=key), "ip": InterpretWorker(store, ckpts, intel, key=key, checkpoint_every_s=0.0), "n": 0}
+    wall = [1_000_000]
+
+    def sleep(s: float) -> None:
+        wall[0] += int(s * 1000)
+        box["n"] += 1
+        if fresh_workers_every and box["n"] % fresh_workers_every == 0:  # a cold instance: nothing in memory, only the checkpoints
+            box["an"], box["ip"] = AnalyzerWorker(store, frames, ckpts, key=key), InterpretWorker(store, ckpts, intel, key=key, checkpoint_every_s=0.0)
+        box["an"].drain(mid)
+        box["ip"].run(mid)
+
+    feed.play(store, mid, docs, speed=speed, from_ms=from_ms, chunks=chunks, blobs=frames, now=lambda: wall[0], sleep=sleep, tick_s=1.0)
+    box["an"].drain(mid)
+    out = box["ip"].run(mid)
+    return store, frames, ckpts, out
+
+
+def test_the_chunked_feed_is_events_only_and_the_chunks_are_five_seconds_each(match, chunked):
+    docs, chunks = chunked
+    assert {d["kind"] for d in docs} == {"feed"} and all(d["doc"]["type"] != "sprint" for d in docs)
+    assert len(chunks) == len(match.chunk_slots) and [c[0] for c in chunks[:3]] == [5000, 10000, 15000]
+    assert [c[1] for c in chunks[:2]] == [f"{match.meta['matchId']}/00000.json.gz", f"{match.meta['matchId']}/00001.json.gz"]
+
+
+def test_the_analyzer_worker_produces_exactly_what_the_batch_analyzer_does(match, chunked, intel):
+    store, _, _, _ = _run_chunked(match, chunked, intel)
+    mid = match.meta["matchId"]
+    live = {d["id"]: (d["kind"], d["arrivalMs"], d["doc"]) for d in store.docs(mid) if d["kind"] in ("physical", "enrichment")}
+    batch = {d["id"]: (d["kind"], d["arrivalMs"], d["doc"]) for d in feed.analyzer_docs(_batch_over_delivered_chunks(match))}
+    assert live.keys() == batch.keys() and len(live) > 1000
+    assert all(json.dumps(live[k], sort_keys=True) == json.dumps(batch[k], sort_keys=True) for k in batch)
+    state = store.get_state(mid, "analyzer")
+    assert state["final"] and state["next"] == len(chunked[1])
+
+
+def test_interpreting_the_chunked_run_finds_the_batch_pipelines_moments(match, chunked, intel):
+    from matchmind.core.clock import clock_from_ms  # noqa: F401
+    from matchmind.intel.interpreter import Interpreter, InterpretOutput
+
+    store, _, _, out = _run_chunked(match, chunked, intel)
+    mid = match.meta["matchId"]
+    ip = Interpreter(
+        match.meta, baselines=intel.baselines, xt=intel.xt, models=intel.models,
+        season=context_for(intel.season, match.meta["home"]["id"], match.meta["away"]["id"]),
+    )
+    ref = InterpretOutput()
+    for d in sorted(feed.analyzer_docs(_batch_over_delivered_chunks(match)) + chunked[0], key=sort_key):
+        ref.extend(ip.ingest(d["doc"], arrival_ms=d["arrivalMs"]))
+    ref.extend(ip.finish())
+    assert out["finished"] and out["feedMs"] == feed.INF and out["physicalMs"] == feed.INF
+    assert [m["id"] for m in store.moments(mid)] == [m["id"] for m in sorted(ref.moments, key=lambda m: m["detectedAt"]["matchMs"])]
+
+
+def test_a_cold_worker_restores_its_checkpoint_and_the_result_is_the_same(match, chunked, intel):
+    """Every 7 ticks both workers are replaced by fresh ones that only have the checkpoints: nothing is lost, duplicated or renumbered."""
+    mid = match.meta["matchId"]
+    warm, _, _, _ = _run_chunked(match, chunked, intel)
+    cold, frames, ckpts, out = _run_chunked(match, chunked, intel, fresh_workers_every=7)
+    assert ckpts.exists(f"analyzer/{mid}.bin") and ckpts.exists(f"interpreter/{mid}.bin")
+    assert out["finished"]
+    assert [m["id"] for m in cold.moments(mid)] == [m["id"] for m in warm.moments(mid)]
+    assert {d["id"] for d in cold.docs(mid)} == {d["id"] for d in warm.docs(mid)}
+
+
+def test_a_checkpoint_that_is_not_signed_by_this_service_is_ignored(match, chunked, intel):
+    from matchmind.live.analysis import AnalyzerWorker
+    from matchmind.live.blobs import MemoryBlobs, sign, unsign
+
+    assert unsign(sign(b"data", b"k"), b"k") == b"data" and unsign(sign(b"data", b"k"), b"other") is None and unsign(b"short", b"k") is None
+    docs, chunks = chunked
+    mid = match.meta["matchId"]
+    store, frames, ckpts = MemoryLiveStore(), MemoryBlobs(), MemoryBlobs()
+    feed.start_match(store, mid, match.meta, docs, scenario=None, speed=1.0, chunks=len(chunks))
+    store.add_docs(mid, docs)
+    for _, name, data in chunks[:40]:
+        frames.put(name, data)
+    ckpts.put(f"analyzer/{mid}.bin", b"\x00" * 32 + b"this would be a pickle that runs code")  # planted, unsigned
+    store.put_state(mid, "analyzer", {"next": 40, "wmMs": 0, "final": False})
+    worker = AnalyzerWorker(store, frames, ckpts, key=b"k")
+    out = worker.drain(mid)  # restores from scratch (replaying 40 chunks) instead of loading the planted blob
+    assert out["next"] == 40 and out["processed"] == 0
+
+
+def test_the_interpreter_waits_for_the_slower_watermark(match, chunked, intel):
+    """Feed and chunks are all there but the analyzer has not run: nothing may be interpreted past what the physical facts cover."""
+    from matchmind.live.blobs import MemoryBlobs
+    from matchmind.live.pipeline import InterpretWorker
+
+    docs, chunks = chunked
+    mid = match.meta["matchId"]
+    store, frames = MemoryLiveStore(), MemoryBlobs()
+    feed.start_match(store, mid, match.meta, docs, scenario=None, speed=1.0, chunks=len(chunks))
+    store.add_docs(mid, docs)
+    store.put_state(mid, "feedWm", feed.INF)
+    worker = InterpretWorker(store, None, intel)
+    out = worker.run(mid)
+    assert out["read"] == 0 and out["limitMs"] == -1 and not out["finished"] and store.moments(mid) == []
+    store.put_state(mid, "analyzer", {"next": 100, "wmMs": 300_000, "final": False})
+    again = worker.run(mid)
+    assert again["limitMs"] == 300_000 and again["read"] > 0 and not again["finished"]
+    del frames
+
+
+def test_two_analyzer_invocations_do_not_run_at_once(match, chunked):
+    from matchmind.live.analysis import LOCK, AnalyzerWorker
+    from matchmind.live.blobs import MemoryBlobs
+
+    docs, chunks = chunked
+    mid = match.meta["matchId"]
+    store, frames, ckpts = MemoryLiveStore(), MemoryBlobs(), MemoryBlobs()
+    feed.start_match(store, mid, match.meta, docs, scenario=None, speed=1.0, chunks=len(chunks))
+    for _, name, data in chunks[:5]:
+        frames.put(name, data)
+    worker = AnalyzerWorker(store, frames, ckpts, key=b"k")
+    assert store.acquire(mid, LOCK, 60_000)  # another invocation is in the middle of it
+    assert worker.drain(mid) == {"matchId": mid, "processed": 0, "busy": True}
+    store.release(mid, LOCK)
+    assert worker.drain(mid)["processed"] == 5
+    assert worker.drain(mid)["processed"] == 0  # nothing new: a duplicate event does nothing

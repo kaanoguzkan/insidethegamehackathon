@@ -1,13 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveFeed } from '../hooks/useLiveFeed'
+import { useLivePush } from '../hooks/useLivePush'
+import { useLiveTracking } from '../hooks/useLiveTracking'
 import { momentTypeLabel, t } from '../i18n'
 import { BRAIN_URL, brainConfigured, wakeBrain } from '../lib/brain'
 import { SAFE_ID } from '../lib/data'
 import {
-  clockLabel, listLive, liveClock, LiveBusy, type LiveEvent, type LiveMatch, type LiveOverlay, median, pipelineDelays, scoreOf, startLive, writer,
+  clockLabel, getConfig, getMeta, listLive, liveClock, LiveBusy, type LiveConfig, type LiveEvent, type LiveMatch, type LiveOverlay, liveReplay, median, pipelineDelays,
+  playClock, scoreOf, stageDelays, startLive, writer,
 } from '../lib/live'
-import type { Lang, Mode } from '../lib/types'
+import type { Meta, Profile } from '../lib/types'
+import type { Cam } from '../lib/webgl'
 import { LoadBar } from './LoadBar'
+import { Screen } from './Screen'
 
 const SCENARIOS = ['red-card-drama', 'pressing-collapse', 'high-line-gamble']
 const STARTS: { minute: number; key: string }[] = [
@@ -16,22 +21,26 @@ const STARTS: { minute: number; key: string }[] = [
   { minute: 55, key: 'live.fromMinute' },
 ]
 const SHOWN_KINDS = new Set(['lower_third', 'ticker', 'fact_card', 'stat_card'])
+const DEFAULT_CONFIG: LiveConfig = { push: null, delayS: 25 }
 
 interface Props {
-  lang: Lang
-  mode: Mode
+  profile: Profile
   matchId: string | null
   onMatch: (id: string | null) => void
-  onProfile: (p: { language?: Lang; mode?: Mode }) => void
+  onProfile: (p: Partial<Profile>) => void
 }
 
-export function LivePage({ lang, mode, matchId, onMatch, onProfile }: Props) {
+export function LivePage({ profile, matchId, onMatch, onProfile }: Props) {
+  const lang = profile.language
+  const mode = profile.mode
   const [list, setList] = useState<LiveMatch[] | null>(null)
+  const [config, setConfig] = useState<LiveConfig>(DEFAULT_CONFIG)
   const [scenario, setScenario] = useState(SCENARIOS[0])
   const [from, setFrom] = useState(0)
   const [starting, setStarting] = useState(false)
   const [note, setNote] = useState<string | null>(null)
   const [waking, setWaking] = useState(brainConfigured)
+  const [cam, setCam] = useState<Cam>('bc')
 
   // Wake the Brain (it scales to zero), then keep the list of live matches fresh.
   useEffect(() => {
@@ -47,7 +56,11 @@ export function LivePage({ lang, mode, matchId, onMatch, onProfile }: Props) {
       }
       if (!ctl.signal.aborted) timer = setTimeout(load, 5000)
     }
-    void wakeBrain(BRAIN_URL, ctl.signal).then(() => !ctl.signal.aborted && void load())
+    void wakeBrain(BRAIN_URL, ctl.signal).then(() => {
+      if (ctl.signal.aborted) return
+      void getConfig(BRAIN_URL, ctl.signal).then(setConfig).catch(() => undefined)
+      void load()
+    })
     return () => {
       ctl.abort()
       if (timer) clearTimeout(timer)
@@ -56,13 +69,47 @@ export function LivePage({ lang, mode, matchId, onMatch, onProfile }: Props) {
 
   // A match id from the URL has to look like one before it reaches a request.
   const id = matchId && SAFE_ID.test(matchId) ? matchId : null
-  const live = useLiveFeed(id)
+  const [pollMs, setPollMs] = useState(1200)
+  const live = useLiveFeed(id, pollMs)
+  const push = useLivePush(id, config.push, live.inject)
+  useEffect(() => setPollMs(push === 'live' ? 10_000 : 1200), [push]) // pushes carry the news; the poll only reconciles
+
+  const m = live.match
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
     if (!id) return
     const timer = setInterval(() => setNow(Date.now()), 250)
     return () => clearInterval(timer)
   }, [id])
+  const liveMs = m ? liveClock(m, live.receivedAt, now) : 0
+  const playMs = playClock(liveMs, m?.speed, config.delayS)
+
+  // The pitch reads the playing clock every frame, not every render.
+  const playMsRef = useRef(0)
+  const matchRef = useRef({ m, receivedAt: live.receivedAt, delayS: config.delayS })
+  matchRef.current = { m, receivedAt: live.receivedAt, delayS: config.delayS }
+  useEffect(() => {
+    let raf = 0
+    const loop = () => {
+      const { m: cur, receivedAt, delayS } = matchRef.current
+      if (cur) playMsRef.current = playClock(liveClock(cur, receivedAt, Date.now()), cur.speed, delayS)
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  const [meta, setMeta] = useState<Meta | null>(null)
+  const haveMeta = !!(m?.home && m.away)
+  useEffect(() => {
+    setMeta(null)
+    if (!id || !haveMeta) return
+    const ctl = new AbortController()
+    void getMeta(id, BRAIN_URL, ctl.signal).then(setMeta).catch(() => undefined)
+    return () => ctl.abort()
+  }, [id, haveMeta])
+  const { tracking, ready } = useLiveTracking(meta ? id : null, playMsRef)
+  const replay = useMemo(() => (id && meta ? liveReplay(id, meta, tracking, live.moments) : null), [id, meta, tracking, live.moments.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const start = async () => {
     setStarting(true)
@@ -89,18 +136,20 @@ export function LivePage({ lang, mode, matchId, onMatch, onProfile }: Props) {
     )
   }
 
-  const m = live.match
-  const clock = m ? liveClock(m, live.receivedAt, now) : 0
-  const [hs, as] = scoreOf(live.events, m?.home?.id, m?.away?.id)
-  const stories = live.overlays.filter((o) => o.kind === 'lower_third')
+  const shownEvents = live.events.filter((e) => e.clock.matchMs <= playMs)
+  const [hs, as] = scoreOf(shownEvents, m?.home?.id, m?.away?.id)
+  const stories = live.overlays.filter((o) => o.kind === 'lower_third' && o.cohort.language === lang && o.cohort.mode === mode && o.cohort.perspective === 'neutral')
   const writers = { model: 0, mended: 0, template: 0 }
-  for (const o of stories.filter((x) => x.cohort.language === lang && x.cohort.mode === mode && x.cohort.perspective === 'neutral')) writers[writer(o)]++
+  for (const o of stories) writers[writer(o)]++
   const delay = median(m ? pipelineDelays(m, live.moments, live.overlays) : [])
+  const stages = m ? stageDelays(m, live.moments, live.overlays) : { interpret: [], write: [] }
+  const detectS = median(stages.interpret)
+  const writeS = median(stages.write)
   const due = useMemo(
-    () => dueOverlays(live.overlays, lang, mode, clock),
-    // The clock moves every tick, the list only when a new overlay becomes due: key on the count it would show.
+    () => dueOverlays(live.overlays, lang, mode, playMs),
+    // The clock moves every tick, the list only when a new overlay becomes due: key on what it would show.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [live.overlays, lang, mode, Math.floor(clock / 5000)],
+    [live.overlays, lang, mode, Math.floor(playMs / 5000)],
   )
 
   return (
@@ -155,8 +204,9 @@ export function LivePage({ lang, mode, matchId, onMatch, onProfile }: Props) {
                 <div className="live-score"><span>{m.home.name}</span><b>{hs} – {as}</b><span>{m.away.name}</span></div>
                 <div className="live-meta">
                   <span className={`live-status ${m.status}`}>{t(lang, `live.status.${m.status ?? 'scheduled'}`)}</span>
-                  <span className="live-clock">{clockLabel(clock)}</span>
-                  {m.speed ? <span className="muted">{m.speed}× {t(lang, 'live.speed')}</span> : null}
+                  <span className="live-clock">{clockLabel(playMs)}</span>
+                  <span className="muted">{t(lang, 'live.feedAt')} {clockLabel(liveMs)} · {m.speed}× {t(lang, 'live.speed')}</span>
+                  <span className={`live-push ${push}`} title={t(lang, 'live.push.title')}>{t(lang, `live.push.${push}`)}</span>
                 </div>
               </>
             ) : (
@@ -165,13 +215,36 @@ export function LivePage({ lang, mode, matchId, onMatch, onProfile }: Props) {
             {live.error && <p className="caveat">{t(lang, 'live.error')}</p>}
           </section>
 
+          {replay && (
+            <section className="live-card live-watch-card" aria-label={t(lang, 'live.watch')}>
+              <div className="live-watch-head">
+                <h2>{t(lang, 'live.watch')}</h2>
+                <span className="muted">{t(lang, 'live.behind').replace('{n}', String(config.delayS))}</span>
+                <span className="live-cams">
+                  {(['2d', 'bc', 'end', 'top'] as const).map((c) => <button key={c} type="button" className={`chip${c === cam ? ' on' : ''}`} aria-pressed={c === cam} onClick={() => setCam(c)}>{t(lang, `live.cam.${c}`)}</button>)}
+                </span>
+              </div>
+              <div className="live-watch">
+                {ready ? (
+                  <Screen replay={replay} ms={playMs} msRef={playMsRef} profile={profile} evidenceMoment={null} onWhy={() => undefined} overlays={live.overlays} cam={cam} />
+                ) : (
+                  <div className="live-watch-wait"><p role="status" className="hint">{t(lang, 'live.pitchWait')}</p><LoadBar seconds={20} /></div>
+                )}
+              </div>
+            </section>
+          )}
+
           <section className="live-card" aria-label={t(lang, 'live.stages')}>
             <h2>{t(lang, 'live.stages')}</h2>
             <ol className="live-stages">
               <Stage name={t(lang, 'live.stage.feed')} value={String(live.events.length ? live.events[live.events.length - 1].n : 0)} note={t(lang, 'live.stage.feed.d')} />
               <Stage name={t(lang, 'live.stage.interpret')} value={String(live.moments.length)} note={t(lang, 'live.stage.interpret.d')} />
               <Stage name={t(lang, 'live.stage.agents')} value={String(writers.model + writers.mended + writers.template)} note={`${writers.model} / ${writers.mended} / ${writers.template} ${t(lang, 'live.writers')}`} />
-              <Stage name={t(lang, 'live.stage.delay')} value={delay === null ? '–' : `${delay.toFixed(1)} ${t(lang, 'live.seconds')}`} note={t(lang, 'live.stage.delay.d')} />
+              <Stage
+                name={t(lang, 'live.stage.delay')}
+                value={delay === null ? '–' : `${delay.toFixed(1)} ${t(lang, 'live.seconds')}`}
+                note={detectS === null || writeS === null ? t(lang, 'live.stage.delay.d') : `${t(lang, 'live.stage.delay.split').replace('{a}', detectS.toFixed(1)).replace('{b}', writeS.toFixed(1))}`}
+              />
             </ol>
           </section>
 
@@ -190,9 +263,9 @@ export function LivePage({ lang, mode, matchId, onMatch, onProfile }: Props) {
             </section>
             <section className="live-card">
               <h2>{t(lang, 'live.events')}</h2>
-              {live.events.length === 0 && <p className="muted">{t(lang, 'live.empty')}</p>}
+              {shownEvents.length === 0 && <p className="muted">{t(lang, 'live.empty')}</p>}
               <ul className="live-events">
-                {[...live.events].filter((e) => e.clock.matchMs <= clock).slice(-12).reverse().map((e) => <li key={e.n}>{eventLine(e, m)}</li>)}
+                {[...shownEvents].slice(-12).reverse().map((e) => <li key={e.n}>{eventLine(e, m)}</li>)}
               </ul>
               <h2>{t(lang, 'live.moments')}</h2>
               {live.moments.length === 0 && <p className="muted">{t(lang, 'live.empty')}</p>}
@@ -214,7 +287,7 @@ export function LivePage({ lang, mode, matchId, onMatch, onProfile }: Props) {
   )
 }
 
-function Head({ lang }: { lang: Lang }) {
+function Head({ lang }: { lang: Profile['language'] }) {
   return (
     <header className="live-head">
       <a className="btn" href="#/">{t(lang, 'live.back')}</a>
@@ -235,7 +308,7 @@ function Stage({ name, value, note }: { name: string; value: string; note: strin
 }
 
 /** The overlays of this viewer type whose time has come, newest first. */
-export function dueOverlays(overlays: LiveOverlay[], lang: Lang, mode: Mode, clockMs: number): LiveOverlay[] {
+export function dueOverlays(overlays: LiveOverlay[], lang: Profile['language'], mode: Profile['mode'], clockMs: number): LiveOverlay[] {
   return overlays
     .filter((o) => SHOWN_KINDS.has(o.kind) && o.cohort.language === lang && (o.cohort.mode === mode || o.cohort.mode === 'any') && o.cohort.perspective === 'neutral' && o.displayAt.matchMs <= clockMs && (o.content.headline || o.content.body))
     .sort((a, b) => b.displayAt.matchMs - a.displayAt.matchMs || a.priority - b.priority)

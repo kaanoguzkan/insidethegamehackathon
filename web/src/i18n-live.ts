@@ -48,6 +48,20 @@ const en: Dict = {
   'live.error': 'The Brain did not answer; trying again.',
   'live.about': 'How this works',
   'live.about.body': 'The simulator job writes the feed to Cosmos DB. A change-feed Function interprets it and stores the moments; a second one asks the Brain, which writes each overlay with one model call per viewer type and checks every number. This page reads the result.',
+  'live.watch': 'Watch it live',
+  'live.behind': 'You are watching {n} s behind the live feed: that is the time the agents need to write what you are about to see.',
+  'live.feedAt': 'live feed at',
+  'live.pitchWait': 'Waiting for the first tracking chunks…',
+  'live.cam.2d': '2D',
+  'live.cam.bc': 'Broadcast',
+  'live.cam.end': 'End',
+  'live.cam.top': 'Top',
+  'live.push.off': 'polling',
+  'live.push.connecting': 'connecting…',
+  'live.push.live': 'SignalR push',
+  'live.push.down': 'polling (push unavailable)',
+  'live.push.title': 'How this page learns about new overlays: pushed by Azure SignalR as they are stored, or by polling the Brain.',
+  'live.stage.delay.split': 'detect {a} s + write {b} s (medians)',
 }
 
 const es: Dict = {
@@ -95,6 +109,20 @@ const es: Dict = {
   'live.error': 'El Brain no respondió; reintentando.',
   'live.about': 'Cómo funciona',
   'live.about.body': 'El trabajo simulador escribe la señal en Cosmos DB. Una Function de change feed la interpreta y guarda los momentos; otra se lo pide al Brain, que escribe cada gráfico con una llamada al modelo por tipo de espectador y comprueba cada cifra. Esta página lee el resultado.',
+  'live.watch': 'Míralo en vivo',
+  'live.behind': 'Estás viendo {n} s por detrás de la señal en directo: es el tiempo que necesitan los agentes para escribir lo que vas a ver.',
+  'live.feedAt': 'señal en directo en',
+  'live.pitchWait': 'Esperando los primeros trozos de tracking…',
+  'live.cam.2d': '2D',
+  'live.cam.bc': 'Retransmisión',
+  'live.cam.end': 'Fondo',
+  'live.cam.top': 'Cenital',
+  'live.push.off': 'sondeo',
+  'live.push.connecting': 'conectando…',
+  'live.push.live': 'push de SignalR',
+  'live.push.down': 'sondeo (sin push)',
+  'live.push.title': 'Cómo se entera esta página de los gráficos nuevos: por push de Azure SignalR al guardarse, o sondeando el Brain.',
+  'live.stage.delay.split': 'detectar {a} s + escribir {b} s (medianas)',
 }
 
 const tr: Dict = {
@@ -142,6 +170,20 @@ const tr: Dict = {
   'live.error': 'Brain yanıt vermedi; yeniden deneniyor.',
   'live.about': 'Nasıl çalışır',
   'live.about.body': 'Simülatör işi akışı Cosmos DB’ye yazar. Bir change feed Function’ı yorumlar ve anları kaydeder; bir diğeri Brain’den ister, Brain her izleyici türü için bir model çağrısıyla grafiği yazar ve her sayıyı denetler. Bu sayfa sonucu okur.',
+  'live.watch': 'Canlı izle',
+  'live.behind': 'Canlı akışın {n} sn gerisinden izliyorsunuz: ajanların göreceğiniz şeyi yazması için gereken süre bu.',
+  'live.feedAt': 'canlı akış',
+  'live.pitchWait': 'İlk takip parçaları bekleniyor…',
+  'live.cam.2d': '2B',
+  'live.cam.bc': 'Yayın',
+  'live.cam.end': 'Kale arkası',
+  'live.cam.top': 'Üstten',
+  'live.push.off': 'yoklama',
+  'live.push.connecting': 'bağlanıyor…',
+  'live.push.live': 'SignalR itme',
+  'live.push.down': 'yoklama (itme yok)',
+  'live.push.title': 'Bu sayfa yeni grafikleri nasıl öğrenir: kaydedilirken Azure SignalR ile itilir ya da Brain yoklanır.',
+  'live.stage.delay.split': 'bulma {a} sn + yazma {b} sn (ortanca)',
 }
 
 export const LIVE: Record<Lang, Dict> = { en, es, tr }
