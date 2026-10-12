@@ -26,6 +26,7 @@
 | `infra/*.bicep` | `az bicep build` clean; `azd provision` repeatedly (it is incremental) |
 | Brain image | Built locally for `linux/amd64`, pushed, running; non-root user |
 | Live model | Real `POST /api/beats` calls against `gpt-6-luna` through registered Foundry agents: median 2.8 s, 90th percentile 3.8 s ([agents.md](agents.md)) |
+| Live pipeline | A match started from the web page's button, played through the job, both Functions and the Brain: 13 moments, 91 of 104 story overlays model-written, median 19.8 s from detection to stored overlay ([live-pipeline.md](live-pipeline.md)) |
 | Cold start | A scaled-to-zero Brain answers its first request after about 20 s; the page waits for `/health` first |
 | Rate limit, admin key, headers | Exercised with `curl` against the live Brain (403 without the key, 429 after 20 requests a minute) |
 | Shared cache | A request cached before a restart was served by the fresh replica from Cosmos DB in 282 ms with no model call |

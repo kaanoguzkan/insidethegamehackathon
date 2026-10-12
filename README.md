@@ -212,6 +212,9 @@ plan's status section.
   number-dense as casual text. `uv run matchmind evals` (CI-gated).
 * **Graceful degradation.** The same three matches three ways: healthy (440 agent-written overlays, 32 template), unreliable model
   (none first time, 204 recovered by retry, 268 template), outage (all 472 template, none lost).
+* **The live pipeline runs end to end on Azure.** A match started from the web page is played by a Container Apps Job into Cosmos DB, interpreted by a change-feed
+  Function, written up by the agents through the Brain and shown on the Live page: 13 moments, 91 of 104 story overlays model-written, and a median of 19.8 s (8 to 51 s)
+  from a moment being detected to its overlay being stored, at 5 times real time (one run; [docs/live-pipeline.md](docs/live-pipeline.md)).
 * **Live, inside six seconds.** The numbers below are from the earlier model, `gpt-4.1-mini`; with `gpt-6-luna` (registered agents, 27 uncached requests) the request took a median of 2.8 s, 90th percentile 3.8 s, slowest 4.7 s, all 27 written by the model. On the deployed Brain with `gpt-4.1-mini` (45 uncached model calls, 15 requests of three cohorts each):
   request time median 2.6 s, 95th percentile 4.2 s, no missed deadline; 43 overlays written by the model, 1 mended by the
   Repairer, 1 fell back to a template. A repeated request is served from cache in 2 ms, and from Cosmos DB after a restart in

@@ -66,7 +66,25 @@ Measured on Azure with `gpt-6-luna` through the registered agents: see "Measured
 
 ## Measured
 
-Filled in below from the deployed pipeline (October 2026).
+Two runs of `red-card-drama` on the deployed pipeline (12 October 2026; `gpt-6-luna` through the registered agents, 5x speed). The first started at minute 50, the second
+at minute 40, started with the page's own button.
+
+| | Run 2 (from minute 40) |
+|---|---|
+| Moments the interpreter found | 13 (6 of them after the start of the run, the others in the part that was replayed at once) |
+| Narrative overlays (lower thirds, all cohorts) | 104: 91 written by the model and verified first time, 1 mended, 12 template |
+| All overlays stored (including facts, graphics, momentum, tickers) | 1,069 |
+| **Delay from a moment being detected to its first overlay being stored** | **median 19.8 s, 90th percentile 26.7 s, from 8.2 s to 51.3 s** over the 6 moments (run 1: 16.2 s for the red card) |
+
+Read this carefully:
+
+* The delay is **real time**. At 5x a delay of 20 s is 100 s of match time, which is why the speed is not higher; at 1x it would be about the 15 s broadcast delay of
+  the plan. It includes the change-feed hops (each polled every half second), a replay of the match through the interpreter, the Brain's fast path (one model call per
+  cohort, a few seconds) and the stores. It was **not broken down per stage**: the Functions' own timing logs were not read back.
+* Six moments is a small sample, and the spread is wide (the slowest, a tactical shift, took 51 s). I did not find out why; a Function that had scaled to zero and a
+  Brain asleep for the first call are the likely suspects, and the interpreter replays the whole match on every invocation, which grows with the match.
+* 12 of 104 story overlays are template text: moments whose model call missed the six-second deadline or that the Verifier refused. They are still verified.
+* One match, one scenario, one afternoon.
 
 ## What is not built
 
