@@ -539,7 +539,7 @@ body:has(.broadcast) { background: transparent; }
 @media (prefers-reduced-motion: reduce) { .loadbar span { animation: none; transform: scaleX(.5); } }
 
 /* ---------- Live pipeline page ---------- */
-.live { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
+.live-page { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
 .live-head { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .live-head h1 { margin: 0; font-size: 1.6rem; }
 .live-head p { margin: 0; color: var(--muted); max-width: 70ch; }

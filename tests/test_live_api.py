@@ -89,6 +89,19 @@ def test_the_dispatch_endpoint_fails_closed_without_a_key(client, prepared, monk
     assert client.post(f"/api/live/{mid}/beats", json={"momentIds": new[:1]}).status_code == 200
 
 
+def test_failed_and_stale_starts_are_not_listed_and_a_live_match_is_offered_first():
+    store = MemoryLiveStore()
+    now = now_ms()
+    store.put_match("failed-one", {"status": "failed", "scheduledMs": now})
+    store.put_match("stale-one", {"status": "scheduled", "scheduledMs": now - 3_600_000})
+    store.put_match("waiting", {"status": "scheduled", "scheduledMs": now - 5_000})
+    store.put_match("playing", {"status": "live", "wallStartMs": now - 60_000, "speed": 5.0, "fromMs": 0})
+    with TestClient(create_app(live_store=store)) as c:
+        assert {r["matchId"] for r in c.get("/api/live").json()} == {"waiting", "playing"}
+        busy = c.post("/api/live/start", json={"scenario": "red-card-drama"})
+        assert busy.status_code == 409 and busy.json()["detail"]["matchId"] == "playing"
+
+
 def test_a_job_that_cannot_start_does_not_hold_the_slot(monkeypatch):
     class Broken:
         def start(self, *a):  # noqa: ANN002, ANN202

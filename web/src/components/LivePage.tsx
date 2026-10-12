@@ -82,7 +82,7 @@ export function LivePage({ lang, mode, matchId, onMatch, onProfile }: Props) {
 
   if (!brainConfigured) {
     return (
-      <main className="live">
+      <main className="live-page">
         <Head lang={lang} />
         <p className="caveat">{t(lang, 'live.nobrain')}</p>
       </main>
@@ -104,7 +104,7 @@ export function LivePage({ lang, mode, matchId, onMatch, onProfile }: Props) {
   )
 
   return (
-    <main className="live">
+    <main className="live-page">
       <Head lang={lang} />
 
       <section className="live-card" aria-label={t(lang, 'live.start')}>

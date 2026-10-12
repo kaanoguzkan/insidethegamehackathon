@@ -122,10 +122,17 @@ def make_router(
             raise HTTPException(404, f"unknown live match {match_id!r}")
         return info
 
+    def shown(r: dict, now: int) -> bool:
+        """A match worth listing: not a failed start, and not a job that was asked for long ago and never began."""
+        if r.get("status") == "failed":
+            return False
+        return not (r.get("status") == "scheduled" and now - (r.get("scheduledMs") or 0) >= MAX_SCHEDULED_AGE_MS)
+
     @router.get("/api/live")
     async def list_live() -> list[dict]:
         rows = await asyncio.to_thread(store().list_matches)
-        rows.sort(key=lambda r: r.get("wallStartMs") or 0, reverse=True)
+        rows = [r for r in rows if shown(r, now_ms())]
+        rows.sort(key=lambda r: r.get("wallStartMs") or r.get("scheduledMs") or 0, reverse=True)
         return [{k: v for k, v in summary(r).items() if k != "players"} for r in rows[:20]]
 
     @router.get("/api/live/{match_id}")
@@ -174,7 +181,7 @@ def make_router(
                 return now - (r.get("scheduledMs") or 0) < MAX_SCHEDULED_AGE_MS
             return r.get("status") == "live" and now - (r.get("wallStartMs") or now) < MAX_LIVE_AGE_MS
 
-        running = [r for r in rows if blocking(r)]
+        running = sorted((r for r in rows if blocking(r)), key=lambda r: r.get("status") != "live")  # a match that is really being played first
         if running:  # one live match at a time: a visitor who arrives meanwhile simply watches it
             raise HTTPException(409, {"detail": "a live match is already running", "matchId": running[0]["matchId"]})
         match_id = f"live-{req.scenario}-{time.strftime('%d%H%M%S')}"
