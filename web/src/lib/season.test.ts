@@ -5,18 +5,10 @@ import { fixtureLabel, SeasonBusy, SeasonWait, simulateSeason, tune } from './se
 afterEach(() => vi.unstubAllGlobals())
 
 describe('the routes', () => {
-  it('opens the live channel by default and the replay match center at /replay', () => {
-    expect(parseHash('').view).toBe('home')
-    expect(parseHash('#/').view).toBe('home')
-    expect(parseHash('#/?mode=analyst&lang=es').view).toBe('home')
-    expect(parseHash('#/replay?match=red-card-drama').view).toBe('center')
-    expect(parseHash('#/season').view).toBe('season')
+  it('opens the replay match center by default and the overlay-only page at /broadcast', () => {
+    expect(parseHash('').view).toBe('center')
+    expect(parseHash('#/?mode=analyst&lang=es').view).toBe('center')
     expect(parseHash('#/broadcast?match=red-card-drama').view).toBe('broadcast')
-  })
-  it('still opens a replay for the links made before the channel became the home page, but a live match id stays on the home page', () => {
-    expect(parseHash('#/?match=pressing-collapse&t=60').view).toBe('center')
-    expect(parseHash('#/?match=live-season-1-f01-120000').view).toBe('home')
-    expect(parseHash('#/?match=live-season-1-f01-120000').match).toBe('live-season-1-f01-120000')
   })
 })
 
