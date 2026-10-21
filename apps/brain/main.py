@@ -55,10 +55,10 @@ from matchmind.agents.verify import Registry
 from matchmind.analytics.report import MatchAnalytics
 from matchmind.analytics.season import load_season
 from matchmind.core.paths import replays_dir
+from matchmind.demos import load_demos
 from matchmind.guards import ADMIN_HEADER, PUBLIC_MAX_DEADLINE_MS, RateLimitMiddleware, is_admin
 from matchmind.live.api import ContainerAppsJobStarter
 from matchmind.live.api import make_router as make_live_router
-from matchmind.demos import load_demos
 from matchmind.live.blobs import Blobs
 from matchmind.live.channel import Channel
 from matchmind.live.dispatch import write_beats
@@ -66,11 +66,11 @@ from matchmind.live.season import SeasonStore
 from matchmind.live.season_api import make_season_router
 from matchmind.live.season_job import create_season, make_season_store, run_worker
 from matchmind.live.session import StreamHub
-from matchmind.live.stream_api import make_stream_router
 from matchmind.live.simulator import make_blobs as make_live_blobs
 from matchmind.live.simulator import make_store as make_live_store
 from matchmind.live.simulator import run as run_simulator
 from matchmind.live.store import LiveStore
+from matchmind.live.stream_api import make_stream_router
 from matchmind.mcp_server.registry import MatchRegistry, UnknownMatch, preload
 from matchmind.mcp_server.server import build_server
 from matchmind.runner import build_analytics

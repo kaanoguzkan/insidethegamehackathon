@@ -6,11 +6,11 @@ in a Function that has no use for either.
 
 from __future__ import annotations
 
-from ..core.contracts import Cohort
 from ..agents.llm import HEADLINE_SALIENCE, MUST_SHOW
 from ..agents.service import RECORDED_ONLY, BeatRequest, serve_beats
 from ..agents.team import AgentTeam
 from ..agents.verify import Registry
+from ..core.contracts import Cohort
 from ..runner import BATCH_WINDOW_MS, STORY_BUDGET_PER_10_MIN, default_cohorts
 from .store import LiveStore
 

@@ -33,7 +33,7 @@ from ..sim.league import load_league
 from .analysis import AnalyzerWorker
 from .blobs import MemoryBlobs
 from .feed import build_chunks, build_feed, chunk_name, play, start_match
-from .pipeline import InterpretWorker, Intel
+from .pipeline import Intel, InterpretWorker
 from .store import MemoryLiveStore, now_ms
 
 SPEEDS = (1.0, 2.0, 5.0, 10.0)
