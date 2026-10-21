@@ -194,13 +194,14 @@ describe('tactics panel data', () => {
   const fake = { events: rcEvents } as unknown as Replay
 
   it('starts in the nominal formation and switches when the formation_change event arrives', () => {
-    const red = rcMeta.home
-    expect(formationAt(fake, red, 0)).toMatchObject({ name: '4-4-2', changed: false, block: '4-4-2' })
-    const change = rcEvents.find((e) => e.type === 'formation_change' && e.team === red.id)!
-    const after = formationAt(fake, red, change.clock.matchMs + 1)
-    expect(after).toMatchObject({ name: '4-1-4-1', changed: true })
-    expect(after.block).toBe('4-5-1')
-    expect(formationAt(fake, red, change.clock.matchMs - 1).name).toBe('4-4-2')
+    const change = rcEvents.find((e) => e.type === 'formation_change')!
+    const team = change.team === rcMeta.home.id ? rcMeta.home : rcMeta.away
+    const attrs = change.attributes as { formation: string; previous: string; block: string }
+    expect(formationAt(fake, team, 0)).toMatchObject({ name: team.startFormation, changed: false })
+    const after = formationAt(fake, team, change.clock.matchMs + 1)
+    expect(after).toMatchObject({ name: attrs.formation, changed: true })
+    expect(after.block).toBe(attrs.block)
+    expect(formationAt(fake, team, change.clock.matchMs - 1).name).toBe(attrs.previous)
   })
 
   it('counts set-piece routines up to the current time only', () => {
