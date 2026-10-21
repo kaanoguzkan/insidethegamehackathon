@@ -39,7 +39,7 @@ function preset(cam: Exclude<Cam, '2d'>, aspect: number, fovDeg: number) {
   const hfov = 2 * Math.atan(Math.tan((fovDeg * Math.PI) / 360) * aspect)
   const fitLength = (L + 10) / (2 * Math.tan(hfov / 2)) // the whole length across the view
   const [az, el, dist] =
-    cam === 'tv' ? [0, 36, fitLength * 0.62] : cam === 'bc' ? [0, 47, fitLength * 1.06] : cam === 'end' ? [-90, 26, 92] : [0, 88, fitLength * 1.02]
+    cam === 'tv' ? [0, 40, fitLength * 0.74] : cam === 'bc' ? [0, 47, fitLength * 1.06] : cam === 'end' ? [-90, 26, 92] : [0, 88, fitLength * 1.02]
   const a = (az * Math.PI) / 180
   const e = (el * Math.PI) / 180
   return { dir: new THREE.Vector3(Math.cos(e) * Math.sin(a), Math.sin(e), Math.cos(e) * Math.cos(a)), dist }

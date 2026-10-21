@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EvidenceDrawer } from './components/EvidenceDrawer'
 import { GoLive } from './components/GoLive'
+import { Welcome } from './components/Welcome'
 import { Insights, isViewId, type ViewId } from './components/insights/Insights'
 import { MatchStrip } from './components/MatchStrip'
 import { Popover } from './components/Popover'
@@ -16,7 +17,7 @@ import { useStream, type StreamHandle } from './hooks/useStream'
 import { t } from './i18n'
 import { brainConfigured, cohortKey } from './lib/brain'
 import { cohortForMatch } from './lib/cohort'
-import { addStreamCohort, LIVE_DELAY_S, stopStream } from './lib/stream'
+import { addStreamCohort, LIVE_DELAY_S, startStream, stopStream } from './lib/stream'
 import { totalMs } from './lib/clock'
 import { LAYER_KEYS, NO_LAYERS, type Layers } from './lib/layers'
 import type { Cam } from './lib/webgl'
@@ -103,9 +104,29 @@ function LiveMatch({ streamId, route, setRoute }: { streamId: string; route: Ret
 function Player({ replay, index, route, setRoute, stream }: { replay: Replay; index: ReplayIndexEntry[]; route: ReturnType<typeof useRoute>[0]; setRoute: ReturnType<typeof useRoute>[1]; stream?: StreamHandle }) {
   const total = stream ? Math.max(stream.durationMs, 1) : totalMs(replay.meta)
   const broadcast = route.view === 'broadcast'
-  const clock = useClock(total, broadcast ? 1 : 10)
+  const clock = useClock(total, broadcast ? 1 : 5)
   const { ms, msRef, playing, setPlaying, speed } = clock
   const follow = useLiveFollow(stream, clock)
+  // First visit: say what this is and what to try. Remembered once dismissed, and never in the way of a link that starts at a given minute.
+  const [welcome, setWelcome] = useState(() => {
+    if (stream || route.view === 'broadcast' || route.t !== null) return false
+    try {
+      return window.localStorage.getItem('mm.welcome') !== '1'
+    } catch {
+      return true
+    }
+  })
+  const closeWelcome = useCallback(() => {
+    setWelcome(false)
+    try {
+      window.localStorage.setItem('mm.welcome', '1')
+    } catch {
+      /* private window: it will be shown again next time */
+    }
+  }, [])
+  useEffect(() => {
+    if (welcome && (playing || ms > 0)) closeWelcome()
+  }, [welcome, playing, ms, closeWelcome])
   // In a live match any move of the playhead is a rewind: it detaches the viewer from the live picture until they go back to live.
   const seek = useCallback((to: number) => { follow.detach(); clock.seek(to) }, [follow.detach, clock.seek]) // eslint-disable-line react-hooks/exhaustive-deps
   const toggle = useCallback(() => { if (stream) follow.detach(); clock.toggle() }, [stream, follow.detach, clock.toggle]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -243,38 +264,48 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
               {route.split ? t(lang, 'singleView') : t(lang, 'splitView')}
             </button>
           </Popover>
-          {hasVariants && !stream && (
-            <Popover label={<><span className={`health-dot h-${health}`} aria-hidden="true" /><span className="pop-key">{t(lang, 'health')}</span><span className="pop-val">{t(lang, health === 'healthy' ? 'healthHealthy' : health === 'unreliable' ? 'healthUnreliable' : 'healthOutage')}</span></>} title={t(lang, 'health')}>
-              <p className="pop-title">{t(lang, 'health')}</p>
-              <p className="hint">{t(lang, 'healthNote')}</p>
-              <div className="seg stacked" role="radiogroup" aria-label={t(lang, 'health')}>
-                {(['healthy', 'unreliable', 'outage'] as const).map((h) => (
-                  <button key={h} type="button" role="radio" aria-checked={health === h} className={`${health === h ? 'on' : ''} h-${h}`} onClick={() => setHealth(h)}>
-                    <span className={`health-dot h-${h}`} aria-hidden="true" />
-                    {t(lang, h === 'healthy' ? 'healthHealthy' : h === 'unreliable' ? 'healthUnreliable' : 'healthOutage')}
-                  </button>
-                ))}
-              </div>
-            </Popover>
-          )}
-          {live.available && !stream && (
-            <button type="button" className={`btn live${live.enabled ? ' on' : ''}`} aria-pressed={live.enabled} onClick={live.toggle} title={t(lang, 'liveAIHint')}>
-              {live.enabled && <span className={`health-dot h-${live.status === 'ready' ? 'healthy' : live.status === 'waking' ? 'unreliable' : 'outage'}`} aria-hidden="true" />}
-              {t(lang, 'liveAI')}
-            </button>
+          {!stream && (
+            <>
+              {brainConfigured && <GoLive lang={lang} demo={replay.id} cohorts={liveCohorts} onStarted={(id) => setRoute({ stream: id })} />}
+              <Popover
+                label={<><span className={`health-dot h-${health}`} aria-hidden="true" /><span className="pop-key">{t(lang, 'tools.menu')}</span></>}
+                title={t(lang, 'tools.title')}
+                className="tools-pop"
+              >
+                <p className="pop-title">{t(lang, 'tools.title')}</p>
+                {hasVariants && (
+                  <>
+                    <p className="hint">{t(lang, 'healthNote')}</p>
+                    <div className="seg stacked" role="radiogroup" aria-label={t(lang, 'health')}>
+                      {(['healthy', 'unreliable', 'outage'] as const).map((h) => (
+                        <button key={h} type="button" role="radio" aria-checked={health === h} className={`${health === h ? 'on' : ''} h-${h}`} onClick={() => setHealth(h)}>
+                          <span className={`health-dot h-${h}`} aria-hidden="true" />
+                          {t(lang, h === 'healthy' ? 'healthHealthy' : h === 'unreliable' ? 'healthUnreliable' : 'healthOutage')}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div className="tools-list">
+                  {live.available && (
+                    <button type="button" className={`btn live${live.enabled ? ' on' : ''}`} aria-pressed={live.enabled} onClick={live.toggle} title={t(lang, 'liveAIHint')}>
+                      {live.enabled && <span className={`health-dot h-${live.status === 'ready' ? 'healthy' : live.status === 'waking' ? 'unreliable' : 'outage'}`} aria-hidden="true" />}
+                      {t(lang, 'tools.ai')}
+                      <span className="tools-state">{t(lang, live.enabled ? 'tools.aiOn' : 'tools.aiOff')}</span>
+                    </button>
+                  )}
+                  <a className="btn" href={`${import.meta.env.BASE_URL}replays/${replay.id}/report.pdf`} target="_blank" rel="noreferrer" title={t(lang, 'reportHint')}>{t(lang, 'report')}</a>
+                  <a className="btn" href={broadcastHref} target="_blank" rel="noreferrer">{t(lang, 'broadcastLink')}</a>
+                </div>
+              </Popover>
+            </>
           )}
           {stream ? (
             <>
               {!follow.following && <button type="button" className="btn live" onClick={follow.goLive}>{t(lang, 'stream.back')}</button>}
               <button type="button" className="btn" onClick={() => { void stopStream(stream.id); setRoute({ stream: null }) }}>{t(lang, 'stream.exit')}</button>
             </>
-          ) : (
-            <>
-              {brainConfigured && <GoLive lang={lang} demo={replay.id} cohorts={liveCohorts} onStarted={(id) => setRoute({ stream: id })} />}
-              <a className="btn" href={`${import.meta.env.BASE_URL}replays/${replay.id}/report.pdf`} target="_blank" rel="noreferrer" title={t(lang, 'reportHint')}>{t(lang, 'report')}</a>
-              <a className="btn" href={broadcastHref} target="_blank" rel="noreferrer">{t(lang, 'broadcastLink')}</a>
-            </>
-          )}
+          ) : null}
         </div>
       </header>
 
@@ -282,6 +313,14 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
         <section className="stage-col">
           <StageHead replay={replay} ms={ms} lang={lang} />
           <div className="stage-slot">
+            {welcome && (
+              <Welcome
+                lang={lang}
+                onPlay={() => { closeWelcome(); clock.toggle() }}
+                onLive={brainConfigured ? () => { closeWelcome(); void startStream(replay.id, 5, liveCohorts, 0).then((s) => setRoute({ stream: s.streamId })).catch(() => undefined) } : undefined}
+                onSkip={closeWelcome}
+              />
+            )}
             {screens.map((sc, i) => (
               <div className="cell" key={i}>
                 <Screen replay={replay} ms={ms} msRef={msRef} profile={sc.profile} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} layers={layers} title={sc.title} cam={cam} follow={route.follow} />

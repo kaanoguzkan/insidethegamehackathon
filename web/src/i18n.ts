@@ -1,6 +1,7 @@
 import { INSIGHTS } from './i18n-insights'
 import { LIVE } from './i18n-live'
 import { STREAM } from './i18n-stream'
+import { UX } from './i18n-ux'
 import { NAV } from './i18n-nav'
 import type { Lang } from './lib/types'
 
@@ -436,9 +437,9 @@ const tr: Dict = {
 }
 
 const DICTS: Record<Lang, Dict> = {
-  en: { ...en, ...INSIGHTS.en, ...NAV.en, ...LIVE.en, ...STREAM.en },
-  es: { ...es, ...INSIGHTS.es, ...NAV.es, ...LIVE.es, ...STREAM.es },
-  tr: { ...tr, ...INSIGHTS.tr, ...NAV.tr, ...LIVE.tr, ...STREAM.tr },
+  en: { ...en, ...INSIGHTS.en, ...NAV.en, ...LIVE.en, ...STREAM.en, ...UX.en },
+  es: { ...es, ...INSIGHTS.es, ...NAV.es, ...LIVE.es, ...STREAM.es, ...UX.es },
+  tr: { ...tr, ...INSIGHTS.tr, ...NAV.tr, ...LIVE.tr, ...STREAM.tr, ...UX.tr },
 }
 
 export function t(lang: Lang, key: string): string {

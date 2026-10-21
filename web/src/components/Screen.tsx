@@ -59,7 +59,7 @@ export function Screen({ replay, ms, msRef, profile, evidenceMoment, onWhy, titl
   }
 
   return (
-    <section className={`screen${profile.highContrast ? ' hc' : ''}${profile.reducedMotion ? ' calm' : ''}`} aria-label={title}>
+    <section className={`screen${cam === 'tv' && CAN_3D ? ' wide' : ''}${profile.highContrast ? ' hc' : ''}${profile.reducedMotion ? ' calm' : ''}`} aria-label={title}>
       {title && <div className="screen-title">{title}</div>}
       <div className="stage">
         {(() => {
