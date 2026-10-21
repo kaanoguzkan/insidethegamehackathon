@@ -13,11 +13,10 @@ interface Props {
 
 type Turn = { id: number; question: string; answer?: AskAnswer; error?: 'failed' | 'rate' }
 
-export const formatCost = (usd: number): string => (usd === 0 ? '$0' : usd < 0.01 ? `<$0.01 (≈$${usd.toFixed(4)})` : `$${usd.toFixed(2)}`)
 
 /**
  * "Ask the match": a question box. The Brain answers from the match-data tools only and checks every number, so each
- * answer says which tools it looked at, whether it was checked, how long it took and what it cost.
+ * answer says which tools it looked at, whether it was checked and how long it took.
  */
 export function AskPanel({ replay, profile, ms }: Props) {
   const lang = profile.language
@@ -83,7 +82,7 @@ export function AskPanel({ replay, profile, ms }: Props) {
                   {turn.answer.level === 1 && <span className="ask-note">{t(lang, 'askMended')}</span>}
                   {turn.answer.level <= 1 && !turn.answer.refused && <span className="ask-ok">✓ {t(lang, 'askVerified')}</span>}
                   {turn.answer.tools.length > 0 && <span>{t(lang, 'askUsed')}: {turn.answer.tools.map((x) => x.name.replace(/^get_/, '')).join(', ')}</span>}
-                  <span>{(turn.answer.elapsedMs / 1000).toFixed(1)}{t(lang, 'liveSeconds')} · {formatCost(turn.answer.usage.costUsd)}</span>
+                  <span>{(turn.answer.elapsedMs / 1000).toFixed(1)}{t(lang, 'liveSeconds')}</span>
                 </p>
               </div>
             )}

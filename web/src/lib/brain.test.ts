@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { askBrain, cohortKey, mergeLive, prewarm, requestBeats, wakeBrain, type LiveResult } from './brain'
-import { formatCost } from '../components/AskPanel'
 import { cohortForMatch } from './cohort'
 import { DEFAULT_PROFILE, type Cohort, type Meta, type Overlay } from './types'
 
@@ -109,11 +108,6 @@ describe('askBrain', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 429 }))
     await expect(askBrain({ matchId: 'm', question: 'q?', language: 'en', mode: 'casual', minute: null }, 'https://brain.test')).rejects.toThrow('rate')
     await expect(askBrain({ matchId: '../x', question: 'q?', language: 'en', mode: 'casual', minute: null }, 'https://brain.test')).rejects.toThrow('invalid id')
-  })
-  it('formats a cost people can read', () => {
-    expect(formatCost(0)).toBe('$0')
-    expect(formatCost(0.00115)).toBe('<$0.01 (≈$0.0011)')
-    expect(formatCost(0.0234)).toBe('$0.02')
   })
 })
 
