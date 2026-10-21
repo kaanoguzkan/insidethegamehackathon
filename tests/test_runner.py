@@ -2,20 +2,18 @@ import json
 
 import pytest
 
+from forced import PRESS_OFF, Forced
 from matchmind.agents.verify import Registry, verify_text
 from matchmind.core.contracts import Cohort, Overlay
-from matchmind.core.paths import league_dir, scenarios_dir
+from matchmind.core.paths import league_dir
 from matchmind.runner import build_replay, default_cohorts, write_replay
-from matchmind.sim.engine import simulate
 from matchmind.sim.league import load_league
-from matchmind.sim.scenarios import load_scenario
 
 
 @pytest.fixture(scope="module")
 def built():
     clubs = load_league(league_dir() / "league.json")
-    sc = load_scenario(scenarios_dir() / "pressing-collapse.yaml")
-    res = simulate("rt", clubs[sc.home], clubs[sc.away], seed=sc.seed, scenario=sc)
+    res = Forced("rt", clubs["HAR"], clubs["NOR"], seed=104, changes=[(55, 1, PRESS_OFF, None)]).run()
     return res, build_replay(res)
 
 
@@ -27,7 +25,7 @@ def test_replay_covers_every_default_cohort(built):
     assert len({c.language for c in replay.cohorts}) == 3
 
 
-def test_the_scripted_story_is_told_in_every_language(built):
+def test_the_story_is_told_in_every_language(built):
     _, replay = built
     pc = next(m for m in replay.moments if m["type"] == "pressure_collapse" and m["subjectTeam"] == "NOR")
     mine = [o for o in replay.overlays if o.momentId == pc["id"]]

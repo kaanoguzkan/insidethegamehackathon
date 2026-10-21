@@ -1,4 +1,4 @@
-"""Where committed data (league, baselines, scenarios, replays) lives.
+"""Where committed data (league, baselines, demos, replays) lives.
 
 Defaults to the repository's ``data/`` directory; set ``MATCHMIND_DATA`` to relocate it (the
 container images copy it to ``/app/data``).
@@ -21,8 +21,8 @@ def league_dir() -> Path:
     return data_dir() / "league"
 
 
-def scenarios_dir() -> Path:
-    return data_dir() / "scenarios"
+def demos_path() -> Path:
+    return data_dir() / "demos.json"
 
 
 def replays_dir() -> Path:

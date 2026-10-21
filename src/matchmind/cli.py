@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from .core.paths import league_dir, scenarios_dir
+from .core.paths import league_dir
 
 
 def _load_clubs():
@@ -79,19 +79,10 @@ def cmd_build_season(args: argparse.Namespace) -> int:
 
 def cmd_simulate(args: argparse.Namespace) -> int:
     from .sim.engine import simulate
-    from .sim.scenarios import load_scenario
     from .tracking.frames import write_chunks
 
     clubs = _load_clubs()
-    scenario = None
-    home, away, seed = args.home, args.away, args.seed
-    if args.scenario:
-        path = Path(args.scenario)
-        if not path.exists():
-            path = scenarios_dir() / f"{args.scenario}.yaml"
-        scenario = load_scenario(path)
-        home, away, seed = scenario.home, scenario.away, scenario.seed
-    res = simulate(args.match_id, clubs[home], clubs[away], seed=seed, scenario=scenario)
+    res = simulate(args.match_id, clubs[args.home], clubs[args.away], seed=args.seed)
     out = Path(args.out) / args.match_id
     out.mkdir(parents=True, exist_ok=True)
     (out / "meta.json").write_text(json.dumps(res.meta))
@@ -169,25 +160,40 @@ def cmd_foundry_host(args: argparse.Namespace) -> int:
 
 
 def cmd_build_replay(args: argparse.Namespace) -> int:
-    """Simulate a scenario and build the full replay package (agents included)."""
+    """Simulate a demo (or any fixture and seed) and build the full replay package (agents included)."""
     from .core.paths import replays_dir
+    from .demos import get_demo
     from .runner import build_replay, write_replay
     from .sim.engine import simulate
-    from .sim.scenarios import load_scenario
 
     clubs = _load_clubs()
-    path = Path(args.scenario)
-    if not path.exists():
-        path = scenarios_dir() / f"{args.scenario}.yaml"
-    sc = load_scenario(path)
-    seed = args.seed if args.seed is not None else sc.seed
-    match_id = args.match_id or sc.id
-    result = simulate(match_id, clubs[sc.home], clubs[sc.away], seed=seed, scenario=sc)
+    if args.demo:
+        demo = get_demo(args.demo)
+        home, away, seed, match_id = demo.home, demo.away, demo.seed, demo.id
+    else:
+        if not (args.home and args.away and args.seed is not None and args.match_id):
+            print("name a demo from data/demos.json, or give --home, --away, --seed and --match-id", file=sys.stderr)
+            return 2
+        home, away, seed, match_id = args.home, args.away, args.seed, args.match_id
+    result = simulate(match_id, clubs[home], clubs[away], seed=seed)
     replay = build_replay(result, llm=args.llm)
     out = write_replay(replay, result, Path(args.out) if args.out else replays_dir() / match_id)
     i = replay.info
-    print(f"{sc.id}: {result.meta['score']} | {i['moments']} moments, {i['overlays']} overlays, "
+    print(f"{match_id}: {result.meta['score']} | {i['moments']} moments, {i['overlays']} overlays, "
           f"levels {i['levels']} -> {out}")
+    return 0
+
+
+def cmd_pick_demos(args: argparse.Namespace) -> int:
+    """Play a fixture over a range of seeds and list the most watchable matches."""
+    from .sim.pick import pick
+
+    lo, _, hi = args.seeds.partition("-")
+    for r in pick(args.home, args.away, range(int(lo), int(hi or lo) + 1), workers=args.workers)[: args.top]:
+        score = "-".join(str(v) for v in r["score"].values())
+        print(f"seed {r['seed']:>5}  {score:<5} pts {r['points']:>3}  reds {r['reds']}  lead changes {r['lead_changes']}  goals {r['goals']}")
+        for c in r["changes"]:
+            print(f"             min {c[0]:>5}  {c[1]}  {c[2]}  -> {c[3]}")
     return 0
 
 
@@ -237,7 +243,6 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--home", default="HAR")
     s.add_argument("--away", default="NOR")
     s.add_argument("--seed", type=int, default=42)
-    s.add_argument("--scenario", default=None, help="scenario name in data/scenarios or a YAML path")
     s.add_argument("--out", default="out")
     s.set_defaults(fn=cmd_simulate)
 
@@ -265,8 +270,18 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("--out", default=str(Path(__file__).resolve().parents[2] / "schemas"))
     e.set_defaults(fn=cmd_export_schemas)
 
-    r2 = sub.add_parser("build-replay", aliases=["run-local"], help="simulate a scenario and write a replay package")
-    r2.add_argument("scenario", help="scenario name in data/scenarios or a YAML path")
+    pk = sub.add_parser("pick-demos", help="play a fixture over a range of seeds and list the most watchable matches")
+    pk.add_argument("home")
+    pk.add_argument("away")
+    pk.add_argument("--seeds", default="1-60", help="a seed or a range such as 1-60")
+    pk.add_argument("--top", type=int, default=8)
+    pk.add_argument("--workers", type=int, default=None)
+    pk.set_defaults(fn=cmd_pick_demos)
+
+    r2 = sub.add_parser("build-replay", aliases=["run-local"], help="simulate a demo match and write a replay package")
+    r2.add_argument("demo", nargs="?", default=None, help="a demo id from data/demos.json")
+    r2.add_argument("--home", default=None)
+    r2.add_argument("--away", default=None)
     r2.add_argument("--seed", type=int, default=None)
     r2.add_argument("--match-id", default=None)
     r2.add_argument("--llm", default=None, help="offline (default), openai or foundry")

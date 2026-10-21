@@ -16,10 +16,9 @@ import time
 from collections.abc import Callable
 from multiprocessing import Process
 
-from ..core.paths import league_dir, scenarios_dir
+from ..core.paths import league_dir
 from ..sim.engine import simulate
 from ..sim.league import load_league
-from ..sim.scenarios import load_scenario
 from .blobs import Blobs, MemoryBlobs
 from .packs import write_pack
 from .season import CosmosSeasonStore, MemorySeasonStore, SeasonStore, plan
@@ -33,9 +32,8 @@ def make_season_store() -> SeasonStore:
 
 def simulate_fixture(fx: dict, clubs: dict, packs: Blobs) -> dict:
     """Simulate one fixture and store its pack. Returns the score by club id."""
-    sc = load_scenario(scenarios_dir() / f"{fx['scenario']}.yaml") if fx.get("scenario") else None
     match_id = f"{fx['seasonId']}-{fx['id']}"
-    result = simulate(match_id, clubs[fx["home"]], clubs[fx["away"]], seed=fx["seed"], scenario=sc)
+    result = simulate(match_id, clubs[fx["home"]], clubs[fx["away"]], seed=fx["seed"])
     write_pack(packs, f"{fx['seasonId']}/{fx['id']}", result)
     return {k: int(v) for k, v in result.meta["score"].items()}
 

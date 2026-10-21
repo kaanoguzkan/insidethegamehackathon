@@ -22,7 +22,7 @@ from typing import Any, Literal, Protocol
 from fastapi import APIRouter, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 
-from ..core.paths import scenarios_dir
+from ..demos import load_demos
 from .blobs import Blobs
 from .dispatch import write_beats
 from .feed import chunk_name, live_clock_ms
@@ -31,7 +31,7 @@ from .store import LiveStore, now_ms
 LIVE_KEY_HEADER = "x-live-key"
 FEED_EVENTS = {"goal", "shot", "card", "substitution", "red_card", "yellow_card", "penalty", "formation_change", "phase_change"}
 SHOWN_EVENTS = {"goal", "shot", "card", "substitution", "formation_change"}
-SCENARIOS = tuple(sorted(p.stem for p in scenarios_dir().glob("*.yaml"))) if scenarios_dir().exists() else ("red-card-drama",)
+SCENARIOS = tuple(sorted(load_demos())) or ("none",)  # the demo matches of data/demos.json: the wire name stays "scenario"
 FEED_PAGE = 500  # raw feed documents read per poll; a viewer who joins late pages through the past until ``more`` is false
 MAX_LIVE_AGE_MS = 3 * 3600 * 1000  # a match that is still "live" after this long was killed, not played: it no longer blocks a new one
 MAX_SCHEDULED_AGE_MS = 10 * 60 * 1000  # a job that has not started playing after this long failed to start: same
@@ -112,6 +112,22 @@ def summary(info: dict) -> dict:
     return out
 
 
+def feed_page(s: LiveStore, match_id: str, event: int, since: int) -> dict:
+    """What is new in a live match: feed events above sequence ``event``, overlays emitted at or after ``since`` (the client drops repeats by id), and every moment so far."""
+    docs = s.docs_after(match_id, event, FEED_PAGE)
+    events = [
+        {"n": d["n"], "arrivalMs": d["arrivalMs"], **{k: d["doc"].get(k) for k in ("id", "type", "clock", "team", "player", "receiver", "outcome", "location")}}
+        for d in docs if d["kind"] == "feed" and d["doc"].get("type") in SHOWN_EVENTS
+    ]
+    rows = s.overlays_since(match_id, max(since - 1, 0))
+    moments = [{k: m.get(k) for k in ("id", "type", "label", "salience", "detectedAt", "subjectTeam", "facts", "createdMs")} for m in s.moments(match_id)]
+    return {
+        "events": events, "eventCursor": docs[-1]["n"] if docs else event, "more": len(docs) >= FEED_PAGE,
+        "overlays": [r["overlay"] | {"emittedMs": r["emittedMs"]} for r in rows], "overlayCursor": max([r["emittedMs"] for r in rows], default=since),
+        "moments": moments,
+    }
+
+
 def make_router(
     get_store: Callable[[], LiveStore], get_team: Callable[[], Any], beat_cache: Any, starter: Callable[[], JobStarter | None],
     in_process: Callable[[str, str, float], None] | None = None, get_frames: Callable[[], Blobs] | None = None,
@@ -174,24 +190,7 @@ def make_router(
         """What is new: feed events above sequence ``event``, overlays emitted at or after ``since`` (the client drops repeats by id), and every moment so far."""
         info = await asyncio.to_thread(_match, match_id)
 
-        def read() -> dict:
-            s = store()
-            docs = s.docs_after(match_id, event, FEED_PAGE)
-            events = [
-                {"n": d["n"], "arrivalMs": d["arrivalMs"], **{k: d["doc"].get(k) for k in ("id", "type", "clock", "team", "player", "receiver", "outcome", "location")}}
-                for d in docs if d["kind"] == "feed" and d["doc"].get("type") in SHOWN_EVENTS
-            ]
-            rows = s.overlays_since(match_id, max(since - 1, 0))
-            moments = [
-                {k: m.get(k) for k in ("id", "type", "label", "salience", "detectedAt", "subjectTeam", "facts", "createdMs")} for m in s.moments(match_id)
-            ]
-            return {
-                "events": events, "eventCursor": docs[-1]["n"] if docs else event, "more": len(docs) >= FEED_PAGE,
-                "overlays": [r["overlay"] | {"emittedMs": r["emittedMs"]} for r in rows], "overlayCursor": max([r["emittedMs"] for r in rows], default=since),
-                "moments": moments,
-            }
-
-        return {**summary(info), **await asyncio.to_thread(read)}
+        return {**summary(info), **await asyncio.to_thread(feed_page, store(), match_id, event, since)}
 
     @router.post("/api/live/{match_id}/beats")
     async def beats(match_id: str, req: BeatsRequest, x_live_key: str | None = Header(None, alias=LIVE_KEY_HEADER)) -> dict:

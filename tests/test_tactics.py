@@ -8,7 +8,6 @@ import pytest
 from matchmind.core import geometry as G
 from matchmind.sim import tactics as TA
 from matchmind.sim.engine import MatchSim
-from matchmind.sim.scenarios import ScriptItem, parse_scenario
 from matchmind.sim.teams import ROLE_COMPAT, Club, Style
 
 # ---------------------------------------------------------------------------------------------
@@ -94,27 +93,15 @@ def test_assignment_finds_the_cheapest_matching():
 
 
 # ---------------------------------------------------------------------------------------------
-# Scenario scripting
-# ---------------------------------------------------------------------------------------------
-
-
-def test_scenarios_validate_formations_and_tags():
-    base = {"id": "x", "home": "HAR", "away": "NOR"}
-    ok = parse_scenario({**base, "script": [{"at": "60:00", "team": "NOR", "formation": "5-3-2", "tags": {"build_up": "long"}}]})
-    assert ok.script[0].formation == "5-3-2"
-    with pytest.raises(ValueError, match="formation"):
-        parse_scenario({**base, "script": [{"at": "60:00", "team": "NOR", "formation": "9-0-1"}]})
-    with pytest.raises(ValueError, match="tag"):
-        parse_scenario({**base, "script": [{"at": "60:00", "team": "NOR", "tags": {"corners": "sideways"}}]})
-
-
-# ---------------------------------------------------------------------------------------------
 # What the players actually do: probes over simulated matches
 # ---------------------------------------------------------------------------------------------
 
 
 class Probe(MatchSim):
-    """Records shape samples while the ball is live and snapshots every restart as it is taken."""
+    """Records shape samples while the ball is live and snapshots every restart as it is taken. The managers are off: the probes compare club set-ups."""
+
+    def _manager_review(self):
+        pass
 
     def __init__(self, *a, **k):
         super().__init__(*a, **k)
@@ -282,14 +269,10 @@ def test_events_record_the_routine_for_downstream_analysis(clubs):
     assert all(e["attributes"]["wall"] in (3, 4, 5) for e in fks)
 
 
-def test_a_scripted_formation_change_reassigns_players_and_is_recorded(clubs):
-    from matchmind.sim.scenarios import Scenario
+def test_a_formation_change_reassigns_players_and_is_recorded(clubs):
+    from forced import Forced
 
-    sc = Scenario(
-        id="sw", home="HAR", away="NOR", seed=5,
-        script=[ScriptItem(at="60:00", team="NOR", formation="5-3-2"), ScriptItem(at="70:00", team="HAR", tags={"fullbacks": "overlap"})],
-    )
-    res = MatchSim("sw", clubs["HAR"], clubs["NOR"], seed=5, scenario=sc).run()
+    res = Forced("sw", clubs["HAR"], clubs["NOR"], seed=5, changes=[(60, 1, {}, "5-3-2")]).run()
     fc = [e for e in res.events if e["type"] == "formation_change"]
     shapes = TA.describe_shapes("5-3-2", clubs["NOR"].style.tags)
     assert len(fc) == 1
@@ -331,9 +314,9 @@ def test_every_formation_has_a_build_up_and_a_press_shape():
 @pytest.fixture(scope="module")
 def phase_match(clubs):
     """A high-pressing side against a back five that sits deep."""
-    from matchmind.sim.engine import simulate
+    from forced import Forced
 
-    return simulate("ph", clubs["NOR"], clubs["ALD"], seed=5)
+    return Forced("ph", clubs["NOR"], clubs["ALD"], seed=5).run()  # the managers off: this is about how the clubs are set up
 
 
 def test_a_pressing_team_and_a_low_block_spend_their_time_differently(phase_match):

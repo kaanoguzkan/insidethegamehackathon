@@ -18,9 +18,9 @@ import threading
 import time
 from typing import Any, Protocol
 
+from ..demos import load_demos
+
 CLUB_ORDER = ["RED", "HAR", "KES", "ALD", "NOR", "SAL"]  # the circle method over this list makes round 1 RED-SAL, HAR-NOR, KES-ALD
-SCRIPTED = {("RED", "SAL"): "red-card-drama", ("HAR", "NOR"): "pressing-collapse", ("KES", "ALD"): "high-line-gamble"}
-SCENARIO_SEEDS = {"red-card-drama": 102, "pressing-collapse": 104, "high-line-gamble": 85}  # the seeds that tell each story well (data/scenarios)
 CLAIM_TTL_MS = 5 * 60_000  # a claim older than this was abandoned
 POINTER = "_"
 
@@ -44,14 +44,16 @@ def schedule(clubs: list[str] | None = None) -> list[tuple[int, str, str]]:
 
 
 def plan(season_id: str, seed: int, *, featured: bool) -> tuple[dict, list[dict]]:
-    """The season document and its fixtures, all pending. ``featured`` plays the three stories with the seeds that tell them well (the default season);
-    otherwise every fixture, scripted ones included, gets a seed of its own so the results differ."""
+    """The season document and its fixtures, all pending. ``featured`` plays round 1 with the seeds of the committed demo matches (the default season);
+    otherwise every fixture, those included, gets a seed of its own so the results differ."""
+    demos = {(d.home, d.away): d for d in load_demos().values()}
     fixtures = []
     for i, (rnd, home, away) in enumerate(schedule(), start=1):
-        scenario = SCRIPTED.get((home, away)) if rnd == 1 else None
+        demo = demos.get((home, away)) if rnd == 1 else None
+        scenario = demo.id if demo else None
         fixtures.append({
             "id": f"f{i:02d}", "seasonId": season_id, "kind": "fixture", "n": i, "round": rnd, "home": home, "away": away, "scenario": scenario,
-            "seed": SCENARIO_SEEDS[scenario] if (scenario and featured) else seed * 1000 + i, "status": "pending", "score": None, "pack": None,
+            "seed": demo.seed if (demo and featured) else seed * 1000 + i, "status": "pending", "score": None, "pack": None,
         })
     season = {"id": season_id, "seasonId": season_id, "kind": "season", "seed": seed, "featured": featured, "createdMs": now_ms(), "total": len(fixtures)}
     return season, fixtures

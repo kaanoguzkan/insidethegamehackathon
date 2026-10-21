@@ -217,8 +217,7 @@ def cover(d: Data, story: list) -> None:
     score = d.meta["score"]
     story += [Spacer(1, 18 * mm), Rule(46 * mm, GOLD, 4), Spacer(1, 6)]
     story += [P("Match report", "sub"), P(f"{esc(h['name'])} {score[h['id']]} - {score[a['id']]} {esc(a['name'])}", "title")]
-    scen = d.meta.get("scenario")
-    story += [P(f"{esc(d.meta['league'])}. Synthetic match {esc(d.meta['matchId'])}" + (f", scenario {esc(scen)}" if scen else "") + f". Report built {date.today().isoformat()}.", "sub")]
+    story += [P(f"{esc(d.meta['league'])}. Synthetic match {esc(d.meta['matchId'])}" + f". Report built {date.today().isoformat()}.", "sub")]
     band = Drawing(CW, 10)
     band.add(Rect(0, 0, CW / 2, 10, fillColor=D._hex(h["colors"]["primary"]), strokeColor=None))
     band.add(Rect(CW / 2, 0, CW / 2, 10, fillColor=D._hex(a["colors"]["primary"]), strokeColor=None))

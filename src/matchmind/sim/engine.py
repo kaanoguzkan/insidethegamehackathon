@@ -15,7 +15,7 @@ import numpy as np
 
 from ..core import geometry as G
 from .actions import ActionsMixin
-from .scenarios import Scenario, ScriptItem
+from .manager import ManagerMixin
 from .setpieces import SetPieceMixin
 from .shape import ShapeMixin
 from .tactics import PHASES as _PHASES
@@ -67,7 +67,7 @@ class MatchResult:
     stats: dict = field(default_factory=dict)
 
 
-class MatchSim(ShapeMixin, SetPieceMixin, ActionsMixin):
+class MatchSim(ShapeMixin, SetPieceMixin, ActionsMixin, ManagerMixin):
     DT = DT
 
     def __init__(
@@ -77,12 +77,10 @@ class MatchSim(ShapeMixin, SetPieceMixin, ActionsMixin):
         away: Club,
         *,
         seed: int = 1,
-        scenario: Scenario | None = None,
         formations: tuple[str | None, str | None] = (None, None),
     ) -> None:
         self.match_id = match_id
         self.seed = seed
-        self.scenario = scenario
         self.rng = random.Random(seed)
         self.nrng = np.random.default_rng(seed)
         self.clubs = [home, away]
@@ -188,13 +186,9 @@ class MatchSim(ShapeMixin, SetPieceMixin, ActionsMixin):
         self.chunk_slots: list[list[str]] = []
         self.period_marks: list[dict] = []
 
-        # Scheduled changes: scenario script plus ordinary substitutions.
-        self.script: list[tuple[float, ScriptItem]] = []
-        if scenario is not None:
-            for item in scenario.script:
-                self.script.append((self._display_to_t(item.at_seconds), item))
-            self.script.sort(key=lambda x: x[0])
+        # Ordinary substitutions are planned up front; the managers decide everything else as the match goes.
         self.subs_due: list[list[float]] = [self._plan_subs(0), self._plan_subs(1)]
+        self._init_managers()
 
     # ----- setup helpers --------------------------------------------------------------------
 
@@ -320,51 +314,21 @@ class MatchSim(ShapeMixin, SetPieceMixin, ActionsMixin):
         else:
             self.finished = True
 
-    # ----- scheduled changes ------------------------------------------------------------------
+    # ----- substitutions, managers and the whistles ---------------------------------------------
 
     def _time_events(self) -> None:
-        while self.script and self.script[0][0] <= self.t:
-            _, item = self.script.pop(0)
-            self._apply_script(item)
         end = self.p1_len if self.period == 1 else self.p1_len + self.p2_len
         if self.t >= end:
             self._end_period()
             return
+        if self.tick_i % TICKS_PER_CHUNK == 0:
+            self._manager_review()
         if self.tick_i % TICKS_PER_CHUNK == 0 and self.mode == "dead":
             for team in (0, 1):
                 due = self.subs_due[team]
                 if due and due[0] <= self.t:
                     due.pop(0)
                     self._substitute(team)
-
-    def _team_index(self, club_id: str) -> int:
-        try:
-            return self.club_id.index(club_id)
-        except ValueError:
-            raise ValueError(f"scenario names club {club_id!r}, which is not in this match") from None
-
-    def _apply_script(self, item: ScriptItem) -> None:
-        team = self._team_index(item.team)
-        st = self.style[team]
-        for k, dv in item.change.items():
-            setattr(st, k, min(1.0, max(0.0, getattr(st, k) + dv)))
-        for k, v in item.set.items():
-            setattr(st, k, min(1.0, max(0.0, v)))
-        if item.tags:
-            for k, v in item.tags.items():
-                setattr(st, k, v)
-            self._reindex_shape(team)
-        if item.formation and item.formation != self.formation_name[team]:
-            self._change_formation(team, item.formation)
-        if item.event == "substitution":
-            self.subs_due[team].insert(0, self.t)
-        elif item.event == "red_card":
-            slot = None
-            if item.player:
-                slot = next((i for i in range(team * 11, team * 11 + 11) if self.players[i].id == item.player), None)
-            if slot is None:
-                slot = next(i for i in range(team * 11 + 1, team * 11 + 11) if self.active[i] and GROUP[self.players[i].pos] == "DEF")
-            self._send_off(slot, team)
 
     def _change_formation(self, team: int, name: str) -> None:
         """Switch shape mid-match: each player takes the slot of the new formation that suits them."""
@@ -515,7 +479,6 @@ class MatchSim(ShapeMixin, SetPieceMixin, ActionsMixin):
             "matchId": self.match_id,
             "league": "Lumen League",
             "seed": self.seed,
-            "scenario": self.scenario.id if self.scenario else None,
             "hz": HZ,
             "chunkTicks": TICKS_PER_CHUNK,
             "pitch": {"length": G.PITCH_L, "width": G.PITCH_W},
@@ -531,6 +494,7 @@ class MatchSim(ShapeMixin, SetPieceMixin, ActionsMixin):
         stats = {
             "distance_km": {pid: d / 1000.0 for pid, d in dist.items()},
             "final_stamina": {self.players[i].id: float(self.stamina[i]) for i in range(22)},
+            "manager_changes": self.manager_log,
         }
         return MatchResult(meta=meta, events=self.events, frames=frames, ball=ball, chunk_slots=self.chunk_slots, stats=stats)
 
@@ -567,7 +531,6 @@ def simulate(
     away: Club,
     *,
     seed: int = 1,
-    scenario: Scenario | None = None,
     formations: tuple[str | None, str | None] = (None, None),
 ) -> MatchResult:
-    return MatchSim(match_id, home, away, seed=seed, scenario=scenario, formations=formations).run()
+    return MatchSim(match_id, home, away, seed=seed, formations=formations).run()

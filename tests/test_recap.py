@@ -2,24 +2,22 @@ import asyncio
 
 import pytest
 
+from forced import PRESS_OFF, Forced
 from matchmind.agents import recap as R
 from matchmind.agents import verify as V
 from matchmind.agents.llm import Faults, OfflineChatClient
 from matchmind.agents.team import AgentTeam
 from matchmind.core.contracts import SUPPORTED_LANGUAGES, Cohort
-from matchmind.core.paths import league_dir, scenarios_dir
+from matchmind.core.paths import league_dir
 from matchmind.intel.pipeline import interpret_match
 from matchmind.intel.recap import build_pack, build_preview_pack, style_tags
-from matchmind.sim.engine import simulate
 from matchmind.sim.league import load_league
-from matchmind.sim.scenarios import load_scenario
 
 
 @pytest.fixture(scope="module")
 def world():
     clubs = load_league(league_dir() / "league.json")
-    sc = load_scenario(scenarios_dir() / "pressing-collapse.yaml")
-    res = simulate("rc", clubs[sc.home], clubs[sc.away], seed=sc.seed, scenario=sc)
+    res = Forced("rc", clubs["HAR"], clubs["NOR"], seed=104, changes=[(55, 1, PRESS_OFF, None)]).run()
     ip, out = interpret_match(res)
     packs = {"preview": build_preview_pack(res.meta), "half_time": build_pack(ip, "half_time"), "full_time": build_pack(ip, "full_time")}
     return res, ip, {m["id"]: m for m in out.moments}, packs

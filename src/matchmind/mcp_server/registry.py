@@ -1,7 +1,7 @@
 """Matches the MCP server and the Brain API can answer questions about.
 
 A match is an :class:`Interpreter` holding the normalised events and state. Locally a match is
-loaded by re-simulating a scenario (deterministic, about 5 s) and caching it; in the Azure
+loaded by re-simulating its seed (deterministic, about 5 s) and caching it; in the Azure
 deployment the Brain registers the live interpreter instead. Tools never touch storage directly.
 """
 
@@ -15,14 +15,13 @@ from pathlib import Path
 
 from ..analytics import load_models
 from ..analytics.season import context_for, load_season
-from ..core.paths import league_dir, replays_dir, scenarios_dir
+from ..core.paths import league_dir, replays_dir
 from ..intel.baselines import load_baselines
 from ..intel.interpreter import Interpreter
 from ..intel.pipeline import interpret_match
 from ..intel.xt import XTGrid
 from ..sim.engine import simulate
 from ..sim.league import load_league
-from ..sim.scenarios import load_scenario
 
 SAFE_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 MAX_CACHED = 4  # each cached match is a full interpreter (tens of MB); bound it so ids cannot exhaust memory
@@ -94,12 +93,8 @@ class MatchRegistry:
 
     def _load(self, match_id: str) -> Interpreter:
         meta = json.loads((self.root / match_id / "meta.json").read_text())
-        scenario = meta.get("scenario")
-        if scenario is not None and not SAFE_ID.match(str(scenario)):
-            raise UnknownMatch(f"match {match_id!r} names an invalid scenario")
         clubs = load_league(league_dir() / "league.json")
-        sc = load_scenario(scenarios_dir() / f"{scenario}.yaml") if scenario else None
-        res = simulate(match_id, clubs[meta["home"]["id"]], clubs[meta["away"]["id"]], seed=meta["seed"], scenario=sc)
+        res = simulate(match_id, clubs[meta["home"]["id"]], clubs[meta["away"]["id"]], seed=meta["seed"])
         ctx = context_for(load_season(), meta["home"]["id"], meta["away"]["id"])
         ip, _ = interpret_match(
             res, baselines=load_baselines(), xt=XTGrid.load(league_dir() / "xt_grid.json"), season=ctx, models=load_models()

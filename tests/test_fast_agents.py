@@ -165,7 +165,7 @@ def test_the_deadline_holds_even_when_a_stalled_model_call_ignores_cancellation(
     assert beat.level == 2 and stats["missedDeadline"] == 1
 
 
-@pytest.mark.parametrize("bad", ["../red-card-drama", "..", "/etc", "red-card-drama/../high-line-gamble", "RED", "a" * 65, "", "red card", "x\\y"])
+@pytest.mark.parametrize("bad", ["../red-card-drama", "..", "/etc", "red-card-drama/../six-goal-thriller", "RED", "a" * 65, "", "red card", "x\\y"])
 def test_a_match_id_that_is_not_a_plain_slug_never_reaches_the_filesystem(bad):
     from matchmind.agents.service import load_recorded
 

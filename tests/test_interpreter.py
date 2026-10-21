@@ -2,14 +2,14 @@ import math
 
 import pytest
 
-from matchmind.core.paths import league_dir, scenarios_dir
+from forced import PRESS_OFF, Forced
+from matchmind.core.paths import league_dir
 from matchmind.intel.baselines import load_baselines
 from matchmind.intel.evidence import numbers_in
 from matchmind.intel.pipeline import interpret_match
 from matchmind.intel.xt import XTGrid, fit_xt
 from matchmind.sim.engine import simulate
 from matchmind.sim.league import load_league
-from matchmind.sim.scenarios import load_scenario
 
 WINDOW_TYPES = {
     "pressure_collapse", "pressure_surge", "momentum_swing", "chaos_flip",
@@ -117,10 +117,9 @@ def test_xt_grid_values_rise_toward_goal(league):
     assert 0 < grid.value(95, 34) < 0.6
 
 
-def test_scripted_pressing_collapse_is_detected_without_being_told(league):
-    """The scenario script is hidden from the pipeline; it must notice and explain the change."""
-    sc = load_scenario(scenarios_dir() / "pressing-collapse.yaml")
-    res = simulate("m", league[sc.home], league[sc.away], seed=sc.seed, scenario=sc)
+def test_a_side_that_stops_pressing_is_detected_without_being_told(league):
+    """The change is hidden from the pipeline; it must notice and explain it."""
+    res = Forced("m", league["HAR"], league["NOR"], seed=104, changes=[(55, 1, PRESS_OFF, None)]).run()
     _, out = interpret_match(res, baselines=load_baselines(), xt=XTGrid.load(league_dir() / "xt_grid.json"))
     hits = [m for m in out.moments if m["type"] == "pressure_collapse" and m["subjectTeam"] == "NOR"]
     assert hits, "NOR stop pressing at 55:00 and the interpreter should notice"

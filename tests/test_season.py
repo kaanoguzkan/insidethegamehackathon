@@ -21,13 +21,13 @@ def test_the_schedule_is_a_double_round_robin_that_opens_with_the_three_stories(
     assert [(h, a) for r, h, a in sched if r == 1] == [("RED", "SAL"), ("HAR", "NOR"), ("KES", "ALD")]
 
 
-def test_a_planned_season_gives_the_stories_to_round_one_and_its_own_seeds_to_the_rest():
+def test_a_planned_season_gives_the_demo_matches_to_round_one_and_its_own_seeds_to_the_rest():
     season, fx = S.plan("s1", 7, featured=True)
     assert season["total"] == 30 and [f["id"] for f in fx[:3]] == ["f01", "f02", "f03"]
-    assert [f["scenario"] for f in fx[:3]] == ["red-card-drama", "pressing-collapse", "high-line-gamble"] and all(f["scenario"] is None for f in fx[3:])
-    assert [f["seed"] for f in fx[:3]] == [102, 104, 85] and len({f["seed"] for f in fx}) == 30
+    assert [f["scenario"] for f in fx[:3]] == ["red-card-drama", "pressing-collapse", "six-goal-thriller"] and all(f["scenario"] is None for f in fx[3:])
+    assert [f["seed"] for f in fx[:3]] == [62, 2, 5] and len({f["seed"] for f in fx}) == 30
     _, other = S.plan("s2", 7, featured=False)
-    assert [f["seed"] for f in other[:3]] != [102, 104, 85] and all(f["status"] == "pending" for f in other)
+    assert [f["seed"] for f in other[:3]] != [62, 2, 5] and all(f["status"] == "pending" for f in other)
 
 
 def test_the_table_counts_only_finished_fixtures_and_orders_by_points_then_goal_difference():
@@ -87,8 +87,8 @@ def test_a_real_fixture_is_simulated_into_a_pack_with_its_score(tmp_path):
 
     store, packs = S.MemorySeasonStore(), MemoryBlobs()
     create_season(store, "s9", 3, featured=True)
-    fx = store.claim("s9", "t")  # f01: Redmoor v Saltmarsh, the red-card story
+    fx = store.claim("s9", "t")  # f01: Redmoor v Saltmarsh, the red-card match
     score = simulate_fixture(fx, load_league(league_dir() / "league.json"), packs)
-    assert set(score) == {"RED", "SAL"} and score == {"RED": 1, "SAL": 2}  # seed 102: the story's result
+    assert set(score) == {"RED", "SAL"} and score == {"RED": 1, "SAL": 2}  # seed 62: the demo's result
     pack = read_pack(packs, "s9/f01")
-    assert pack is not None and pack.match_id == "s9-f01" and pack.meta["scenario"] == "red-card-drama" and pack.n_chunks > 1000
+    assert pack is not None and pack.match_id == "s9-f01" and pack.meta["seed"] == 62 and pack.n_chunks > 1000
