@@ -343,7 +343,7 @@ def create_app(
 
         return asyncio.run_coroutine_threadsafe(write(), stream_loop[0])
 
-    stream_hub = stream_hub_override or StreamHub(dispatch=stream_dispatch, recap=stream_recap)
+    stream_hub = stream_hub_override or StreamHub(dispatch=stream_dispatch, recap=stream_recap, max_sessions=int(os.environ.get("STREAM_MAX_SESSIONS", "12")))
     app.include_router(make_stream_router(stream_hub, lambda loop: stream_loop.append(loop) if not stream_loop else None))
     app.state.stream_hub = stream_hub
     season_ok = bool(os.environ.get("SEASON_JOB_ID")) or in_process_ok or season_store is not None

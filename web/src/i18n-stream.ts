@@ -25,6 +25,8 @@ const en: Dict = {
   'stream.failed': 'Could not start the live match.',
   'stream.nobrain': 'This build has no Brain address, so a match cannot be played live here.',
   'stream.connecting': 'Waking the Brain and kicking off…',
+  'stream.storyWait': 'The recap is being written: the preview appears a few seconds after kick-off, the half-time and full-time recaps when the match reaches them.',
+  'stream.momentsWait': 'Moments appear here a moment after they happen. If nothing shows for a while, the Brain is busy: try again in a minute.',
   'stream.analytics': 'The numbers behind the match (win probability, shape, pitch control) are worked out once the match is over.',
 }
 
@@ -50,6 +52,8 @@ const es: Dict = {
   'stream.failed': 'No se pudo empezar el partido en vivo.',
   'stream.nobrain': 'Esta versión no tiene dirección del Brain, así que aquí no se puede jugar un partido en vivo.',
   'stream.connecting': 'Despertando el Brain y empezando…',
+  'stream.storyWait': 'El resumen se está escribiendo: el avance aparece unos segundos después del saque inicial, los del descanso y del final cuando el partido llega a ellos.',
+  'stream.momentsWait': 'Los momentos aparecen aquí poco después de ocurrir. Si no sale nada durante un rato, el Brain está ocupado: inténtalo de nuevo en un minuto.',
   'stream.analytics': 'Los números del partido (probabilidad de victoria, forma, control del campo) se calculan cuando termina el partido.',
 }
 
@@ -75,6 +79,8 @@ const tr: Dict = {
   'stream.failed': 'Canlı maç başlatılamadı.',
   'stream.nobrain': 'Bu sürümde Brain adresi yok, bu yüzden burada canlı maç oynatılamaz.',
   'stream.connecting': 'Brain uyandırılıyor ve maç başlatılıyor…',
+  'stream.storyWait': 'Özet yazılıyor: ön izleme ilk düdükten birkaç saniye sonra, devre arası ve maç sonu özetleri maç onlara gelince görünür.',
+  'stream.momentsWait': 'Anlar olduktan kısa süre sonra burada görünür. Bir süre bir şey çıkmazsa Brain meşguldür: bir dakika sonra tekrar deneyin.',
   'stream.analytics': 'Maçın arkasındaki sayılar (kazanma olasılığı, dizilim, saha kontrolü) maç bittikten sonra hesaplanır.',
 }
 

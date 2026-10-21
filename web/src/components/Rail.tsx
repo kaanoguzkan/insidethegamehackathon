@@ -44,11 +44,11 @@ export function Rail({ tab, onTab, replay, profile, ms, selected, onPick, live =
       <div className={`rail-body${tab === 'numbers' ? ' flush' : ''}`} role="tabpanel">
         {tab === 'moments' && (
           <>
-            <p className="hint">{t(lang, 'momentsHint')}</p>
+            <p className="hint">{t(lang, live && replay.moments.length === 0 ? 'stream.momentsWait' : 'momentsHint')}</p>
             <MomentList replay={replay} lang={lang} selected={selected} onPick={onPick} />
           </>
         )}
-        {tab === 'story' && <RecapPanel replay={replay} profile={profile} ms={ms} onPick={onPick} />}
+        {tab === 'story' && (live && replay.recaps.length === 0 ? <p className="muted pad">{t(lang, 'stream.storyWait')}</p> : <RecapPanel replay={replay} profile={profile} ms={ms} onPick={onPick} />)}
         {tab === 'tactics' && <TacticsPanel replay={replay} ms={ms} lang={lang} />}
         {tab === 'ask' && <AskPanel replay={replay} profile={profile} ms={ms} />}
         {tab === 'numbers' &&

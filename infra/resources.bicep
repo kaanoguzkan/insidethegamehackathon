@@ -306,12 +306,14 @@ resource brain 'Microsoft.App/containerApps@2024-03-01' = {
         {
           name: 'brain'
           image: brainImage
-          resources: { cpu: json('1.0'), memory: '2Gi' }
+          // Two cores: a stream session costs about 20% of an Azure core at 10x (measured: twelve of them saturated one core and starved every viewer's interpreter)
+          resources: { cpu: json('2.0'), memory: '4Gi' }
           env: concat([
             { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
             { name: 'MATCHMIND_LLM', value: empty(foundryProjectEndpoint) ? 'offline' : 'foundry' }
             { name: 'FOUNDRY_PROJECT_ENDPOINT', value: foundryProjectEndpoint }
             { name: 'MATCHMIND_LLM_MODEL', value: modelName }
+            { name: 'STREAM_MAX_SESSIONS', value: '6' }
             { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
             { name: 'MATCHMIND_PRELOAD', value: '1' } // load the matches the MCP tools use in the background after start-up
             { name: 'MATCHMIND_SHARED_CACHE', value: '1' } // verified model text is also kept in Cosmos DB: it survives restarts and is shared
