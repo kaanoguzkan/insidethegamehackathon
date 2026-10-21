@@ -4,6 +4,8 @@ import type { Lang } from './lib/types'
 type Dict = Record<string, string>
 
 const en: Dict = {
+  'stream.from': 'Start at',
+  'stream.kickoff': 'Kick-off',
   'stream.go': 'Live',
   'stream.title': 'Play this match live',
   'stream.hint': 'The match is played from kick-off and analysed as it goes, by the same incremental pipeline that runs on Azure. The picture runs a few seconds behind the feed, as a broadcast does, so each overlay lands with the moment it explains.',
@@ -27,6 +29,8 @@ const en: Dict = {
 }
 
 const es: Dict = {
+  'stream.from': 'Empezar en',
+  'stream.kickoff': 'Saque inicial',
   'stream.go': 'En vivo',
   'stream.title': 'Juega este partido en vivo',
   'stream.hint': 'El partido se juega desde el saque inicial y se analiza sobre la marcha, con el mismo pipeline incremental que corre en Azure. La imagen va unos segundos por detrás de la señal, como en una retransmisión, para que cada gráfico llegue con la jugada que explica.',
@@ -50,6 +54,8 @@ const es: Dict = {
 }
 
 const tr: Dict = {
+  'stream.from': 'Başlangıç',
+  'stream.kickoff': 'Başlama düdüğü',
   'stream.go': 'Canlı',
   'stream.title': 'Bu maçı canlı oynat',
   'stream.hint': 'Maç ilk düdükten itibaren oynanır ve Azure üzerinde çalışan aynı artımlı hat tarafından akarken analiz edilir. Görüntü, yayında olduğu gibi akışın birkaç saniye gerisinde gider; böylece her grafik anlattığı anla birlikte gelir.',

@@ -12,6 +12,9 @@ import type { Cohort, MatchEvent, Meta, Moment, Overlay, Recap, Snapshot } from 
  * holds is only what the match clock has reached: the server never sends a viewer's future.
  */
 
+/** Where a live match can start: kick-off, or the middle of the match (what happened before is already there, as for a viewer who joins late). */
+export const STREAM_STARTS = [0, 44] as const
+
 /** Speeds a viewer can pick (match seconds per wall second). */
 export const STREAM_SPEEDS = [1, 5, 10] as const
 
@@ -86,9 +89,9 @@ const post = (url: string, body: unknown, signal?: AbortSignal) =>
 export const listStreamDemos = (base = BRAIN_URL, signal?: AbortSignal) =>
   fetch(`${base}/api/stream/demos`, { signal }).then((r) => call<{ speeds: number[]; demos: StreamDemo[] }>(r))
 
-export async function startStream(demo: string, speed: number, cohorts: Cohort[], base = BRAIN_URL, signal?: AbortSignal): Promise<{ streamId: string } & StreamSummary> {
+export async function startStream(demo: string, speed: number, cohorts: Cohort[], fromMinute = 0, base = BRAIN_URL, signal?: AbortSignal): Promise<{ streamId: string } & StreamSummary> {
   if (!SAFE_ID.test(demo)) throw new Error('invalid match id')
-  return call(await post(`${base}/api/stream`, { demo, speed, fromMinute: 0, cohorts: cohorts.slice(0, 2) }, signal))
+  return call(await post(`${base}/api/stream`, { demo, speed, fromMinute, cohorts: cohorts.slice(0, 2) }, signal))
 }
 
 export const addStreamCohort = (id: string, cohort: Cohort, base = BRAIN_URL, signal?: AbortSignal) => post(`${base}/api/stream/${id}/cohorts`, cohort, signal).then((r) => call<{ cohort: string }>(r))

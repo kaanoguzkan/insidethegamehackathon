@@ -40,3 +40,8 @@ web/public/replays/
 # browser-automation scratch
 .playwright-mcp/
 shot-*.png
+
+# demo recordings (large; the cards and notes in demo/ are kept)
+demo/clips/
+demo/*.mp4
+demo/list.txt

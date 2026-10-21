@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { t } from '../i18n'
-import { startStream, STREAM_SPEEDS, StreamBusy, StreamRate } from '../lib/stream'
+import { startStream, STREAM_SPEEDS, STREAM_STARTS, StreamBusy, StreamRate } from '../lib/stream'
 import type { Cohort, Lang } from '../lib/types'
 import { Popover } from './Popover'
 
@@ -15,6 +15,7 @@ interface Props {
 /** The button that plays the open match live: pick a speed, kick off. */
 export function GoLive({ lang, demo, cohorts, onStarted }: Props) {
   const [speed, setSpeed] = useState<number>(5)
+  const [from, setFrom] = useState<number>(0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -22,7 +23,7 @@ export function GoLive({ lang, demo, cohorts, onStarted }: Props) {
     setBusy(true)
     setError(null)
     try {
-      const s = await startStream(demo, speed, cohorts)
+      const s = await startStream(demo, speed, cohorts, from)
       onStarted(s.streamId)
     } catch (e) {
       setError(t(lang, e instanceof StreamBusy ? 'stream.busy' : e instanceof StreamRate ? 'stream.rate' : 'stream.failed'))
@@ -38,6 +39,13 @@ export function GoLive({ lang, demo, cohorts, onStarted }: Props) {
         {STREAM_SPEEDS.map((v) => (
           <button key={v} type="button" role="radio" aria-checked={speed === v} className={speed === v ? 'on' : ''} onClick={() => setSpeed(v)}>
             {v}×
+          </button>
+        ))}
+      </div>
+      <div className="seg" role="radiogroup" aria-label={t(lang, 'stream.from')}>
+        {STREAM_STARTS.map((v) => (
+          <button key={v} type="button" role="radio" aria-checked={from === v} className={from === v ? 'on' : ''} onClick={() => setFrom(v)}>
+            {v === 0 ? t(lang, 'stream.kickoff') : `${v}'`}
           </button>
         ))}
       </div>
