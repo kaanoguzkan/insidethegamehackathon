@@ -222,7 +222,7 @@ def create_app(
             ("/api/channel/tune", "POST", 20, 60.0),
             ("/api/live", "GET", int(os.environ.get("MATCHMIND_LIVE_POLL_PER_MIN", "240")), 60.0),  # a viewer polls the feed about once a second
             ("/api/stream", "POST", int(os.environ.get("MATCHMIND_STREAM_START_PER_MIN", "6")), 60.0),
-            ("/api/stream", "GET", int(os.environ.get("MATCHMIND_STREAM_POLL_PER_MIN", "600")), 60.0),  # the feed once a second, and the tracking chunks of up to 10x speed
+            ("/api/stream", "GET", int(os.environ.get("MATCHMIND_STREAM_POLL_PER_MIN", "900")), 60.0),  # the feed once a second, and the tracking chunks of up to 10x speed
             ("/api/ask", "POST", int(os.environ.get("MATCHMIND_ASK_PER_MIN", "10")), 60.0),
             ("/mcp", None, int(os.environ.get("MATCHMIND_MCP_PER_MIN", "60")), 60.0),
         ],

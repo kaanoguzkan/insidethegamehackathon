@@ -189,6 +189,11 @@ moment becoming detectable (the match clock reaching its `detectedAt`) to the ev
 | Starting a match | a pack read (about 1 s), 20 s more on a cold Brain | 0.03 s once the demo is loaded |
 | With eight cohorts instead of the viewer's one | n/a | median 9.0 s, at most 11.8 s |
 
+**Ten viewers at once** (laptop, `gpt-6-luna`, three demos, 10x from minute 40, ten different profiles, 90 s): 43% of a core; a feed poll took a median 11 ms (95th percentile 38 ms,
+slowest 191 ms); moments were found a median 1.3 s after they became detectable (90th percentile 2.4 s) and the narrative overlay arrived a median 6.6 s after (90th percentile 8.2 s,
+slowest 13.0 s; 22 of the 25 moments of the run had theirs by the time it ended). All ten viewers polled from one address, so the Brain's own limit per address (now 900 requests a
+minute for the stream endpoints; one viewer uses about 200) answered 429 to part of the polling: the test counts that, the numbers above are from the polls that were answered.
+
 Cost of a session: about 7% of a core at 10x (5 sessions at 10x: 34% of a core, 336 MB against 220 MB idle, about 25 MB each). Five moments is a small sample and one demo; the
 model call is most of the remaining delay, which a viewer's broadcast delay (watching a few seconds behind the feed, as a broadcast does) absorbs.
 

@@ -56,6 +56,7 @@ On Azure the Bicep sets the Brain's variables from `azd env` values (names in th
 | `MATCHMIND_LIVE_OPEN` | off | `1` lets `/api/live/{id}/beats` be called without a key (development only; the endpoint otherwise fails closed) |
 | `MATCHMIND_LIVE_LOCAL` | off | `1` lets the Brain start the simulator in a thread of its own process when no job is configured (a laptop) |
 | `MATCHMIND_LIVE_START_PER_MIN`, `MATCHMIND_LIVE_POLL_PER_MIN` | 3, 240 | Per-client limits on `POST /api/live/start` and on the live read endpoints |
+| `MATCHMIND_STREAM_START_PER_MIN`, `MATCHMIND_STREAM_POLL_PER_MIN` | 6, 900 | Per-client limits on `POST /api/stream` and on the GETs under `/api/stream` (a viewer polls the feed about once a second and fetches a tracking chunk every few seconds) |
 | `COSMOS_ENDPOINT` | none | Also the live store: containers `matches`, `events`, `moments`, `overlays`, `state`. Without it the live store is in memory |
 | Function app: `COSMOS__*`, `AzureSignalRConnectionString__*`, `AzureWebJobsStorage__*`, `STORAGE_ACCOUNT`, `COSMOS_ENDPOINT`, `BRAIN_URL`, `MATCHMIND_LIVE_KEY`, `AZURE_CLIENT_ID` | set by Bicep | The triggers' and bindings' connections (identity, no keys: `__serviceUri` / `__accountEndpoint` / `__accountName`, `__credential=managedidentity`, `__clientId`), the stores, the Brain's address and the shared key |
 
