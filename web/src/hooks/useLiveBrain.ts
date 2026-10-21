@@ -29,7 +29,7 @@ export function useLiveBrain(matchId: string): LiveBrain {
   const ctl = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    if (brainConfigured) prewarm(BRAIN_URL, matchId) // the page load wakes a scaled-to-zero service, and has it load this match's data
+    if (brainConfigured && matchId) prewarm(BRAIN_URL, matchId) // the page load wakes a scaled-to-zero service, and has it load this match's data
   }, [])
 
   useEffect(() => {

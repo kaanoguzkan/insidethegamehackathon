@@ -69,7 +69,9 @@ def test_sessions_do_not_share_a_clock_or_a_store(hub):
     try:
         wait(hub, a.id)
         assert hub.store.get_match(a.id)["status"] == "finished"
-        assert max(d["arrivalMs"] for d in hub.store.docs(b.id)) < 10_000
+        elapsed_ms = (time.time() * 1000 - hub.store.get_match(b.id)["wallStartMs"]) * 1.0  # speed 1: match ms played so far, whatever the machine
+        assert max(d["arrivalMs"] for d in hub.store.docs(b.id)) <= elapsed_ms + 1500
+        assert len(hub.store.docs(b.id)) < len(hub.store.docs(a.id)) / 5
         assert hub.store.docs(a.id) and {d["matchId"] for d in hub.store.docs(a.id)} == {a.id}
     finally:
         hub.stop(b.id)
