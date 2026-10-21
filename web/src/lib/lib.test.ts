@@ -13,7 +13,7 @@ import { isNarrative, overlaysFor, SAFE_ID, type Replay } from './data'
 import { recapFor, recapReady } from './recap'
 import { relax } from './spacing'
 import { formationAt, setPieceCounts, tagKeys, totalCorners } from './tactics'
-import { gait, kickPhase, strideAdvance } from './gait'
+import { gait, kickPhase, MAX_CADENCE, smoothSpeed, strideAdvance } from './gait'
 import { maybeGunzip, smoothStep, Tracking, type Frame } from './tracking'
 import { DEFAULT_PROFILE, type Cohort, type MatchEvent, type Meta, type Overlay, type Profile } from './types'
 
@@ -460,9 +460,22 @@ describe('gait', () => {
     expect(kickPhase(0, 600)).toBeGreaterThan(0.7)
     expect(kickPhase(500, 600)).toBe(0)
   })
-  it('advances the stride with distance, never more than a set amount a frame', () => {
+  it('advances the stride with distance but never faster than legs can cycle, whatever the playback speed', () => {
     expect(strideAdvance(0)).toBe(0)
-    expect(strideAdvance(1.2)).toBeCloseTo(0.9, 5) // capped
-    expect(strideAdvance(0.2)).toBeLessThan(strideAdvance(0.3))
+    expect(strideAdvance(0.05, 1)).toBeCloseTo((0.05 / 1.2) * Math.PI, 9)
+    expect(strideAdvance(5, 1 / 60)).toBeCloseTo(MAX_CADENCE / 60, 9) // a fast-forwarded sprint covers metres a frame: the legs still cycle like legs
+    expect(strideAdvance(5, 1 / 120)).toBeCloseTo(MAX_CADENCE / 120, 9) // and the cap follows the wall time, not the frame
+  })
+  it('smooths a wobbling speed instead of snapping between standing and running', () => {
+    let v = 0
+    const seen: number[] = []
+    for (let i = 0; i < 300; i++) {
+      v = smoothSpeed(v, i % 2 ? 2.5 : 0, 1 / 60) // tracking noise: 0, 2.5, 0, 2.5 ...
+      seen.push(v)
+    }
+    expect(Math.max(...seen.slice(-40)) - Math.min(...seen.slice(-40))).toBeLessThan(0.25) // once settled, a 0/2.5 flicker moves the reading by a fraction of a metre a second
+    expect(smoothSpeed(3, 3, 0.1)).toBe(3)
+    expect(smoothSpeed(0, 6, 5)).toBeGreaterThan(5.9) // given time it gets there
+    expect(smoothSpeed(1, 9, 0)).toBe(1)
   })
 })

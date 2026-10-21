@@ -27,7 +27,7 @@ export interface StreamHandle {
 const POLL_MS = 700
 const REBUILD_MS = 500
 /** Tracking is fetched this far (match ms) ahead of the playhead, which is itself behind the feed: every chunk asked for is already published. */
-const CHUNK_BUFFER_MS = 20_000
+const CHUNK_BUFFER_MS = 30_000
 
 /**
  * Follow a match started with ``POST /api/stream``: poll its feed, keep the tracking chunks coming and present it all as a ``Replay`` that grows.
@@ -66,7 +66,7 @@ export function useStream(streamId: string | null, base = BRAIN_URL): StreamHand
     const fetchChunks = async () => {
       const d = data.current
       if (!d.summary) return
-      const due = chunksDue(Math.min(edgeMs(), head() + CHUNK_BUFFER_MS), (i) => tracking.has(i) || (asked.get(i) ?? 0) > Date.now())
+      const due = chunksDue(head(), edgeMs(), CHUNK_BUFFER_MS, (i) => tracking.has(i) || (asked.get(i) ?? 0) > Date.now())
       await Promise.all(
         due.map(async (i) => {
           asked.set(i, Date.now() + 20_000)
@@ -93,7 +93,6 @@ export function useStream(streamId: string | null, base = BRAIN_URL): StreamHand
           mergeFeed(data.current, f, Date.now())
           more = f.more
         }
-        await fetchChunks()
         const s = data.current.summary!
         setSummary((prev) => (prev && prev.status === s.status && prev.clockMs === s.clockMs ? prev : { ...s }))
         const st: StreamStatus = s.status === 'finished' ? 'finished' : s.status === 'failed' || s.status === 'stopped' ? 'gone' : 'live'
@@ -113,6 +112,7 @@ export function useStream(streamId: string | null, base = BRAIN_URL): StreamHand
       if (!ctl.signal.aborted) timer = setTimeout(tick, finishedPolls > 2 ? 4000 : POLL_MS)
     }
     void tick()
+    const chunkTimer = setInterval(() => void fetchChunks().catch((e) => { if (e instanceof StreamGone) setStatus('gone') }), 250) // on its own beat: the pitch must never wait for the feed poll
 
     const rebuild = setInterval(() => {
       const d = data.current
@@ -128,6 +128,7 @@ export function useStream(streamId: string | null, base = BRAIN_URL): StreamHand
       ctl.abort()
       if (timer) clearTimeout(timer)
       clearInterval(rebuild)
+      clearInterval(chunkTimer)
     }
   }, [streamId, base, tracking, edgeMs, head])
 

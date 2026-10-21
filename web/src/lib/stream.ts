@@ -227,10 +227,15 @@ export function playheadMs(edge: number, speed: number, delayS = LIVE_DELAY_S): 
   return Math.max(0, edge - delayS * speed * 1000)
 }
 
-/** Which tracking chunks exist by now (a chunk is published when the match reaches its end), from the first one not yet held. */
-export function chunksDue(edgeMs: number, held: (i: number) => boolean, chunkMs = 5000, max = 4): number[] {
-  const last = Math.floor(edgeMs / chunkMs) - 1
+/**
+ * The tracking chunks to ask for now: those the pitch is about to need, nearest the playhead first. A chunk is published when the match reaches its end, so
+ * none beyond the feed's edge exists yet. The playhead's own chunk matters most: without it the pitch holds the last frame it has, and the players freeze and
+ * then leap when it arrives. (Asking in order from far behind the playhead, as a viewer who starts mid-match has chunks for the whole past, never gets there.)
+ */
+export function chunksDue(playheadMs: number, edgeMs: number, ahead: number, held: (i: number) => boolean, chunkMs = 5000, max = 6): number[] {
+  const first = Math.max(0, Math.floor(playheadMs / chunkMs) - 1)
+  const last = Math.floor(Math.min(edgeMs, playheadMs + ahead) / chunkMs) - 1
   const out: number[] = []
-  for (let i = Math.max(0, last - 400); i <= last && out.length < max; i++) if (!held(i)) out.push(i)
+  for (let i = first; i <= last && out.length < max; i++) if (!held(i)) out.push(i)
   return out
 }

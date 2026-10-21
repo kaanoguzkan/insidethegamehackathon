@@ -21,14 +21,22 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 /** The speed (m/s) at which the stride is at its fullest. */
 export const FULL_STRIDE_MS = 7
 
-/** How much the phase of the stride advances for a distance covered: one step (half a cycle) for about 1.2 m, capped so a fast-forwarded match does not strobe. */
-export function strideAdvance(distance: number): number {
-  return Math.min(0.9, (Math.max(0, distance) / 1.2) * Math.PI)
+/** The fastest a pair of legs can cycle on screen, in radians a second (about two full strides a second, a sprinter's rate): a fast-forwarded match must not make them a blur. */
+export const MAX_CADENCE = 13
+
+/** How much the phase of the stride advances for a distance covered: one step (half a cycle) for about 1.2 m, and never faster than a person's cadence over ``dtSec`` of wall time. */
+export function strideAdvance(distance: number, dtSec = 1 / 60): number {
+  return Math.min(MAX_CADENCE * Math.max(0, dtSec), (Math.max(0, distance) / 1.2) * Math.PI)
+}
+
+/** A speed reading smoothed over time: the tracking of two players in a tussle wobbles, and a body must not snap between standing and running with it. */
+export function smoothSpeed(previous: number, reading: number, dtSec: number, tau = 0.22): number {
+  return previous + (reading - previous) * (1 - Math.exp(-Math.max(0, dtSec) / tau))
 }
 
 /** 0 at rest, 1 at a full run: how big the movements are. A slow walk is already visibly a walk. */
 export function effort(speed: number): number {
-  if (speed < 0.35) return 0
+  if (speed < 0.45) return 0
   return clamp(0.22 + 0.78 * (speed / FULL_STRIDE_MS), 0, 1)
 }
 

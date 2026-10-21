@@ -54,11 +54,17 @@ describe('the clock', () => {
     expect(playheadMs(300_000, 1)).toBe(300_000 - LIVE_DELAY_S * 1000)
     expect(playheadMs(1000, 10)).toBe(0)
   })
-  it('asks for the chunks that exist and are not held yet, a few at a time', () => {
-    expect(chunksDue(20_000, () => false)).toEqual([0, 1, 2, 3])
-    expect(chunksDue(20_000, (i) => i < 2)).toEqual([2, 3])
-    expect(chunksDue(4_000, () => false)).toEqual([])
-    expect(chunksDue(500_000, () => false, 5000, 2)).toHaveLength(2)
+  it('asks for the chunks the pitch needs next, starting at the playhead and not in the far past', () => {
+    // a viewer who starts at minute 44: the whole past exists, but the pitch needs chunk 527 first
+    const first = chunksDue(2_640_000, 2_700_000, 30_000, () => false)
+    expect(first[0]).toBe(527)
+    expect(first).toHaveLength(6)
+    expect(chunksDue(20_000, 60_000, 30_000, () => false)).toEqual([3, 4, 5, 6, 7, 8])
+    expect(chunksDue(20_000, 60_000, 30_000, (i) => i < 6)).toEqual([6, 7, 8, 9])
+  })
+  it('never asks for a chunk the feed has not reached, since it is published when the match gets to its end', () => {
+    expect(chunksDue(20_000, 22_000, 30_000, () => false)).toEqual([3])
+    expect(chunksDue(0, 4_000, 30_000, () => false)).toEqual([])
   })
 })
 

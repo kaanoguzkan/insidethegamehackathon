@@ -1,6 +1,6 @@
 import { useEffect, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
-import { gait, kickPhase, strideAdvance } from '../lib/gait'
+import { gait, kickPhase, smoothSpeed, strideAdvance } from '../lib/gait'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import type { Replay } from '../lib/data'
 import { drawGraphic, drawLayers, type Labels, type Layers } from '../lib/layers'
@@ -181,6 +181,8 @@ export default function Pitch3D(props: Props) {
       focus: THREE.Mesh
       heading: number
       phase: number // where the player is in the stride
+      v: number // his speed, smoothed over time (m/s)
+      moving: boolean // standing or moving, with hysteresis: a player who hovers around the threshold must not flicker between the two
       last: { x: number; y: number } | null
     }
     // A stylised figure, 1.85 m tall, built from a few shared shapes: legs in two segments, swinging arms, a torso that leans into the run.
@@ -276,7 +278,7 @@ export default function Pitch3D(props: Props) {
       scene.add(g)
       actors.push({
         group: g, upper, thigh: [thigh[0], thigh[1]], shin: [shin[0], shin[1]], arm: [arm[0], arm[1]], ring, focus,
-        heading: slot < 11 ? Math.PI / 2 : -Math.PI / 2, phase: slot * 0.7, last: null,
+        heading: slot < 11 ? Math.PI / 2 : -Math.PI / 2, phase: slot * 0.7, v: 0, moving: false, last: null,
       })
     }
     const ball = new THREE.Mesh(geo(new THREE.SphereGeometry(0.4, 16, 12)), mat(new THREE.MeshLambertMaterial({ color: '#ffffff' })))
@@ -334,9 +336,11 @@ export default function Pitch3D(props: Props) {
     let lastGround = 0
     let lastKey = ''
     let lastNow = 0
+    let lastNowShown = 0
     let lastMs = 0
     let rate = 1 // match seconds per wall second, smoothed
     let kickSrc: unknown = null
+    let lastCarrier: string | null = null
     const kicks = new Map<string, number[]>() // player id -> the match times (ms) at which he kicks the ball
     let raf = 0
     const draw = (now: number) => {
@@ -350,30 +354,39 @@ export default function Pitch3D(props: Props) {
       const prev = tracking.at(Math.max(0, ms - 200))
       const prevById = new Map(prev.players.map((q) => [q.id, q]))
 
-      // Ball carrier: the closest player to a live ball.
+      // Ball carrier: the closest player to a live ball, kept until another is clearly closer (two players contesting the ball must not swap the role every frame,
+      // which would pin one and push the other, then the reverse)
       let carrier: string | null = null
       let carrierPoint: (typeof f.players)[number] | null = null
       if (f.ball.alive) {
         let best = 2.6
+        let bestId: string | null = null
         for (const q of f.players) {
           const d = Math.hypot(q.x - f.ball.x, q.y - f.ball.y)
           if (d < best) {
             best = d
-            carrier = q.id
-            carrierPoint = q
+            bestId = q.id
           }
         }
+        const held = lastCarrier ? f.players.find((q) => q.id === lastCarrier) : null
+        const heldD = held ? Math.hypot(held.x - f.ball.x, held.y - f.ball.y) : Infinity
+        carrier = held && heldD < 2.6 && heldD < best + 0.8 ? lastCarrier : bestId
+        carrierPoint = f.players.find((q) => q.id === carrier) ?? null
       }
+      lastCarrier = carrier
 
       // Display positions: players the data puts almost on top of each other are drawn apart (smoothly).
       const sep = relax(f.players, MIN_SEP, carrier ? f.players.findIndex((q) => q.id === carrier) : -1, 3.4, 6, p.cam === 'bc' ? [1, 0.55] : p.cam === 'end' ? [0.55, 1] : [1, 1])
+      const nowShown = now
       const shown = f.players.map((q, i) => {
         const o = offs[q.slot] ?? { x: 0, y: 0 }
-        o.x += (sep[i].x - q.x - o.x) * 0.4
-        o.y += (sep[i].y - q.y - o.y) * 0.4
+        const k = 1 - Math.exp(-Math.max(8, now - lastNowShown) / 1000 / 0.12) // time-based, and the push is never a jump
+        o.x += (sep[i].x - q.x - o.x) * k
+        o.y += (sep[i].y - q.y - o.y) * k
         return { x: q.x + o.x, y: q.y + o.y }
       })
 
+      lastNowShown = nowShown
       // Ground texture: repainted when a live graphic is on it, or when something that shapes it changed.
       const live = p.graphics.length > 0 || !!(p.evidence && p.evidence.length) || Object.values(p.layers).some(Boolean)
       const key = `${p.highContrast}|${Object.entries(p.layers).filter(([, v]) => v).map(([k]) => k).join()}|${p.graphics.length}|${p.evidence?.length ?? 0}`
@@ -393,6 +406,8 @@ export default function Pitch3D(props: Props) {
       // Players: place, face the way they are moving, stride, kick, mark the followed one.
       const seen = new Set<number>()
       const dtWall = Math.max(8, now - lastNow)
+      const dMatch = Math.abs(ms - lastMs) / 1000 // match seconds that passed since the last frame
+      const dSec = dtWall / 1000
       rate += (Math.min(60, Math.max(1, Math.abs(ms - lastMs) / dtWall)) - rate) * 0.2 // how fast the match runs against the clock: a kick lasts a set time on screen
       lastNow = now
       lastMs = ms
@@ -415,23 +430,28 @@ export default function Pitch3D(props: Props) {
         a.group.visible = true
         a.group.position.set(shown[i].x - L / 2, 0, shown[i].y - W / 2)
         const pq = prevById.get(q.id)
-        let speed = 0
+        let reading = 0
         if (pq) {
           const dx = q.x - pq.x
           const dz = q.y - pq.y
-          speed = Math.min(11, Math.hypot(dx, dz) / 0.2)
-          if (Math.hypot(dx, dz) > 0.25) {
+          reading = Math.min(11, Math.hypot(dx, dz) / 0.2)
+          // He turns to face the way he is going only when he is really going somewhere: the wobble of a player in a tussle must not spin him round
+          if (Math.hypot(dx, dz) > 0.5 && a.v > 0.9) {
             const want = Math.atan2(dx, dz)
             let d = want - prevHeading[q.slot]
             d = Math.atan2(Math.sin(d), Math.cos(d))
-            prevHeading[q.slot] += d * 0.35
+            prevHeading[q.slot] += d * (1 - Math.exp(-dSec / 0.12))
             a.group.rotation.y = prevHeading[q.slot]
           }
         }
-        // the stride advances with the ground covered since the last frame: a paused match freezes mid-stride, a fast-forwarded one does not strobe
-        const moved = a.last ? Math.hypot(q.x - a.last.x, q.y - a.last.y) : 0
+        // His speed, smoothed in time, sets how big the movements are; the stride advances with the distance covered but never faster than legs can cycle
+        if (dMatch > 0) {
+          a.v = smoothSpeed(a.v, reading, dSec)
+          a.moving = a.moving ? a.v > 0.3 : a.v > 0.6
+        }
+        const speed = a.moving ? a.v : 0
+        if (dMatch > 0) a.phase += strideAdvance(speed * dMatch, dSec)
         a.last = { x: q.x, y: q.y }
-        if (moved < 3) a.phase += strideAdvance(moved)
         let kick = 0
         for (const t of kicks.get(q.id) ?? []) {
           const k = kickPhase(ms - t, win)
