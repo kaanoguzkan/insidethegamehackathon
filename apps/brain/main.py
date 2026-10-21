@@ -209,7 +209,7 @@ def create_app(
     setup_tracing()  # before the app object exists, so its requests are instrumented
     app = FastAPI(title="MatchMind Brain", version=__version__, lifespan=lifespan)
     app.add_middleware(
-        CORSMiddleware, allow_origins=cors_origins(), allow_methods=["GET", "POST", "OPTIONS"],
+        CORSMiddleware, allow_origins=cors_origins(), allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
         allow_headers=["content-type", "x-director-key", ADMIN_HEADER], allow_credentials=False, max_age=600,
     )  # the web app on Azure Static Web Apps and GitHub Pages calls this API from the browser
     app.add_middleware(

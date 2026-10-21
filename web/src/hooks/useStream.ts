@@ -4,7 +4,7 @@ import type { Replay } from '../lib/data'
 import { LiveTracking } from '../lib/tracking'
 import type { Meta } from '../lib/types'
 import {
-  chunksDue, emptyStream, feedEdgeMs, getStreamChunk, getStreamFeed, getStreamMeta, mergeFeed, playheadMs, StreamGone, toReplay, type StreamData, type StreamSummary,
+  chunksDue, emptyStream, feedEdgeMs, getStreamChunk, getStreamFeed, getStreamMeta, liveMeta, mergeFeed, playheadMs, StreamGone, toReplay, type StreamData, type StreamSummary,
 } from '../lib/stream'
 
 export type StreamStatus = 'connecting' | 'live' | 'finished' | 'gone' | 'error'
@@ -26,6 +26,8 @@ export interface StreamHandle {
 
 const POLL_MS = 700
 const REBUILD_MS = 500
+/** Tracking is fetched this far (match ms) ahead of the playhead, which is itself behind the feed: every chunk asked for is already published. */
+const CHUNK_BUFFER_MS = 20_000
 
 /**
  * Follow a match started with ``POST /api/stream``: poll its feed, keep the tracking chunks coming and present it all as a ``Replay`` that grows.
@@ -64,7 +66,7 @@ export function useStream(streamId: string | null, base = BRAIN_URL): StreamHand
     const fetchChunks = async () => {
       const d = data.current
       if (!d.summary) return
-      const due = chunksDue(edgeMs(), (i) => tracking.has(i) || (asked.get(i) ?? 0) > Date.now())
+      const due = chunksDue(Math.min(edgeMs(), head() + CHUNK_BUFFER_MS), (i) => tracking.has(i) || (asked.get(i) ?? 0) > Date.now())
       await Promise.all(
         due.map(async (i) => {
           asked.set(i, Date.now() + 20_000)
@@ -84,7 +86,7 @@ export function useStream(streamId: string | null, base = BRAIN_URL): StreamHand
 
     const tick = async () => {
       try {
-        if (!metaRef.current) metaRef.current = await getStreamMeta(streamId, base, ctl.signal)
+        if (!metaRef.current) metaRef.current = liveMeta(await getStreamMeta(streamId, base, ctl.signal))
         let more = true
         while (more && !ctl.signal.aborted) {
           const f = await getStreamFeed(streamId, data.current.cursors, base, AbortSignal.any([ctl.signal, AbortSignal.timeout(20_000)]))
@@ -127,7 +129,7 @@ export function useStream(streamId: string | null, base = BRAIN_URL): StreamHand
       if (timer) clearTimeout(timer)
       clearInterval(rebuild)
     }
-  }, [streamId, base, tracking, edgeMs])
+  }, [streamId, base, tracking, edgeMs, head])
 
   return { id: streamId ?? '', status, error, replay, summary, speed: summary?.speed ?? 1, durationMs: summary?.durationMs ?? 0, edgeMs, playheadMs: head }
 }

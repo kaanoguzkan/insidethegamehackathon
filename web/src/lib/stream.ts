@@ -170,12 +170,15 @@ export function mergeFeed(d: StreamData, f: StreamFeed, now: number): StreamData
 
 const byTime = (a: Overlay, b: Overlay) => a.displayAt.matchMs - b.displayAt.matchMs || a.priority - b.priority
 
+/** The match sheet the Brain serves, as a ``Meta`` (the final score is not known yet). Make it once per match: the pitch restarts when it changes. */
+export const liveMeta = (m: Meta): Meta => ({ ...m, score: {}, scenario: null })
+
 /** The data as a ``Replay`` for the match center: only what has arrived; analytics and recaps come later in the match. */
 export function toReplay(id: string, meta: Meta, d: StreamData, tracking: TrackingSource): Replay {
   const events = d.events as MatchEvent[]
   return {
     id,
-    meta: { ...meta, score: {}, scenario: null },
+    meta,
     moments: [...d.moments.values()].sort((a, b) => a.detectedAt.matchMs - b.detectedAt.matchMs),
     overlays: [...d.overlays.values()].sort(byTime),
     snapshots: [...d.snapshots].sort((a, b) => a.matchMs - b.matchMs),

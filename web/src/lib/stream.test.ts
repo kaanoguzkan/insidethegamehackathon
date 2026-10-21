@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { chunksDue, emptyStream, feedEdgeMs, LIVE_DELAY_S, mergeFeed, playheadMs, toReplay, type StreamFeed } from './stream'
-import type { Meta, Moment, Overlay } from './types'
+import { chunksDue, emptyStream, feedEdgeMs, LIVE_DELAY_S, liveMeta, mergeFeed, playheadMs, toReplay, type StreamFeed, type StreamOverlay } from './stream'
+import type { Meta, Moment } from './types'
 
 const feed = (over: Partial<StreamFeed> = {}): StreamFeed =>
   ({
@@ -9,7 +9,7 @@ const feed = (over: Partial<StreamFeed> = {}): StreamFeed =>
   }) as StreamFeed
 
 const ev = (n: number) => ({ n, arrivalMs: n * 1000, id: `e${n}`, type: 'pass', clock: { period: 1, minute: 0, second: n, matchMs: n * 1000 } })
-const ov = (id: string, at: number): Overlay => ({ id, displayAt: { matchMs: at }, priority: 1 }) as unknown as Overlay
+const ov = (id: string, at: number) => ({ id, displayAt: { matchMs: at }, priority: 1, emittedMs: 0 }) as unknown as StreamOverlay
 const mo = (id: string, at: number): Moment => ({ id, detectedAt: { matchMs: at } }) as unknown as Moment
 
 describe('merging the feed', () => {
@@ -35,7 +35,8 @@ describe('merging the feed', () => {
     expect(r.moments[0].trace).toEqual([])
     expect(r.overlays.map((o) => o.id)).toEqual(['y', 'x'])
     expect(r.analytics).toBeNull()
-    expect(r.meta.score).toEqual({})
+    expect(r.meta).toBe(meta) // the same object every rebuild: the pitch restarts when it changes
+    expect(liveMeta({ ...meta, score: { RED: 3 } } as unknown as Meta).score).toEqual({})
   })
 })
 

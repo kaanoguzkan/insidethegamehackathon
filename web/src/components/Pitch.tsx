@@ -31,6 +31,8 @@ interface Props {
 export function Pitch({ replay, msRef, focusPlayer, evidence, badges, layers, graphics, labels, highContrast, reducedMotion, label }: Props) {
   const wrap = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
+  const replayRef = useRef(replay) // a live match's replay is rebuilt twice a second: the loop reads the newest through the ref and restarts only for another match or its tracking
+  replayRef.current = replay
   // The draw loop reads the latest props through a ref so it never restarts.
   const props = useRef({ focusPlayer, evidence, badges, layers, graphics, labels, highContrast, reducedMotion })
   props.current = { focusPlayer, evidence, badges, layers, graphics, labels, highContrast, reducedMotion }
@@ -91,7 +93,7 @@ export function Pitch({ replay, msRef, focusPlayer, evidence, badges, layers, gr
 
       // Live graphics sit under the players; overlay graphics from the pipeline too.
       const tx = { X, Y, s }
-      drawLayers(ctx, replay, f, ms, p.layers, carrierPoint, tx, p.labels)
+      drawLayers(ctx, replayRef.current, f, ms, p.layers, carrierPoint, tx, p.labels)
       for (const g of p.graphics) drawGraphic(ctx, g, ms, tx, p.reducedMotion)
       // Evidence chain under the players.
       if (p.evidence && p.evidence.length) drawEvidence(ctx, p.evidence, meta.home.id, meta, X, Y, s)
@@ -174,7 +176,7 @@ export function Pitch({ replay, msRef, focusPlayer, evidence, badges, layers, gr
       cancelAnimationFrame(raf)
       ro.disconnect()
     }
-  }, [replay, msRef])
+  }, [replay.meta, replay.tracking, msRef]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div ref={wrap} className="pitch-wrap">

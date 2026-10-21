@@ -324,7 +324,7 @@ export default function Pitch3D(props: Props) {
         const tx = { X: (x: number) => (x + PAD) * s, Y: (y: number) => (y + PAD) * s, s }
         gctx.setTransform(1, 0, 0, 1, 0, 0)
         drawPitch(gctx, TEX_W, TEX_H, s, p.highContrast)
-        drawLayers(gctx, replay, f, ms, p.layers, carrierPoint, tx, p.labels)
+        drawLayers(gctx, latest.current.replay, f, ms, p.layers, carrierPoint, tx, p.labels)
         for (const g of p.graphics) drawGraphic(gctx, g, ms, tx, p.reducedMotion)
         if (p.evidence && p.evidence.length) drawEvidence(gctx, p.evidence, meta.home.id, meta, tx.X, tx.Y, s)
         tex.needsUpdate = true
@@ -439,7 +439,7 @@ export default function Pitch3D(props: Props) {
       renderer.forceContextLoss()
       el.replaceChildren()
     }
-  }, [replay, msRef])
+  }, [replay.meta, replay.tracking, msRef]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div ref={wrap} className="pitch-wrap pitch-3d" role="img" aria-label={props.label}>
