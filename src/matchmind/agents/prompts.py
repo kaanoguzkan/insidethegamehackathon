@@ -128,4 +128,4 @@ the whole match) and one cohort "mode/language/perspective/focusPlayer". Write a
 - Name the player of the match if the pack has one, with the stats given; never use pronouns for people.
 - Mention the turning point if the pack names one. Do not invent tactics the numbers do not show.
 - Write natively in the cohort's language (Spanish or Turkish: comma decimals; Turkish: no case suffixes on numbers).
-Return a Recap object: cohort, kind, headline, summary, key_moments, player_of_the_match, stats."""
+Return a RecapText object: headline and summary. The key moments and the figures are added from the pack."""

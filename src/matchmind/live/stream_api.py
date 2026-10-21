@@ -98,10 +98,10 @@ def make_stream_router(hub: StreamHub, on_loop: Callable[[asyncio.AbstractEventL
         return Response(data, media_type="application/json", headers={"Content-Encoding": "gzip", "Cache-Control": "private, max-age=3600, immutable"})
 
     @router.get("/api/stream/{sid}/feed")
-    async def feed(sid: str, event: int = -1, since: int = 0, full: bool = False, msince: int = 0, snap: int = 0) -> dict[str, Any]:
+    async def feed(sid: str, event: int = -1, since: int = 0, full: bool = False, msince: int = 0, snap: int = 0, av: int = 0, rv: int = 0) -> dict[str, Any]:
         """As the live feed; ``full=1`` adds what the match center needs: every event whole, the moments created at or after ``msince`` with their evidence, the snapshots after ``snap``."""
         info = _info(sid)
-        page = await asyncio.to_thread(lambda: feed_page(hub.store, sid, event, since, full=full, moment_since=msince, snapshot_after=snap))
+        page = await asyncio.to_thread(lambda: feed_page(hub.store, sid, event, since, full=full, moment_since=msince, snapshot_after=snap, analytics_version=av, recap_after=rv))
         return {**summary(info), **page}
 
     @router.post("/api/stream/{sid}/cohorts")

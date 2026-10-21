@@ -145,3 +145,24 @@ def test_the_dispatcher_is_given_the_viewers_cohorts_and_a_new_profile_joins_the
             h.start("red-card-drama", speed=1.0, cohorts=[Cohort(focusPlayer="NOPE-99")])
     finally:
         h.stop(s.id)
+
+
+def test_analytics_and_recaps_follow_the_match_and_are_written_once_per_kind(intel):
+    asked: list[tuple[str, list[str]]] = []
+
+    def recap(store, sid, kind, pack, cohorts):
+        asked.append((kind, [c.key for c in cohorts]))
+        return None
+
+    h = S.StreamHub(intel=intel, tick_s=0.02, recap=recap)
+    h.speeds = (2000.0,)
+    s = h.start("red-card-drama", speed=2000.0, cohorts=[S.Cohort(mode="analyst", language="es", perspective="SAL", focusPlayer=None)])
+    wait(h, s.id)
+    a = h.store.get_state(s.id, "analytics")
+    assert a["version"] >= 2, "refreshed while the match was on, and once more at the end"
+    assert a["data"]["winProbability"]["series"] and a["data"]["shots"] and a["data"]["players"]
+    assert [k for k, _ in asked] == ["preview", "half_time", "full_time"], "in the order the match reaches them, once each"
+    assert all(c == ["analyst/es/SAL/-"] for _, c in asked)
+    h.sessions[s.id].finished_at = None  # a viewer who switches profile later gets the recaps already due written for the new one
+    assert h.add_cohort(s.id, S.Cohort(language="tr"))
+    assert [k for k, _ in asked[3:]] == ["preview", "half_time", "full_time"] and asked[3][1] == ["casual/tr/neutral/-"]

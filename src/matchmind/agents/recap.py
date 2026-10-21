@@ -201,9 +201,14 @@ async def write_recap(team, pack: dict, cohort: Cohort, moments: dict[str, dict]
     lang = cohort.language
     try:
         out = await team.recap(pack, cohort, moments)
-    except AgentFailure:
+    except AgentFailure as e:
+        print(f"WARN recap {pack.get('id')} for {cohort.key}: the Recap Writer failed ({str(e)[:700]}); template text is served", flush=True)
         return render(pack, cohort, moments)
     issues = V.verify_text(f"{out.headline}. {out.summary}", pack, lang, registry, "recap")
     if any(i.severity == "error" for i in issues):
         return render(pack, cohort, moments)
-    return out.model_copy(update={"provenance": Provenance(agents=["recap_writer", "verifier"], verified=True, evidenceRef=pack["id"], fallbackLevel=0)})
+    # The model writes the prose; the key moments, figures and player of the match are the template's, which are true by construction.
+    return render(pack, cohort, moments).model_copy(update={
+        "headline": out.headline, "summary": out.summary,
+        "provenance": Provenance(agents=["recap_writer", "verifier"], verified=True, evidenceRef=pack["id"], fallbackLevel=0),
+    })

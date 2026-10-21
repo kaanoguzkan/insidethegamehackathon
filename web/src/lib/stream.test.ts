@@ -5,7 +5,7 @@ import type { Meta, Moment } from './types'
 const feed = (over: Partial<StreamFeed> = {}): StreamFeed =>
   ({
     matchId: 'red-card-drama', status: 'live', speed: 10, fromMs: 0, wallStartMs: 1000, durationMs: 5_800_000, clockMs: 60_000, serverNowMs: 7000,
-    events: [], eventCursor: -1, more: false, overlays: [], overlayCursor: 0, moments: [], momentCursor: 0, snapshots: [], snapshotCursor: 0, ...over,
+    events: [], eventCursor: -1, more: false, overlays: [], overlayCursor: 0, moments: [], momentCursor: 0, snapshots: [], snapshotCursor: 0, analyticsVersion: 0, recaps: [], recapCursor: 0, ...over,
   }) as StreamFeed
 
 const ev = (n: number) => ({ n, arrivalMs: n * 1000, id: `e${n}`, type: 'pass', clock: { period: 1, minute: 0, second: n, matchMs: n * 1000 } })
@@ -35,6 +35,7 @@ describe('merging the feed', () => {
     expect(r.moments[0].trace).toEqual([])
     expect(r.overlays.map((o) => o.id)).toEqual(['y', 'x'])
     expect(r.analytics).toBeNull()
+    expect(r.recaps).toEqual([])
     expect(r.meta).toBe(meta) // the same object every rebuild: the pitch restarts when it changes
     expect(liveMeta({ ...meta, score: { RED: 3 } } as unknown as Meta).score).toEqual({})
   })
@@ -58,5 +59,19 @@ describe('the clock', () => {
     expect(chunksDue(20_000, (i) => i < 2)).toEqual([2, 3])
     expect(chunksDue(4_000, () => false)).toEqual([])
     expect(chunksDue(500_000, () => false, 5000, 2)).toHaveLength(2)
+  })
+})
+
+describe('analytics and recaps', () => {
+  it('replace the analytics when a newer one arrives and keep each recap once', () => {
+    const d = emptyStream()
+    const recap = { kind: 'preview', cohort: 'casual/en/neutral/-', headline: 'h' } as never
+    mergeFeed(d, feed({ analytics: { version: 1 } as never, analyticsVersion: 1, recaps: [recap], recapCursor: 1 }), 1)
+    mergeFeed(d, feed({ analyticsVersion: 1, recaps: [recap], recapCursor: 1 }), 2) // nothing new: no analytics in the page
+    expect(d.analytics).toEqual({ version: 1 })
+    expect(d.recaps).toHaveLength(1)
+    expect(d.cursors).toMatchObject({ av: 1, rv: 1 })
+    mergeFeed(d, feed({ analytics: { version: 2 } as never, analyticsVersion: 2 }), 3)
+    expect(d.analytics).toEqual({ version: 2 })
   })
 })

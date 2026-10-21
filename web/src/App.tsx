@@ -289,7 +289,7 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
             ))}
           </div>
         </section>
-        {step === 'explore' && stream ? (
+        {step === 'explore' && stream && !replay.analytics ? (
           <section className="explore"><p className="muted">{t(lang, 'stream.analytics')}</p></section>
         ) : step === 'explore' ? (
           <Insights replay={replay} ms={ms} lang={lang} tab={exploreTab} onTab={(tab) => setRoute({ tab })} layers={layers} onLens={onLens} />

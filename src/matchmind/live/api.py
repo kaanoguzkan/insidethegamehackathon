@@ -112,7 +112,9 @@ def summary(info: dict) -> dict:
     return out
 
 
-def feed_page(s: LiveStore, match_id: str, event: int, since: int, *, full: bool = False, moment_since: int = 0, snapshot_after: int = 0) -> dict:
+def feed_page(s: LiveStore, match_id: str, event: int, since: int, *, full: bool = False, moment_since: int = 0, snapshot_after: int = 0,
+    analytics_version: int = 0, recap_after: int = 0,
+) -> dict:
     """What is new in a live match: feed events above sequence ``event``, overlays emitted at or after ``since`` (the client drops repeats by id), and every moment so far.
 
     ``full`` is what the match center needs from a stream session: every event whole (not the few kinds a ticker shows), the moments created at or after
@@ -137,6 +139,13 @@ def feed_page(s: LiveStore, match_id: str, event: int, since: int, *, full: bool
         snaps = s.get_state(match_id, "snapshots", [])
         page["snapshots"] = snaps[snapshot_after:]
         page["snapshotCursor"] = len(snaps)
+        analytics = s.get_state(match_id, "analytics")
+        if analytics and analytics["version"] > analytics_version:
+            page["analytics"] = analytics["data"]
+        page["analyticsVersion"] = analytics["version"] if analytics else analytics_version
+        recaps = s.get_state(match_id, "recaps", [])
+        page["recaps"] = recaps[recap_after:]
+        page["recapCursor"] = len(recaps)
     return page
 
 

@@ -40,6 +40,7 @@ from matchmind.agents.ask import MAX_QUESTION_CHARS
 from matchmind.agents.ask import ask as ask_the_match
 from matchmind.agents.cache import BeatCache, SharedBeatCache
 from matchmind.agents.llm import Faults, make_chat_client
+from matchmind.agents.recap import write_recap
 from matchmind.agents.service import (  # noqa: F401
     MAX_COHORTS,
     MAX_MOMENTS,
@@ -328,7 +329,21 @@ def create_app(
 
         return asyncio.run_coroutine_threadsafe(beats(), stream_loop[0])
 
-    stream_hub = stream_hub_override or StreamHub(dispatch=stream_dispatch)
+    def stream_recap(store, sid, kind, pack, cohorts):  # noqa: ANN001, ANN202
+        if not stream_loop:
+            return None
+
+        async def write() -> None:
+            team = await asyncio.to_thread(get_team)
+            registry = Registry.from_meta(store.get_match(sid)["meta"])
+            moments = {m["id"]: m for m in store.moments(sid)}
+            for c in cohorts:
+                r = await write_recap(team, pack, c, moments, registry)
+                store.put_state(sid, "recaps", [*store.get_state(sid, "recaps", []), r.model_dump(mode="json")])  # no await between the read and the write
+
+        return asyncio.run_coroutine_threadsafe(write(), stream_loop[0])
+
+    stream_hub = stream_hub_override or StreamHub(dispatch=stream_dispatch, recap=stream_recap)
     app.include_router(make_stream_router(stream_hub, lambda loop: stream_loop.append(loop) if not stream_loop else None))
     app.state.stream_hub = stream_hub
     season_ok = bool(os.environ.get("SEASON_JOB_ID")) or in_process_ok or season_store is not None

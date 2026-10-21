@@ -107,19 +107,22 @@ def test_the_match_sheet_hides_what_is_only_known_at_the_end(client):
 
 def test_the_full_feed_carries_whole_events_evidence_and_snapshots_with_cursors(client):
     sid = client.post("/api/stream", json={"demo": "red-card-drama", "speed": 500.0}).json()["streamId"]
-    cur = {"event": -1, "msince": 0, "snap": 0}
-    events, moments, snaps = [], {}, []
+    cur = {"event": -1, "msince": 0, "snap": 0, "av": 0, "rv": 0}
+    events, moments, snaps, analytics = [], {}, [], []
     for _ in range(400):
         p = client.get(f"/api/stream/{sid}/feed", params={"full": 1, **cur}).json()
         events += p["events"]
         moments.update({m["id"]: m for m in p["moments"]})
         snaps += p["snapshots"]
-        cur = {"event": p["eventCursor"], "msince": p["momentCursor"], "snap": p["snapshotCursor"]}
+        analytics += [p["analytics"]] if "analytics" in p else []
+        cur = {"event": p["eventCursor"], "msince": p["momentCursor"], "snap": p["snapshotCursor"], "av": p["analyticsVersion"], "rv": p["recapCursor"]}
         if p["status"] == "finished" and not p["more"]:
             break
         time.sleep(0.1)
     assert {e["type"] for e in events} >= {"pass", "shot", "goal", "tackle"} and all("location" in e or e["type"] != "pass" for e in events)
     assert len({e["id"] for e in events}) == len(events), "each event arrives once"
+    assert analytics and analytics[-1]["winProbability"]["series"], "the analytics arrive when they change, not on every poll"
+    assert len(analytics) < 60
     m = next(iter(moments.values()))
     assert m["eventIds"] and "metrics" in m and "glossary" in m and "players" in m
     assert len(snaps) > 80 and [s["matchMs"] for s in snaps] == sorted(s["matchMs"] for s in snaps) and len({s["id"] for s in snaps}) == len(snaps)

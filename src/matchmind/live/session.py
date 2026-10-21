@@ -25,9 +25,11 @@ from dataclasses import dataclass, field
 
 from ..agents.service import check_cohorts
 from ..agents.verify import Registry
+from ..analytics.report import MatchAnalytics
 from ..core.contracts import Cohort
 from ..core.paths import league_dir
 from ..demos import Demo, get_demo
+from ..intel.recap import build_pack, build_preview_pack
 from ..sim.engine import simulate
 from ..sim.league import load_league
 from .analysis import AnalyzerWorker
@@ -68,6 +70,8 @@ def build_source(demo: Demo) -> Source:
 
 
 Dispatch = Callable[[MemoryLiveStore, str, list[str], list[Cohort]], "Future | None"]
+RecapDispatch = Callable[[MemoryLiveStore, str, str, dict, list[Cohort]], "Future | None"]  # (store, session id, kind, evidence pack, cohorts)
+ANALYTICS_EVERY_S = 4.0  # the whole analytics summary of a match in progress costs 0.03-0.05 s; the viewer gets a new one at most this often
 MAX_COHORTS = 4  # the viewers one session writes text for (the person watching, and a second profile in split view)
 
 
@@ -84,6 +88,8 @@ class Session:
     stop: threading.Event = field(default_factory=threading.Event)
     queued: set[str] = field(default_factory=set)  # moments whose overlays have been asked for
     cohorts: list[Cohort] = field(default_factory=list)  # who the narrative overlays are written for
+    analytics_at: float = 0.0
+    recap_packs: dict[str, dict] = field(default_factory=dict)  # kind -> the evidence pack, for every recap asked for so far
     inflight: Future | bool | None = None
     analyzer: AnalyzerWorker | None = None
     interpreter: InterpretWorker | None = None
@@ -92,12 +98,13 @@ class Session:
 
 class StreamHub:
     def __init__(
-        self, *, dispatch: Dispatch | None = None, intel: Intel | None = None, max_sessions: int = MAX_SESSIONS, tick_s: float = 0.5,
+        self, *, dispatch: Dispatch | None = None, recap: RecapDispatch | None = None, intel: Intel | None = None, max_sessions: int = MAX_SESSIONS, tick_s: float = 0.5,
         keep_finished_s: float = KEEP_FINISHED_S, idle_stop_s: float = IDLE_STOP_S,
     ) -> None:
         self.store = MemoryLiveStore()
         self.frames = MemoryBlobs()
         self.dispatch = dispatch
+        self.recap = recap
         self.intel = intel
         self.max_sessions, self.tick_s = max_sessions, tick_s
         self.speeds = SPEEDS
@@ -181,6 +188,9 @@ class StreamHub:
             if len(s.cohorts) >= MAX_COHORTS:
                 s.cohorts.pop(0)  # the profile the viewer has not used for longest goes
             s.cohorts.append(cohort)
+            if self.recap is not None:  # the recaps already written for the others: write them for the new profile too
+                for kind, pack in s.recap_packs.items():
+                    self.recap(self.store, sid, kind, pack, _recap_cohorts([cohort]))
         return True
 
     def stop(self, sid: str) -> bool:
@@ -258,6 +268,44 @@ class StreamHub:
         s.analyzer.drain(s.id)
         s.interpreter.run(s.id)
         self._dispatch(s)
+        self._analytics(s)
+        self._recaps(s)
+
+    def _analytics(self, s: Session, force: bool = False) -> None:
+        """The analytics summary of the match so far (win probability, shots, shape, space ...), refreshed every few seconds and once at the end."""
+        now = time.monotonic()
+        run = s.interpreter._cache.get(s.id) if s.interpreter is not None else None  # noqa: SLF001
+        if run is None or (not force and now - s.analytics_at < ANALYTICS_EVERY_S) or not run.ip.events:
+            return
+        s.analytics_at = now
+        try:
+            data = MatchAnalytics(run.ip).summary()
+        except Exception as e:  # noqa: BLE001 - the first minutes may not have enough for every view
+            print(f"WARN stream {s.id}: analytics skipped: {type(e).__name__}: {e}", flush=True)
+            return
+        prev = self.store.get_state(s.id, "analytics") or {"version": 0}
+        self.store.put_state(s.id, "analytics", {"version": prev["version"] + 1, "data": data})
+
+    def _recaps(self, s: Session) -> None:
+        """The preview at kick-off, the half-time recap when the interpreter has passed the break, the full-time recap when it has finished."""
+        run = s.interpreter._cache.get(s.id) if s.interpreter is not None else None  # noqa: SLF001
+        if run is None:
+            return
+        meta = run.ip.meta
+        due = {"preview": True, "half_time": run.limit >= (meta["periods"][0].get("endMs") or 1 << 60), "full_time": run.finished}
+        for kind, ready in due.items():
+            if not ready or kind in s.recap_packs:
+                continue
+            try:
+                pack = build_preview_pack(meta, run.ip.season) if kind == "preview" else build_pack(run.ip, kind)
+            except Exception as e:  # noqa: BLE001
+                print(f"WARN stream {s.id}: {kind} recap skipped: {type(e).__name__}: {e}", flush=True)
+                continue
+            s.recap_packs[kind] = pack
+            if self.recap is not None:
+                self.recap(self.store, s.id, kind, pack, _recap_cohorts(s.cohorts))
+            if kind == "full_time":
+                self._analytics(s, force=True)
 
     def _finished(self, s: Session) -> bool:
         run = s.interpreter._cache.get(s.id) if s.interpreter is not None else None  # noqa: SLF001
@@ -280,6 +328,11 @@ class StreamHub:
         except Exception as e:  # noqa: BLE001 - the viewer still has the graphics and the facts
             s.inflight = None
             print(f"WARN stream {s.id}: dispatch failed: {type(e).__name__}: {e}", flush=True)
+
+
+def _recap_cohorts(cohorts: list[Cohort]) -> list[Cohort]:
+    """A recap is written per mode, language and club (the match center looks for exactly that), not per followed player."""
+    return list(dict.fromkeys(Cohort(mode=c.mode, language=c.language, perspective=c.perspective) for c in cohorts))
 
 
 def new_session_summary(s: Session) -> dict:

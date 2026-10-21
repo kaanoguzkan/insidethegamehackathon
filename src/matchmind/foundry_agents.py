@@ -20,7 +20,15 @@ from pydantic import BaseModel
 
 from .agents import prompts
 from .agents.team import AgentSettings, AgentTeam
-from .core.contracts import ChatAnswer, EditorOut, Explanation, Plan, Recap, StoryOut, StoryVariant
+from .core.contracts import (
+    ChatAnswer,
+    EditorOut,
+    Explanation,
+    Plan,
+    RecapText,
+    StoryOut,
+    StoryVariant,
+)
 
 
 class Spec:
@@ -37,7 +45,7 @@ SPECS: list[Spec] = [
     Spec("matchmind-storyteller", "storyteller", prompts.STORYTELLER, "Writes the English story for each viewer cohort.", StoryOut, 0.6),
     Spec("matchmind-localizer", "localizer", prompts.LOCALIZER, "Rewrites a verified story natively in Spanish or Turkish.", StoryVariant, 0.6),
     Spec("matchmind-composer", "composer", prompts.COMPOSER, "Fast path: explains and writes one cohort's story in one call.", StoryVariant, 0.6),
-    Spec("matchmind-recap-writer", "recap_writer", prompts.RECAP, "Writes the pre-match, half-time and full-time recaps.", Recap, 0.6),
+    Spec("matchmind-recap-writer", "recap_writer", prompts.RECAP, "Writes the pre-match, half-time and full-time recaps.", RecapText, 0.6),
     Spec("matchmind-planner", "planner", prompts.PLANNER, "Ask the match: chooses which match-data tools answer a viewer's question, or refuses an off-topic one.", Plan, 0.0),
     Spec("matchmind-answerer", "answerer", prompts.ANSWERER, "Ask the match: answers the question from what the tools returned, and nothing else.", ChatAnswer, 0.2),
 ]

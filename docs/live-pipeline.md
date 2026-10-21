@@ -173,6 +173,10 @@ The Azure path above spends its time on hops: the feed in Cosmos DB, the Event G
 * **Text for the person watching.** The model writes the narrative overlay for the session's cohorts (the viewer's profile; a second one in split view; `POST /api/stream/{id}/cohorts`
   adds the profile a viewer switches to, for the moments still to come), not for all eight cohorts of a replay package: one model call per moment instead of eight, and no
   waiting for the slowest of eight. Identical moments of a demo have identical ids, so the Brain's beat cache shares model text between viewers.
+* **The numbers while the match is on.** The whole analytics summary (win probability, shots and xG, possession value, networks, shape, space, phases, players) is recomputed from the
+  session's interpreter every 4 s (it costs 0.03-0.05 s) and sent to the viewer only when it is newer than theirs, so the win-probability bar, the tactics panel and the Explore workspace
+  fill as the match goes. The preview recap is written at kick-off, the half-time recap when the interpreter passes the break and the full-time recap at the end, for the viewer's mode,
+  language and club. The Recap Writer produces the headline and summary (`RecapText`); the key moments, figures and player of the match are the evidence pack's, true by construction.
 * The endpoints are the live ones under `/api/stream` (`feed`, `meta`, `chunks/{n}`, `DELETE`), so the viewer code is shared; see [brain-api.md](brain-api.md).
 
 Measured on a laptop against the deployed Foundry project (`gpt-6-luna`, registered agents), the red-card demo at 10x from minute 40, one viewer; delays are real time from the

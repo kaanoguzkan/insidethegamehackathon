@@ -222,6 +222,14 @@ class ChatAnswer(BaseModel):
     used: list[str] = Field(default_factory=list, description="names of the tools the answer relies on")
 
 
+class RecapText(BaseModel):
+    """What the Recap Writer produces: the prose only. The key moments, the figures and the player of the match come from the evidence pack (and the
+    structured-output schema of a model service refuses the open-ended dictionaries a full Recap has)."""
+
+    headline: str = Field(description="at most 12 words")
+    summary: str
+
+
 class Recap(BaseModel):
     cohort: str
     kind: Literal["preview", "story_so_far", "half_time", "full_time"]

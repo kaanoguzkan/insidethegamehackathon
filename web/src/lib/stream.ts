@@ -1,7 +1,8 @@
+import type { Analytics } from './analytics'
 import { BRAIN_URL } from './brain'
 import { SAFE_ID, type Replay } from './data'
 import type { ChunkJson, TrackingSource } from './tracking'
-import type { Cohort, MatchEvent, Meta, Moment, Overlay, Snapshot } from './types'
+import type { Cohort, MatchEvent, Meta, Moment, Overlay, Recap, Snapshot } from './types'
 
 /**
  * A match of your own, played and interpreted inside the Brain (src/matchmind/live/stream_api.py), seen from the match center.
@@ -42,6 +43,11 @@ export interface StreamFeed extends StreamSummary {
   momentCursor: number
   snapshots: Snapshot[]
   snapshotCursor: number
+  /** The analytics summary of the match so far, present only when newer than the version asked for. */
+  analytics?: Analytics
+  analyticsVersion: number
+  recaps: Recap[]
+  recapCursor: number
 }
 
 export interface StreamDemo {
@@ -92,7 +98,7 @@ export const stopStream = (id: string, base = BRAIN_URL) => fetch(`${base}/api/s
 export const getStreamMeta = (id: string, base = BRAIN_URL, signal?: AbortSignal) => fetch(`${base}/api/stream/${id}/meta`, { signal }).then((r) => call<Meta>(r))
 
 export function getStreamFeed(id: string, c: Cursors, base = BRAIN_URL, signal?: AbortSignal): Promise<StreamFeed> {
-  const q = `event=${c.event}&since=${c.since}&full=1&msince=${c.msince}&snap=${c.snap}`
+  const q = `event=${c.event}&since=${c.since}&full=1&msince=${c.msince}&snap=${c.snap}&av=${c.av}&rv=${c.rv}`
   return fetch(`${base}/api/stream/${id}/feed?${q}`, { signal }).then((r) => call<StreamFeed>(r))
 }
 
@@ -113,6 +119,8 @@ export interface Cursors {
   since: number
   msince: number
   snap: number
+  av: number
+  rv: number
 }
 
 export interface StreamData {
@@ -124,17 +132,19 @@ export interface StreamData {
   moments: Map<string, Moment>
   overlays: Map<string, Overlay>
   snapshots: Snapshot[]
+  analytics: Analytics | null
+  recaps: Recap[]
   /** Bumped whenever anything changed, so the caller rebuilds the replay only then. */
   version: number
 }
 
 export const emptyStream = (): StreamData => ({
-  summary: null, receivedAt: 0, cursors: { event: -1, since: 0, msince: 0, snap: 0 }, events: [], moments: new Map(), overlays: new Map(), snapshots: [], version: 0,
+  summary: null, receivedAt: 0, cursors: { event: -1, since: 0, msince: 0, snap: 0, av: 0, rv: 0 }, events: [], moments: new Map(), overlays: new Map(), snapshots: [], analytics: null, recaps: [], version: 0,
 })
 
 /** Keep what a feed page carried (repeats are dropped by id, so a page asked for twice changes nothing). Mutates and returns ``d``. */
 export function mergeFeed(d: StreamData, f: StreamFeed, now: number): StreamData {
-  const { events, overlays, moments, snapshots, ...rest } = f
+  const { events, overlays, moments, snapshots, analytics, recaps, ...rest } = f
   let changed = d.summary === null || d.summary.status !== f.status
   const prev = d.cursors.event
   for (const e of events) {
@@ -161,7 +171,17 @@ export function mergeFeed(d: StreamData, f: StreamFeed, now: number): StreamData
       changed = true
     }
   }
-  d.cursors = { event: f.eventCursor, since: f.overlayCursor, msince: f.momentCursor, snap: f.snapshotCursor }
+  if (analytics) {
+    d.analytics = analytics
+    changed = true
+  }
+  for (const r of recaps) {
+    if (!d.recaps.some((x) => x.kind === r.kind && x.cohort === r.cohort)) {
+      d.recaps.push(r)
+      changed = true
+    }
+  }
+  d.cursors = { event: f.eventCursor, since: f.overlayCursor, msince: f.momentCursor, snap: f.snapshotCursor, av: f.analyticsVersion, rv: f.recapCursor }
   d.summary = rest
   d.receivedAt = now
   if (changed) d.version++
@@ -182,11 +202,11 @@ export function toReplay(id: string, meta: Meta, d: StreamData, tracking: Tracki
     moments: [...d.moments.values()].sort((a, b) => a.detectedAt.matchMs - b.detectedAt.matchMs),
     overlays: [...d.overlays.values()].sort(byTime),
     snapshots: [...d.snapshots].sort((a, b) => a.matchMs - b.matchMs),
-    recaps: [],
+    recaps: d.recaps,
     events,
     eventsById: new Map(events.map((e) => [e.id, e])),
     tracking,
-    analytics: null,
+    analytics: d.analytics,
   }
 }
 

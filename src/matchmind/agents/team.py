@@ -24,7 +24,7 @@ from ..core.contracts import (
     EditorOut,
     Explanation,
     Plan,
-    Recap,
+    RecapText,
     StoryOut,
     StoryVariant,
 )
@@ -243,11 +243,11 @@ class AgentTeam:
         payload = {"pack": pack, "variant": base.model_dump(), "cohort": cohort.key}
         return await self._ask(self.localizer, "localize", payload, StoryVariant, self.settings.story_temperature)
 
-    async def recap(self, pack: dict, cohort: Cohort, moments: dict[str, dict] | None = None) -> Recap:
+    async def recap(self, pack: dict, cohort: Cohort, moments: dict[str, dict] | None = None) -> RecapText:
         # The prompt carries a slim summary of the key moments; full packs stay out of it.
         slim = [
             {"id": mid, "type": m["type"], "label": m["detectedAt"]["label"], "team": m["subjectTeam"]}
             for mid in pack.get("keyMoments", []) if (m := (moments or {}).get(mid))
         ]
         payload = {"pack": pack, "cohort": cohort.key, "moments": slim}
-        return await self._ask(self.recap_writer, "recap", payload, Recap, self.settings.story_temperature)
+        return await self._ask(self.recap_writer, "recap", payload, RecapText, self.settings.story_temperature)
