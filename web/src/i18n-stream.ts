@@ -1,0 +1,75 @@
+// Strings of the live mode of the match center (a match played and interpreted as you watch).
+import type { Lang } from './lib/types'
+
+type Dict = Record<string, string>
+
+const en: Dict = {
+  'stream.go': 'Live',
+  'stream.title': 'Play this match live',
+  'stream.hint': 'The match is played from kick-off and analysed as it goes, by the same incremental pipeline that runs on Azure. The picture runs a few seconds behind the feed, as a broadcast does, so each overlay lands with the moment it explains.',
+  'stream.speed': 'Speed',
+  'stream.start': 'Kick off',
+  'stream.starting': 'Kicking off…',
+  'stream.live': 'LIVE',
+  'stream.delay': 'delay',
+  'stream.fulltime': 'Full time',
+  'stream.back': 'Back to live',
+  'stream.behind': 'behind the feed',
+  'stream.exit': 'Replays',
+  'stream.gone': 'This live match has ended',
+  'stream.goneHint': 'It was stopped, or its session expired after a while without a viewer. Kick off another from the match center.',
+  'stream.busy': 'The Brain is playing as many matches as it can. Try again in a moment.',
+  'stream.rate': 'Too many starts in a minute. Wait a little.',
+  'stream.failed': 'Could not start the live match.',
+  'stream.nobrain': 'This build has no Brain address, so a match cannot be played live here.',
+  'stream.connecting': 'Waking the Brain and kicking off…',
+  'stream.analytics': 'The numbers behind the match (win probability, shape, pitch control) are worked out once the match is over.',
+}
+
+const es: Dict = {
+  'stream.go': 'En vivo',
+  'stream.title': 'Juega este partido en vivo',
+  'stream.hint': 'El partido se juega desde el saque inicial y se analiza sobre la marcha, con el mismo pipeline incremental que corre en Azure. La imagen va unos segundos por detrás de la señal, como en una retransmisión, para que cada gráfico llegue con la jugada que explica.',
+  'stream.speed': 'Velocidad',
+  'stream.start': 'Saque inicial',
+  'stream.starting': 'Empezando…',
+  'stream.live': 'EN VIVO',
+  'stream.delay': 'de retraso',
+  'stream.fulltime': 'Final',
+  'stream.back': 'Volver al directo',
+  'stream.behind': 'por detrás de la señal',
+  'stream.exit': 'Repeticiones',
+  'stream.gone': 'Este partido en vivo ha terminado',
+  'stream.goneHint': 'Se detuvo, o su sesión caducó tras un rato sin espectador. Empieza otro desde el centro del partido.',
+  'stream.busy': 'El Brain está jugando todos los partidos que puede. Inténtalo de nuevo en un momento.',
+  'stream.rate': 'Demasiados inicios en un minuto. Espera un poco.',
+  'stream.failed': 'No se pudo empezar el partido en vivo.',
+  'stream.nobrain': 'Esta versión no tiene dirección del Brain, así que aquí no se puede jugar un partido en vivo.',
+  'stream.connecting': 'Despertando el Brain y empezando…',
+  'stream.analytics': 'Los números del partido (probabilidad de victoria, forma, control del campo) se calculan cuando termina el partido.',
+}
+
+const tr: Dict = {
+  'stream.go': 'Canlı',
+  'stream.title': 'Bu maçı canlı oynat',
+  'stream.hint': 'Maç ilk düdükten itibaren oynanır ve Azure üzerinde çalışan aynı artımlı hat tarafından akarken analiz edilir. Görüntü, yayında olduğu gibi akışın birkaç saniye gerisinde gider; böylece her grafik anlattığı anla birlikte gelir.',
+  'stream.speed': 'Hız',
+  'stream.start': 'Başlat',
+  'stream.starting': 'Başlıyor…',
+  'stream.live': 'CANLI',
+  'stream.delay': 'gecikme',
+  'stream.fulltime': 'Maç sonu',
+  'stream.back': 'Canlıya dön',
+  'stream.behind': 'akışın gerisinde',
+  'stream.exit': 'Tekrarlar',
+  'stream.gone': 'Bu canlı maç bitti',
+  'stream.goneHint': 'Durduruldu ya da bir süre izleyen olmadığı için oturumu sona erdi. Maç merkezinden yenisini başlatın.',
+  'stream.busy': 'Brain oynatabildiği kadar maç oynatıyor. Biraz sonra tekrar deneyin.',
+  'stream.rate': 'Bir dakikada çok fazla başlatma. Biraz bekleyin.',
+  'stream.failed': 'Canlı maç başlatılamadı.',
+  'stream.nobrain': 'Bu sürümde Brain adresi yok, bu yüzden burada canlı maç oynatılamaz.',
+  'stream.connecting': 'Brain uyandırılıyor ve maç başlatılıyor…',
+  'stream.analytics': 'Maçın arkasındaki sayılar (kazanma olasılığı, dizilim, saha kontrolü) maç bittikten sonra hesaplanır.',
+}
+
+export const STREAM: Record<Lang, Dict> = { en, es, tr }

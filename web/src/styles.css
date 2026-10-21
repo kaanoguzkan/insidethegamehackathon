@@ -613,3 +613,11 @@ body:has(.broadcast) { background: transparent; }
 
 .season-note { margin: 0 0 6px; font-size: 12px; }
 .chip.aired { color: var(--good); border-color: var(--good); }
+
+/* Live mode of the match center */
+.live-dot { width: 9px; height: 9px; border-radius: 50%; background: #ff4d4d; display: inline-block; flex: none; margin-right: 6px; animation: live-pulse 1.6s ease-in-out infinite; }
+@keyframes live-pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+.live-badge { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 999px; background: var(--accent-soft); font-size: 13px; }
+.live-badge small { color: var(--muted, inherit); margin-left: 6px; }
+.live-pop .btn.primary { margin-top: 10px; }

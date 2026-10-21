@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { SAFE_ID } from '../lib/data'
 import { DEFAULT_PROFILE, type Lang, type Mode, type Profile } from '../lib/types'
 import { CAMS, type Cam } from '../lib/webgl'
 
@@ -13,6 +14,7 @@ export interface Route {
   tab: string | null // the open view in the Explore workspace
   cam: Cam | null // the pitch view: '2d' or a 3D camera; null picks 3D on a big screen and 2D on a phone
   follow: boolean // the 3D camera follows the ball
+  stream: string | null // a match being played live (POST /api/stream), instead of a replay
 }
 
 /** Watch the match, Understand why it happened, Explore the numbers: the three depths of the app. */
@@ -52,6 +54,7 @@ export function parseHash(hash: string): Route {
     tab: q.get('tab'),
     cam: CAMS.find((c) => c === q.get('cam')) ?? null,
     follow: q.get('follow') === '1',
+    stream: SAFE_ID.test(q.get('stream') ?? '') ? q.get('stream') : null,
   }
 }
 
@@ -71,6 +74,7 @@ export function buildHash(r: Omit<Route, 't'> & { t?: number | null }): string {
   if (r.step === 'explore' && r.tab) q.set('tab', r.tab)
   if (r.cam) q.set('cam', r.cam)
   if (r.follow) q.set('follow', '1')
+  if (r.stream) q.set('stream', r.stream)
   return `#/${r.view === 'broadcast' ? 'broadcast' : ''}?${q.toString()}`
 }
 

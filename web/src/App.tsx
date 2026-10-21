@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EvidenceDrawer } from './components/EvidenceDrawer'
+import { GoLive } from './components/GoLive'
 import { Insights, isViewId, type ViewId } from './components/insights/Insights'
 import { MatchStrip } from './components/MatchStrip'
 import { Popover } from './components/Popover'
@@ -10,8 +11,12 @@ import { StageHead } from './components/StageHead'
 import { useClock } from './hooks/useClock'
 import { buildHash, STEPS, type Step, useRoute } from './hooks/useHash'
 import { useLiveBrain } from './hooks/useLiveBrain'
+import { useLiveFollow } from './hooks/useLiveFollow'
+import { useStream, type StreamHandle } from './hooks/useStream'
 import { t } from './i18n'
+import { brainConfigured, cohortKey } from './lib/brain'
 import { cohortForMatch } from './lib/cohort'
+import { addStreamCohort, LIVE_DELAY_S, stopStream } from './lib/stream'
 import { totalMs } from './lib/clock'
 import { LAYER_KEYS, NO_LAYERS, type Layers } from './lib/layers'
 import type { Cam } from './lib/webgl'
@@ -46,8 +51,10 @@ export function App() {
   // Only ids the index lists are loaded; anything else in the URL falls back to the first match.
   const known = new Set((index ?? []).map((m) => m.id))
   const matchId = route.match && known.has(route.match) ? route.match : (index?.[0]?.id ?? null)
-  const { replay, error } = useReplay(matchId)
+  const { replay, error } = useReplay(route.stream ? null : matchId)
   const lang = route.profile.language
+
+  if (route.stream) return <LiveMatch streamId={route.stream} route={route} setRoute={setRoute} />
 
   if (indexError || error) {
     return (
@@ -69,11 +76,40 @@ export function App() {
   return <Player key={replay.id} replay={replay} index={index ?? []} route={route} setRoute={setRoute} />
 }
 
-function Player({ replay, index, route, setRoute }: { replay: Replay; index: ReplayIndexEntry[]; route: ReturnType<typeof useRoute>[0]; setRoute: ReturnType<typeof useRoute>[1] }) {
-  const total = totalMs(replay.meta)
+/** A match being played live: wait for the first answer, then hand the match center the replay that grows. */
+function LiveMatch({ streamId, route, setRoute }: { streamId: string; route: ReturnType<typeof useRoute>[0]; setRoute: ReturnType<typeof useRoute>[1] }) {
+  const stream = useStream(streamId)
+  const lang = route.profile.language
+  if (stream.status === 'gone') {
+    return (
+      <div className="state">
+        <h1>{t(lang, 'stream.gone')}</h1>
+        <p>{t(lang, 'stream.goneHint')}</p>
+        <button type="button" className="btn" onClick={() => setRoute({ stream: null })}>{t(lang, 'stream.exit')}</button>
+      </div>
+    )
+  }
+  if (!stream.replay) {
+    return (
+      <div className="state" role="status">
+        <div className="spinner" aria-hidden="true" />
+        <p>{stream.error ?? t(lang, 'stream.connecting')}</p>
+      </div>
+    )
+  }
+  return <Player key={streamId} replay={stream.replay} index={[]} route={route} setRoute={setRoute} stream={stream} />
+}
+
+function Player({ replay, index, route, setRoute, stream }: { replay: Replay; index: ReplayIndexEntry[]; route: ReturnType<typeof useRoute>[0]; setRoute: ReturnType<typeof useRoute>[1]; stream?: StreamHandle }) {
+  const total = stream ? Math.max(stream.durationMs, 1) : totalMs(replay.meta)
   const broadcast = route.view === 'broadcast'
   const clock = useClock(total, broadcast ? 1 : 10)
-  const { ms, msRef, seek, toggle, playing, setPlaying, speed, setSpeed } = clock
+  const { ms, msRef, playing, setPlaying, speed } = clock
+  const follow = useLiveFollow(stream, clock)
+  // In a live match any move of the playhead is a rewind: it detaches the viewer from the live picture until they go back to live.
+  const seek = useCallback((to: number) => { follow.detach(); clock.seek(to) }, [follow.detach, clock.seek]) // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = useCallback(() => { if (stream) follow.detach(); clock.toggle() }, [stream, follow.detach, clock.toggle]) // eslint-disable-line react-hooks/exhaustive-deps
+  const setSpeed = useCallback((v: number) => { if (stream) follow.detach(); clock.setSpeed(v) }, [stream, follow.detach, clock.setSpeed]) // eslint-disable-line react-hooks/exhaustive-deps
   const profile = route.profile
   const lang = profile.language
   const [selected, setSelected] = useState<string | null>(null)
@@ -89,7 +125,7 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
     if (health === 'healthy' || variants[health]) return
     loadVariant(replay.id, health).then((o) => setVariants((v) => ({ ...v, [health]: o }))).catch(() => setHealth('healthy'))
   }, [health, replay.id, variants])
-  const live = useLiveBrain(replay.id)
+  const live = useLiveBrain(stream ? '' : replay.id) // Live AI rewrites a recorded match's story on demand: a live match's story is written as it is played
   const overlays = useMemo(() => live.merge(overlaysFor(replay, health, variants)), [replay, health, variants, live.merge])
   const hasVariants = Object.keys(replay.meta.package.variants ?? {}).length > 0
   const [profileB, setProfileB] = useState<Profile>({ ...DEFAULT_PROFILE, mode: profile.mode === 'analyst' ? 'casual' : 'analyst', language: profile.language === 'es' ? 'en' : 'es' })
@@ -102,10 +138,17 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
 
   // Jump to the start time from the URL once, and autoplay the overlay-only page.
   useEffect(() => {
-    if (route.t !== null) seek(route.t)
+    if (route.t !== null && !stream) clock.seek(route.t)
     if (broadcast) setPlaying(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // The model writes a live match's story for the viewers on screen: tell the session when the profile changes (moments still to come only).
+  const cohortsId = liveCohorts.map(cohortKey).join('|')
+  useEffect(() => {
+    if (!stream) return
+    for (const c of liveCohorts) void addStreamCohort(stream.id, c).catch(() => undefined)
+  }, [stream?.id, cohortsId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const setProfile = useCallback((p: Profile) => setRoute({ profile: p }), [setRoute])
 
@@ -146,7 +189,7 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
     )
   }
 
-  const broadcastHref = buildHash({ view: 'broadcast', match: replay.id, profile: { ...profile, density: profile.density === 'high' ? 'high' : 'low' }, split: false, t: Math.round(ms / 60000), step: 'watch', tab: null, cam: null, follow: false })
+  const broadcastHref = buildHash({ view: 'broadcast', match: replay.id, profile: { ...profile, density: profile.density === 'high' ? 'high' : 'low' }, split: false, t: Math.round(ms / 60000), step: 'watch', tab: null, cam: null, follow: false, stream: null })
   const onLayer = (k: (typeof LAYER_KEYS)[number]) => setLayers((l) => ({ ...l, [k]: !l[k] }))
   const onLens = (keys: (keyof Layers)[], on: boolean) => setLayers((l) => ({ ...l, ...Object.fromEntries(keys.map((k) => [k, on])) }))
   const screens = route.split
@@ -165,14 +208,22 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
             <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="10" fill="none" stroke="currentColor" strokeWidth="3" /><circle cx="16" cy="16" r="3" fill="currentColor" /></svg>
             <b>{t(lang, 'appTitle')}</b>
           </div>
-          <label className="match-pick">
-            <span className="sr-only">{t(lang, 'selectMatch')}</span>
-            <select value={replay.id} onChange={(e) => setRoute({ match: e.target.value })} aria-label={t(lang, 'selectMatch')}>
-              {index.map((m) => (
-                <option key={m.id} value={m.id}>{m.title} · {m.score[m.home]}–{m.score[m.away]}</option>
-              ))}
-            </select>
-          </label>
+          {stream ? (
+            <span className="live-badge" role="status">
+              <span className="live-dot" aria-hidden="true" />
+              <b>{t(lang, stream.status === 'finished' ? 'stream.fulltime' : 'stream.live')}</b>
+              <small>{stream.speed}× · {LIVE_DELAY_S} s {t(lang, 'stream.delay')}</small>
+            </span>
+          ) : (
+            <label className="match-pick">
+              <span className="sr-only">{t(lang, 'selectMatch')}</span>
+              <select value={replay.id} onChange={(e) => setRoute({ match: e.target.value })} aria-label={t(lang, 'selectMatch')}>
+                {index.map((m) => (
+                  <option key={m.id} value={m.id}>{m.title} · {m.score[m.home]}–{m.score[m.away]}</option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
 
         <nav className="steps" aria-label={t(lang, 'path')}>
@@ -192,7 +243,7 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
               {route.split ? t(lang, 'singleView') : t(lang, 'splitView')}
             </button>
           </Popover>
-          {hasVariants && (
+          {hasVariants && !stream && (
             <Popover label={<><span className={`health-dot h-${health}`} aria-hidden="true" /><span className="pop-key">{t(lang, 'health')}</span><span className="pop-val">{t(lang, health === 'healthy' ? 'healthHealthy' : health === 'unreliable' ? 'healthUnreliable' : 'healthOutage')}</span></>} title={t(lang, 'health')}>
               <p className="pop-title">{t(lang, 'health')}</p>
               <p className="hint">{t(lang, 'healthNote')}</p>
@@ -206,14 +257,24 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
               </div>
             </Popover>
           )}
-          {live.available && (
+          {live.available && !stream && (
             <button type="button" className={`btn live${live.enabled ? ' on' : ''}`} aria-pressed={live.enabled} onClick={live.toggle} title={t(lang, 'liveAIHint')}>
               {live.enabled && <span className={`health-dot h-${live.status === 'ready' ? 'healthy' : live.status === 'waking' ? 'unreliable' : 'outage'}`} aria-hidden="true" />}
               {t(lang, 'liveAI')}
             </button>
           )}
-          <a className="btn" href={`${import.meta.env.BASE_URL}replays/${replay.id}/report.pdf`} target="_blank" rel="noreferrer" title={t(lang, 'reportHint')}>{t(lang, 'report')}</a>
-          <a className="btn" href={broadcastHref} target="_blank" rel="noreferrer">{t(lang, 'broadcastLink')}</a>
+          {stream ? (
+            <>
+              {!follow.following && <button type="button" className="btn live" onClick={follow.goLive}>{t(lang, 'stream.back')}</button>}
+              <button type="button" className="btn" onClick={() => { void stopStream(stream.id); setRoute({ stream: null }) }}>{t(lang, 'stream.exit')}</button>
+            </>
+          ) : (
+            <>
+              {brainConfigured && <GoLive lang={lang} demo={replay.id} cohorts={liveCohorts} onStarted={(id) => setRoute({ stream: id })} />}
+              <a className="btn" href={`${import.meta.env.BASE_URL}replays/${replay.id}/report.pdf`} target="_blank" rel="noreferrer" title={t(lang, 'reportHint')}>{t(lang, 'report')}</a>
+              <a className="btn" href={broadcastHref} target="_blank" rel="noreferrer">{t(lang, 'broadcastLink')}</a>
+            </>
+          )}
         </div>
       </header>
 
@@ -228,15 +289,17 @@ function Player({ replay, index, route, setRoute }: { replay: Replay; index: Rep
             ))}
           </div>
         </section>
-        {step === 'explore' ? (
+        {step === 'explore' && stream ? (
+          <section className="explore"><p className="muted">{t(lang, 'stream.analytics')}</p></section>
+        ) : step === 'explore' ? (
           <Insights replay={replay} ms={ms} lang={lang} tab={exploreTab} onTab={(tab) => setRoute({ tab })} layers={layers} onLens={onLens} />
         ) : (
-          <Rail step={step} tab={railTab} onTab={setRailTab} onStep={(s: Step) => setRoute({ step: s })} replay={replay} profile={profile} ms={ms} selected={selected} onPick={pick} />
+          <Rail step={step} tab={railTab} onTab={setRailTab} onStep={(s: Step) => setRoute({ step: s })} replay={replay} profile={profile} ms={ms} selected={selected} onPick={pick} live={!!stream} />
         )}
       </main>
 
       <MatchStrip replay={replay} ms={ms} playing={playing} speed={speed} lang={lang} layers={layers} selected={selected} cam={cam} follow={route.follow} onCam={(c) => setRoute({ cam: c })} onFollow={(on) => setRoute({ follow: on })} toggle={toggle} setSpeed={setSpeed} seek={seek} onPick={pick} onLayer={onLayer} onClearLayers={() => setLayers(NO_LAYERS)} />
-      <EvidenceDrawer moment={moment} replay={replay} lang={lang} onClose={() => setSelected(null)} onSeek={seek} showOnPitch={showOnPitch} setShowOnPitch={setShowOnPitch} health={health} live={live} />
+      <EvidenceDrawer moment={moment} replay={replay} lang={lang} onClose={() => setSelected(null)} onSeek={seek} showOnPitch={showOnPitch} setShowOnPitch={setShowOnPitch} health={health} live={stream ? undefined : live} />
       <footer className="foot">
         <span>{t(lang, 'synthetic')}</span>
         <span>{t(lang, 'poweredBy')}</span>

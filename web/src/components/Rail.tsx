@@ -9,6 +9,7 @@ import { TacticsPanel } from './TacticsPanel'
 
 export type RailTab = 'story' | 'tactics' | 'moments' | 'ask'
 const TABS: RailTab[] = ['story', 'tactics', 'moments', 'ask']
+const LIVE_TABS: RailTab[] = ['story', 'tactics', 'moments'] // Ask answers from a finished match: not offered while one is being played
 
 interface Props {
   step: Step
@@ -20,13 +21,14 @@ interface Props {
   ms: number
   selected: string | null
   onPick: (id: string) => void
+  live?: boolean
 }
 
 /**
  * The right-hand column. Watching shows only the moments to jump to; understanding adds the story and the tactics.
  * Each ends with the way to go one level deeper.
  */
-export function Rail({ step, tab, onTab, onStep, replay, profile, ms, selected, onPick }: Props) {
+export function Rail({ step, tab, onTab, onStep, replay, profile, ms, selected, onPick, live = false }: Props) {
   const lang: Lang = profile.language
   const understand = step === 'understand'
   const active: RailTab = understand ? tab : 'moments'
@@ -34,7 +36,7 @@ export function Rail({ step, tab, onTab, onStep, replay, profile, ms, selected, 
     <aside className="rail" aria-label={t(lang, `step.${step}`)}>
       {understand ? (
         <div className="rail-tabs" role="tablist" aria-label={t(lang, 'step.understand')}>
-          {TABS.map((id) => (
+          {(live ? LIVE_TABS : TABS).map((id) => (
             <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => onTab(id)}>
               {t(lang, `rail.${id}`)}
             </button>
