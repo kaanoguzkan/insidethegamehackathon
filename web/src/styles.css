@@ -50,7 +50,7 @@ h1, h2, h3 { font-weight: 700; }
 /* ---------- shell: top bar, workspace, match strip ---------- */
 .app { height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; }
 .topbar {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px;
   padding: 8px 16px; border-bottom: 1px solid var(--line); background: var(--surface);
 }
 .tb-left, .tb-right { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -212,7 +212,7 @@ input[type='checkbox'] { accent-color: var(--accent); }
 .rail-head { padding: 12px 14px 0; }
 .rail-head h2 { margin: 0; font-size: 18px; font-stretch: 85%; }
 .rail-tabs { display: flex; border-bottom: 1px solid var(--line); }
-.rail-tabs button { flex: 1; background: transparent; border: 0; border-bottom: 3px solid transparent; padding: 11px 6px 9px; color: var(--muted); font-size: 15px; font-weight: 700; font-stretch: 85%; }
+.rail-tabs button { flex: 1; min-width: 0; white-space: nowrap; background: transparent; border: 0; border-bottom: 3px solid transparent; padding: 11px 6px 9px; color: var(--muted); font-size: 15px; font-weight: 700; font-stretch: 85%; }
 .rail-tabs button:hover { color: var(--text); }
 .rail-tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
 .rail-body { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px; }
@@ -639,3 +639,9 @@ body:has(.broadcast) { background: transparent; }
 .tools-list { display: flex; flex-direction: column; gap: 6px; min-width: 220px; }
 .tools-list .btn { width: 100%; justify-content: flex-start; text-align: left; }
 .tools-state { margin-left: auto; opacity: 0.75; font-size: 12px; }
+
+/* One tab bar on the panel (replaces the three-step switch): Numbers fills the panel, no frame of its own */
+.rail-tabs button { font-size: 14px; padding: 11px 4px 9px; }
+.rail-body.flush { padding: 0; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+.rail-body.flush .explore { border: 0; border-radius: 0; flex: 1; min-height: 0; }
+.rail-body .pad { padding: 14px; }

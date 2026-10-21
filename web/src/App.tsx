@@ -2,15 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EvidenceDrawer } from './components/EvidenceDrawer'
 import { GoLive } from './components/GoLive'
 import { Welcome } from './components/Welcome'
-import { Insights, isViewId, type ViewId } from './components/insights/Insights'
+import { isViewId, type ViewId } from './components/insights/Insights'
 import { MatchStrip } from './components/MatchStrip'
 import { Popover } from './components/Popover'
 import { ProfilePanel } from './components/ProfilePanel'
-import { Rail, type RailTab } from './components/Rail'
+import { PANEL_TABS, Rail, type PanelTab } from './components/Rail'
 import { Screen } from './components/Screen'
 import { StageHead } from './components/StageHead'
 import { useClock } from './hooks/useClock'
-import { buildHash, STEPS, type Step, useRoute } from './hooks/useHash'
+import { buildHash, useRoute } from './hooks/useHash'
 import { useLiveBrain } from './hooks/useLiveBrain'
 import { useLiveFollow } from './hooks/useLiveFollow'
 import { useStream, type StreamHandle } from './hooks/useStream'
@@ -136,10 +136,21 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
   const [selected, setSelected] = useState<string | null>(null)
   const [showOnPitch, setShowOnPitch] = useState(true)
   const [layers, setLayers] = useState<Layers>(NO_LAYERS)
-  const [railTab, setRailTab] = useState<RailTab>('story')
+  const [railTab, setRailTab] = useState<Exclude<PanelTab, 'moments' | 'numbers'>>('story')
   const step = route.step
   const cam: Cam = route.cam ?? (typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches ? '2d' : 'tv')
   const exploreTab: ViewId = isViewId(route.tab) ? route.tab : 'win'
+  // One tab bar: Moments is the Watch step, Numbers the Explore step, the rest the Understand step (the step stays in the link, so a shared link opens the same panel).
+  const panelTab: PanelTab = step === 'watch' ? 'moments' : step === 'explore' ? 'numbers' : railTab
+  const selectTab = (tab: PanelTab | undefined) => {
+    if (!tab) return
+    if (tab === 'moments') setRoute({ step: 'watch' })
+    else if (tab === 'numbers') setRoute({ step: 'explore' })
+    else {
+      setRailTab(tab)
+      setRoute({ step: 'understand' })
+    }
+  }
   const [health, setHealth] = useState<Health>('healthy')
   const [variants, setVariants] = useState<Partial<Record<Health, Overlay[]>>>({})
   useEffect(() => {
@@ -196,7 +207,7 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
       else if (e.key === ']') setSpeed(Math.min(60, speed * 2))
       else if (e.key === '[') setSpeed(Math.max(1, Math.round(speed / 2)))
       else if (e.key === 'Escape') setSelected(null)
-      else if (e.key >= '1' && e.key <= '3' && !e.metaKey && !e.ctrlKey && !e.altKey) setRoute({ step: STEPS[Number(e.key) - 1] })
+      else if (e.key >= '1' && e.key <= '5' && !e.metaKey && !e.ctrlKey && !e.altKey) selectTab(PANEL_TABS.filter((id) => !(stream && id === 'ask'))[Number(e.key) - 1])
     }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
@@ -246,15 +257,6 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
             </label>
           )}
         </div>
-
-        <nav className="steps" aria-label={t(lang, 'path')}>
-          {STEPS.map((id, i) => (
-            <button key={id} type="button" className={step === id ? 'on' : ''} aria-current={step === id ? 'step' : undefined} onClick={() => setRoute({ step: id })} title={`${t(lang, `step.${id}.d`)} (${i + 1})`}>
-              <span className="step-n" aria-hidden="true">{i + 1}</span>
-              {t(lang, `step.${id}`)}
-            </button>
-          ))}
-        </nav>
 
         <div className="tb-right">
           <Popover label={<><span className="pop-key">{t(lang, 'viewer')}</span><span className="pop-val">{viewerSummary}</span></>} title={t(lang, 'viewer')} className="viewer-pop">
@@ -328,13 +330,7 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
             ))}
           </div>
         </section>
-        {step === 'explore' && stream && !replay.analytics ? (
-          <section className="explore"><p className="muted">{t(lang, 'stream.analytics')}</p></section>
-        ) : step === 'explore' ? (
-          <Insights replay={replay} ms={ms} lang={lang} tab={exploreTab} onTab={(tab) => setRoute({ tab })} layers={layers} onLens={onLens} />
-        ) : (
-          <Rail step={step} tab={railTab} onTab={setRailTab} onStep={(s: Step) => setRoute({ step: s })} replay={replay} profile={profile} ms={ms} selected={selected} onPick={pick} live={!!stream} />
-        )}
+        <Rail tab={panelTab} onTab={selectTab} replay={replay} profile={profile} ms={ms} selected={selected} onPick={pick} live={!!stream} numbersTab={exploreTab} onNumbersTab={(tab) => setRoute({ tab })} layers={layers} onLens={onLens} />
       </main>
 
       <MatchStrip replay={replay} ms={ms} playing={playing} speed={speed} lang={lang} layers={layers} selected={selected} cam={cam} follow={route.follow} onCam={(c) => setRoute({ cam: c })} onFollow={(on) => setRoute({ follow: on })} toggle={toggle} setSpeed={setSpeed} seek={seek} onPick={pick} onLayer={onLayer} onClearLayers={() => setLayers(NO_LAYERS)} />

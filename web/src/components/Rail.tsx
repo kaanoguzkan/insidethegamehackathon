@@ -1,70 +1,63 @@
 import { t } from '../i18n'
 import type { Replay } from '../lib/data'
+import type { Layers } from '../lib/layers'
 import type { Lang, Profile } from '../lib/types'
-import type { Step } from '../hooks/useHash'
 import { AskPanel } from './AskPanel'
+import { Insights, type ViewId } from './insights/Insights'
 import { MomentList } from './MomentList'
 import { RecapPanel } from './RecapPanel'
 import { TacticsPanel } from './TacticsPanel'
 
-export type RailTab = 'story' | 'tactics' | 'moments' | 'ask'
-const TABS: RailTab[] = ['story', 'tactics', 'moments', 'ask']
-const LIVE_TABS: RailTab[] = ['story', 'tactics', 'moments'] // Ask answers from a finished match: not offered while one is being played
+/** The right-hand panel: one tab bar that is always there, so any view of the match is one click away and the pitch never leaves the screen. */
+export type PanelTab = 'moments' | 'story' | 'tactics' | 'numbers' | 'ask'
+export const PANEL_TABS: PanelTab[] = ['moments', 'story', 'tactics', 'numbers', 'ask']
+const LIVE_TABS: PanelTab[] = ['moments', 'story', 'tactics', 'numbers'] // Ask answers from a finished match: not offered while one is being played
 
 interface Props {
-  step: Step
-  tab: RailTab
-  onTab: (t: RailTab) => void
-  onStep: (s: Step) => void
+  tab: PanelTab
+  onTab: (t: PanelTab) => void
   replay: Replay
   profile: Profile
   ms: number
   selected: string | null
   onPick: (id: string) => void
   live?: boolean
+  // the Numbers workspace
+  numbersTab: ViewId
+  onNumbersTab: (id: ViewId) => void
+  layers: Layers
+  onLens: (keys: (keyof Layers)[], on: boolean) => void
 }
 
-/**
- * The right-hand column. Watching shows only the moments to jump to; understanding adds the story and the tactics.
- * Each ends with the way to go one level deeper.
- */
-export function Rail({ step, tab, onTab, onStep, replay, profile, ms, selected, onPick, live = false }: Props) {
+export function Rail({ tab, onTab, replay, profile, ms, selected, onPick, live = false, numbersTab, onNumbersTab, layers, onLens }: Props) {
   const lang: Lang = profile.language
-  const understand = step === 'understand'
-  const active: RailTab = understand ? tab : 'moments'
+  const tabs = live ? LIVE_TABS : PANEL_TABS
   return (
-    <aside className="rail" aria-label={t(lang, `step.${step}`)}>
-      {understand ? (
-        <div className="rail-tabs" role="tablist" aria-label={t(lang, 'step.understand')}>
-          {(live ? LIVE_TABS : TABS).map((id) => (
-            <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => onTab(id)}>
-              {t(lang, `rail.${id}`)}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <div className="rail-head">
-          <h2>{t(lang, 'moments')}</h2>
-        </div>
-      )}
-      <div className="rail-body" role={understand ? 'tabpanel' : undefined}>
-        {active === 'story' && <RecapPanel replay={replay} profile={profile} ms={ms} onPick={onPick} />}
-        {active === 'tactics' && <TacticsPanel replay={replay} ms={ms} lang={lang} />}
-        {active === 'ask' && <AskPanel replay={replay} profile={profile} ms={ms} />}
-        {active === 'moments' && (
+    <aside className="rail" aria-label={t(lang, `rail.${tab}`)}>
+      <div className="rail-tabs" role="tablist" aria-label={t(lang, 'path')}>
+        {tabs.map((id, i) => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => onTab(id)} title={`${t(lang, `rail.${id}.d`)} (${i + 1})`}>
+            {t(lang, `rail.${id}`)}
+          </button>
+        ))}
+      </div>
+      <div className={`rail-body${tab === 'numbers' ? ' flush' : ''}`} role="tabpanel">
+        {tab === 'moments' && (
           <>
             <p className="hint">{t(lang, 'momentsHint')}</p>
             <MomentList replay={replay} lang={lang} selected={selected} onPick={onPick} />
           </>
         )}
+        {tab === 'story' && <RecapPanel replay={replay} profile={profile} ms={ms} onPick={onPick} />}
+        {tab === 'tactics' && <TacticsPanel replay={replay} ms={ms} lang={lang} />}
+        {tab === 'ask' && <AskPanel replay={replay} profile={profile} ms={ms} />}
+        {tab === 'numbers' &&
+          (replay.analytics ? (
+            <Insights replay={replay} ms={ms} lang={lang} tab={numbersTab} onTab={onNumbersTab} layers={layers} onLens={onLens} />
+          ) : (
+            <p className="muted pad">{t(lang, live ? 'stream.analytics' : 'noAnalytics')}</p>
+          ))}
       </div>
-      {step !== 'explore' && (
-        <footer className="rail-next">
-          <button type="button" className="btn wide" onClick={() => onStep(understand ? 'explore' : 'understand')}>
-            {t(lang, understand ? 'next.explore' : 'next.understand')}
-          </button>
-        </footer>
-      )}
     </aside>
   )
 }
