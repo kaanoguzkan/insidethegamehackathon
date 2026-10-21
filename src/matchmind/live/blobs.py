@@ -37,6 +37,11 @@ class MemoryBlobs:
         with self._lock:
             return name in self._data
 
+    def purge(self, prefix: str) -> None:
+        with self._lock:
+            for name in [n for n in self._data if n.startswith(prefix)]:
+                del self._data[name]
+
 
 class AzureBlobs:
     """One container of an Azure Storage account, through ``azure-storage-blob`` and an identity."""

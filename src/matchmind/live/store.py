@@ -138,6 +138,16 @@ class MemoryLiveStore:
         with self._lock:
             self._state[(match_id, key)] = value
 
+    def purge(self, match_id: str) -> None:
+        """Forget a match entirely (a stream session that is over)."""
+        with self._lock:
+            for table in (self._matches, self._docs, self._moments, self._overlays):
+                table.pop(match_id, None)
+            for key in [k for k in self._state if k[0] == match_id]:
+                del self._state[key]
+            for key in [k for k in self._locks if k[0] == match_id]:
+                del self._locks[key]
+
     def acquire(self, match_id: str, name: str, ttl_ms: int) -> bool:
         """Take a named lock for ``ttl_ms`` (a crashed holder's lock expires on its own). False if someone else holds it."""
         with self._lock:

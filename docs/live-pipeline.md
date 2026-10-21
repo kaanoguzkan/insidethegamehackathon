@@ -22,8 +22,8 @@ flowchart LR
 * **Packs** (`live/packs.py`). A finished simulation stored once: the metadata, the full event list, and the tracking as the compact bundle the replay packages use (about 2 MB a
   match; a season is about 60 MB in the `packs` blob container, not in the repository). From a pack the player builds the feed documents and the tracking chunks, byte for byte what
   `build_feed` / `build_chunks` give from the simulation (`tests/test_packs.py`); chunks are cut and encoded when they are due.
-* **The season** (`live/season.py`). Six clubs, home and away: 30 fixtures in 10 rounds, **round 1 being the three scripted stories** (Redmoor v Saltmarsh with the red card, Harbour v
-  Northbridge with the pressing collapse, Kestrel v Aldergate with the high-line gamble). Fixtures, results and the table live in the `season` Cosmos container.
+* **The season** (`live/season.py`). Six clubs, home and away: 30 fixtures in 10 rounds, **round 1 being the three demo matches** (Redmoor v Saltmarsh with the red card, Harbour v
+  Northbridge with the pressing collapse, Kestrel v Aldergate with the six-goal thriller). Fixtures, results and the table live in the `season` Cosmos container.
 * **The season job** (`live/season_job.py`, Container Apps Job `caj-<env>-season`, 5 replicas). The replicas are not told which fixtures are theirs: each **claims** the next pending
   one (an atomic change of its status guarded by the document's etag; an abandoned claim expires after five minutes), simulates it, writes the pack and records the score, until none
   is left. **The whole 30-match season took about two and a half minutes** on 1 vCPU replicas (see "Measured"). *Simulate a new season* on the Season page starts it; the site
@@ -159,6 +159,37 @@ Read this carefully:
 * Seven moments in one match is a small sample, and one scenario.
 * Catch-up after a late start was the weak point: the first analyzer processed about 10 match-seconds per wall second; after prefetching chunks, buffering events and writing documents in
   parallel it keeps within about 10 match-seconds of the live feed. The channel starts matches at kick-off, so it does not need it.
+
+## Streams: the same stages in one process
+
+The Azure path above spends its time on hops: the feed in Cosmos DB, the Event Grid event, the Function, the change feed, the dispatcher. A **stream session**
+(`live/session.py`) runs the same incremental stages with the stages called directly, in the Brain's process, against an in-memory store:
+
+    play()  ->  AnalyzerWorker.drain()  ->  InterpretWorker.run()  ->  write_beats()  (the fast path, for the viewer's cohort)
+
+* **One match per viewer.** `POST /api/stream {demo, speed, fromMinute, cohorts}` answers at once; the demo is simulated once and kept (preloaded at boot), and the session's own
+  store holds only what the session's clock has reached, so nothing from a viewer's future is ever in their store. There is no shared live match and no one-at-a-time limit; the
+  Brain caps matches being played at once (`MAX_SESSIONS`, 12), stops a match whose viewer stopped polling (5 minutes) and frees a finished one after 15.
+* **Text for the person watching.** The model writes the narrative overlay for the session's cohorts (the viewer's profile; a second one in split view; `POST /api/stream/{id}/cohorts`
+  adds the profile a viewer switches to, for the moments still to come), not for all eight cohorts of a replay package: one model call per moment instead of eight, and no
+  waiting for the slowest of eight. Identical moments of a demo have identical ids, so the Brain's beat cache shares model text between viewers.
+* The endpoints are the live ones under `/api/stream` (`feed`, `meta`, `chunks/{n}`, `DELETE`), so the viewer code is shared; see [brain-api.md](brain-api.md).
+
+Measured on a laptop against the deployed Foundry project (`gpt-6-luna`, registered agents), the red-card demo at 10x from minute 40, one viewer; delays are real time from the
+moment becoming detectable (the match clock reaching its `detectedAt`) to the event:
+
+| | Azure path (above, 5x) | Stream session (10x) |
+|---|---|---|
+| Moment found by the interpreter | median 3.8 s | **median 1.6 s**, at most 2.4 s |
+| First narrative overlay stored | median 9.6 s, 90th percentile 13.3 s | **median 5.5 s**, at most 6.9 s (five moments, all model-written) |
+| Starting a match | a pack read (about 1 s), 20 s more on a cold Brain | 0.03 s once the demo is loaded |
+| With eight cohorts instead of the viewer's one | n/a | median 9.0 s, at most 11.8 s |
+
+Cost of a session: about 7% of a core at 10x (5 sessions at 10x: 34% of a core, 336 MB against 220 MB idle, about 25 MB each). Five moments is a small sample and one demo; the
+model call is most of the remaining delay, which a viewer's broadcast delay (watching a few seconds behind the feed, as a broadcast does) absorbs.
+
+The Azure path stays in the repository and deployed as the production architecture (a separate simulator, Functions and SignalR, scaling out); the stream is what a viewer
+of the match center uses.
 
 ## What is not built
 

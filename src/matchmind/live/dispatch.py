@@ -6,6 +6,7 @@ in a Function that has no use for either.
 
 from __future__ import annotations
 
+from ..core.contracts import Cohort
 from ..agents.llm import HEADLINE_SALIENCE, MUST_SHOW
 from ..agents.service import RECORDED_ONLY, BeatRequest, serve_beats
 from ..agents.team import AgentTeam
@@ -31,8 +32,12 @@ def _batches(moments: list[dict]) -> list[list[dict]]:
 
 async def write_beats(
     store: LiveStore, match_id: str, moment_ids: list[str], *, team: AgentTeam, cache=None, deadline_ms: int = LIVE_DEADLINE_MS,  # noqa: ANN001
+    cohorts: list[Cohort] | tuple[Cohort, ...] | None = None,
 ) -> dict:
-    """The narrative overlays for the given moments of a live match, written with the fast path and stored. Returns what happened."""
+    """The narrative overlays for the given moments of a live match, written with the fast path and stored. Returns what happened.
+
+    ``cohorts`` are the viewers to write for (a stream session writes only for the person watching: one model call per moment, not eight); the default
+    is every cohort of a replay package."""
     info = store.get_match(match_id)
     if info is None:
         return {"matchId": match_id, "error": "unknown match"}
@@ -41,13 +46,13 @@ async def write_beats(
     packs = {m["id"]: {k: v for k, v in m.items() if k not in RECORDED_ONLY} for m in store.moments(match_id)}
     done: list[str] = list(store.get_state(match_id, "dispatched", []))  # a re-delivered change-feed batch must not write a second set
     wanted = [packs[i] for i in dict.fromkeys(moment_ids) if i in packs and i not in done]
-    cohorts = default_cohorts(meta)
+    cohorts = list(cohorts) if cohorts else list(default_cohorts(meta))
     kept_at: list[int] = list(store.get_state(match_id, "kept_at", []))
     written = rejected = calls = 0
     for batch in _batches(wanted):
         t0 = batch[0]["detectedAt"]["matchMs"]
         budget = max(0, STORY_BUDGET_PER_10_MIN - sum(1 for t in kept_at if t0 - t < 10 * 60_000))
-        req = BeatRequest(match_id=match_id, moment_ids=[m["id"] for m in batch], cohorts=list(cohorts), budget=budget, mode="fast", deadlineMs=deadline_ms)
+        req = BeatRequest(match_id=meta.get("matchId") or match_id, moment_ids=[m["id"] for m in batch], cohorts=list(cohorts), budget=budget, mode="fast", deadlineMs=deadline_ms)
         res = await serve_beats(req, packs=packs, registry=registry, team=team, cache=cache)
         for beat in res["beats"]:
             overlays = beat["overlays"]

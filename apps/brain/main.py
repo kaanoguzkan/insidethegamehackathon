@@ -58,11 +58,15 @@ from matchmind.core.paths import replays_dir
 from matchmind.guards import ADMIN_HEADER, PUBLIC_MAX_DEADLINE_MS, RateLimitMiddleware, is_admin
 from matchmind.live.api import ContainerAppsJobStarter
 from matchmind.live.api import make_router as make_live_router
+from matchmind.demos import load_demos
 from matchmind.live.blobs import Blobs
 from matchmind.live.channel import Channel
+from matchmind.live.dispatch import write_beats
 from matchmind.live.season import SeasonStore
 from matchmind.live.season_api import make_season_router
 from matchmind.live.season_job import create_season, make_season_store, run_worker
+from matchmind.live.session import StreamHub
+from matchmind.live.stream_api import make_stream_router
 from matchmind.live.simulator import make_blobs as make_live_blobs
 from matchmind.live.simulator import make_store as make_live_store
 from matchmind.live.simulator import run as run_simulator
@@ -116,7 +120,7 @@ def make_beat_cache() -> BeatCache | SharedBeatCache:
 
 def create_app(
     registry: MatchRegistry | None = None, llm: str | None = None, director: bool | None = None, live_store: LiveStore | None = None,
-    live_frames: Blobs | None = None, season_store: SeasonStore | None = None, live_packs: Blobs | None = None,
+    live_frames: Blobs | None = None, season_store: SeasonStore | None = None, live_packs: Blobs | None = None, stream_hub_override: StreamHub | None = None,
 ) -> FastAPI:
     reg = registry or MatchRegistry()
     faults = Faults()
@@ -185,6 +189,12 @@ def create_app(
     async def lifespan(_: FastAPI):
         start_warm_up()
         start_preload(float(os.environ.get("MATCHMIND_PRELOAD_DELAY_S", "10")))
+        if os.environ.get("MATCHMIND_PRELOAD") == "1":  # simulate the demo matches a viewer can kick off, so the first Kick off does not wait for it
+            async def preload_streams() -> None:
+                await asyncio.sleep(float(os.environ.get("MATCHMIND_PRELOAD_DELAY_S", "10")) + 5.0)
+                await asyncio.to_thread(app.state.stream_hub.preload, list(load_demos()))
+
+            asyncio.ensure_future(preload_streams())
         for mid in reg.ids():  # read the packs now, in a thread, so the first request does not wait for them
             asyncio.ensure_future(asyncio.to_thread(beat_inputs, mid))
         watcher = asyncio.ensure_future(watch_loop())
@@ -210,6 +220,8 @@ def create_app(
             ("/api/season/simulate", "POST", 2, 60.0),
             ("/api/channel/tune", "POST", 20, 60.0),
             ("/api/live", "GET", int(os.environ.get("MATCHMIND_LIVE_POLL_PER_MIN", "240")), 60.0),  # a viewer polls the feed about once a second
+            ("/api/stream", "POST", int(os.environ.get("MATCHMIND_STREAM_START_PER_MIN", "6")), 60.0),
+            ("/api/stream", "GET", int(os.environ.get("MATCHMIND_STREAM_POLL_PER_MIN", "600")), 60.0),  # the feed once a second, and the tracking chunks of up to 10x speed
             ("/api/ask", "POST", int(os.environ.get("MATCHMIND_ASK_PER_MIN", "10")), 60.0),
             ("/mcp", None, int(os.environ.get("MATCHMIND_MCP_PER_MIN", "60")), 60.0),
         ],
@@ -303,6 +315,22 @@ def create_app(
 
     in_process_ok = live_store is not None or os.environ.get("MATCHMIND_LIVE_LOCAL") == "1"  # tests and a laptop: no job, play it in this process
     app.include_router(make_live_router(get_live_store, get_team, beat_cache, live_starter, live_in_process if in_process_ok else None, get_live_frames))
+    # Stream sessions: a match of your own, played and interpreted in this process (docs/live-pipeline.md, "Streams").
+    stream_loop: list[asyncio.AbstractEventLoop] = []
+
+    def stream_dispatch(store, sid, moment_ids, cohorts):  # noqa: ANN001, ANN202
+        if not stream_loop:
+            return None
+
+        async def beats() -> dict:
+            team = await asyncio.to_thread(get_team)
+            return await write_beats(store, sid, moment_ids, team=team, cache=beat_cache, cohorts=cohorts)
+
+        return asyncio.run_coroutine_threadsafe(beats(), stream_loop[0])
+
+    stream_hub = stream_hub_override or StreamHub(dispatch=stream_dispatch)
+    app.include_router(make_stream_router(stream_hub, lambda loop: stream_loop.append(loop) if not stream_loop else None))
+    app.state.stream_hub = stream_hub
     season_ok = bool(os.environ.get("SEASON_JOB_ID")) or in_process_ok or season_store is not None
     app.include_router(make_season_router(get_channel, get_seasons, get_live_store, run_season_job if season_ok else None, ensure_default_season if season_ok else None))
 
