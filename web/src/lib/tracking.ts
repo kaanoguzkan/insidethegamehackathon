@@ -30,6 +30,24 @@ export interface TrackingSource {
   at(ms: number): Frame
 }
 
+
+/**
+ * A player's position between two samples. The tracking is 5 samples a second; joining them with straight lines gives paths with corners and a
+ * heading that jumps. A Catmull-Rom spline through the neighbouring samples is smooth where the movement is (and passes through every sample).
+ * A jump of more than JUMP metres between samples (a substitution, the second-half reposition) is not movement: those stay straight.
+ */
+const JUMP = 8
+export function smoothStep(pm: [number, number] | null, p0: [number, number], p1: [number, number], p2: [number, number] | null, a: number): [number, number] {
+  const near = (u: [number, number], v: [number, number]) => Math.hypot(u[0] - v[0], u[1] - v[1]) <= JUMP
+  const lin: [number, number] = [p0[0] + (p1[0] - p0[0]) * a, p0[1] + (p1[1] - p0[1]) * a]
+  if (!near(p0, p1)) return lin
+  // no neighbour (the start or end of the recording, a player who was off the pitch) or a jump: carry on the way the segment goes
+  const before: [number, number] = pm && near(pm, p0) ? pm : [2 * p0[0] - p1[0], 2 * p0[1] - p1[1]]
+  const after: [number, number] = p2 && near(p1, p2) ? p2 : [2 * p1[0] - p0[0], 2 * p1[1] - p0[1]]
+  const cr = (i: number) => 0.5 * (2 * p0[i] + (-before[i] + p1[i]) * a + (2 * before[i] - 5 * p0[i] + 4 * p1[i] - after[i]) * a * a + (-before[i] + 3 * p0[i] - 3 * p1[i] + after[i]) * a * a * a)
+  return [cr(0), cr(1)]
+}
+
 export class Tracking implements TrackingSource {
   readonly frames: number
   readonly hz: number
@@ -74,6 +92,8 @@ export class Tracking implements TrackingSource {
     const f = Math.min(this.frames - 1, Math.max(0, (ms / 1000) * this.hz))
     const f0 = Math.floor(f)
     const f1 = Math.min(this.frames - 1, f0 + 1)
+    const fm = Math.max(0, f0 - 1)
+    const f2 = Math.min(this.frames - 1, f0 + 2)
     const a = f - f0
     const ids = this.idsAt(f0)
     const players: PlayerPoint[] = []
@@ -81,7 +101,8 @@ export class Tracking implements TrackingSource {
       const p0 = this.p(f0, s)
       if (!p0) continue
       const p1 = this.p(f1, s) ?? p0
-      players.push({ slot: s, id: ids[s], x: p0[0] + (p1[0] - p0[0]) * a, y: p0[1] + (p1[1] - p0[1]) * a })
+      const [x, y] = smoothStep(f0 > 0 ? this.p(fm, s) : null, p0, p1, f0 + 2 <= this.frames - 1 ? this.p(f2, s) : null, a)
+      players.push({ slot: s, id: ids[s], x, y })
     }
     const b0 = f0 * 4
     const b1 = f1 * 4
@@ -211,16 +232,20 @@ export class LiveTracking implements TrackingSource {
     const l0 = this.locate(f0)
     if (!l0) return { players: [], ball: { x: 52.5, y: 34, z: 0, alive: false } }
     const l1 = this.locate(f0 + 1) ?? l0
+    const lm = f0 > 0 ? this.locate(f0 - 1) : null
+    const l2 = this.locate(f0 + 2)
     const ids = l0.ch.slots
+    const at = (l: { ch: LiveChunk; k: number }, s: number): [number, number] | null => {
+      const i = (l.k * 22 + s) * 2
+      return l.ch.pos[i] === OFF ? null : [l.ch.pos[i] / 10, l.ch.pos[i + 1] / 10]
+    }
     const players: PlayerPoint[] = []
     for (let s = 0; s < 22; s++) {
-      const i0 = (l0.k * 22 + s) * 2
-      const x0 = l0.ch.pos[i0]
-      if (x0 === OFF) continue
-      const i1 = (l1.k * 22 + s) * 2
-      const x1 = l1.ch.pos[i1] === OFF ? x0 : l1.ch.pos[i1]
-      const y1 = l1.ch.pos[i1] === OFF ? l0.ch.pos[i0 + 1] : l1.ch.pos[i1 + 1]
-      players.push({ slot: s, id: ids[s], x: (x0 + (x1 - x0) * a) / 10, y: (l0.ch.pos[i0 + 1] + (y1 - l0.ch.pos[i0 + 1]) * a) / 10 })
+      const p0 = at(l0, s)
+      if (!p0) continue
+      const p1 = at(l1, s) ?? p0
+      const [x, y] = smoothStep(lm ? at(lm, s) : null, p0, p1, l2 ? at(l2, s) : null, a)
+      players.push({ slot: s, id: ids[s], x, y })
     }
     const b0 = l0.k * 4
     const b1 = l1.k * 4

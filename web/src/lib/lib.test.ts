@@ -13,7 +13,8 @@ import { isNarrative, overlaysFor, SAFE_ID, type Replay } from './data'
 import { recapFor, recapReady } from './recap'
 import { relax } from './spacing'
 import { formationAt, setPieceCounts, tagKeys, totalCorners } from './tactics'
-import { maybeGunzip, Tracking, type Frame } from './tracking'
+import { gait, kickPhase, strideAdvance } from './gait'
+import { maybeGunzip, smoothStep, Tracking, type Frame } from './tracking'
 import { DEFAULT_PROFILE, type Cohort, type MatchEvent, type Meta, type Overlay, type Profile } from './types'
 
 const dir = new URL('../../../data/replays/pressing-collapse/', import.meta.url)
@@ -400,5 +401,68 @@ describe('spacing players that stand on top of each other', () => {
   it('gives the same answer every time', () => {
     const pts = [{ x: 5, y: 5 }, { x: 5, y: 5 }, { x: 5, y: 5 }]
     expect(relax(pts, 1.7)).toEqual(relax(pts, 1.7))
+  })
+})
+
+describe('smooth player paths', () => {
+  const P = (x: number, y: number): [number, number] => [x, y]
+  it('passes through the samples and stays on a straight run', () => {
+    expect(smoothStep(P(0, 0), P(1, 0), P(2, 0), P(3, 0), 0)).toEqual([1, 0])
+    const m = smoothStep(P(0, 0), P(1, 0), P(2, 0), P(3, 0), 0.5)
+    expect(m[0]).toBeCloseTo(1.5, 9)
+    expect(m[1]).toBeCloseTo(0, 9)
+    const end = smoothStep(P(0, 0), P(1, 5), P(2, 3), P(4, 9), 1)
+    expect(end[0]).toBeCloseTo(2, 9)
+    expect(end[1]).toBeCloseTo(3, 9)
+  })
+  it('rounds a corner instead of cutting it, and has no kink at a sample', () => {
+    // a run along x that turns up y: the straight-line path has a corner at (2, 0)
+    const before = smoothStep(P(0, 0), P(1, 0), P(2, 0), P(2, 1), 0.99)
+    const after = smoothStep(P(1, 0), P(2, 0), P(2, 1), P(2, 2), 0.01)
+    expect(Math.hypot(before[0] - after[0], before[1] - after[1])).toBeLessThan(0.05)
+    const mid = smoothStep(P(1, 0), P(2, 0), P(2, 1), P(2, 2), 0.5)
+    expect(mid[0]).toBeGreaterThan(2) // it swings wide of the corner like a real turn
+  })
+  it('does not smooth across a jump (a substitution or a reposition)', () => {
+    const m = smoothStep(P(0, 0), P(1, 0), P(60, 30), P(61, 30), 0.5)
+    expect(m).toEqual([30.5, 15])
+    // and with no neighbours at all a straight run stays straight
+    const e = smoothStep(null, P(10, 10), P(11, 10), null, 0.5)
+    expect(e[0]).toBeCloseTo(10.5, 9)
+  })
+})
+
+describe('gait', () => {
+  it('stands still at rest and swings the legs in opposition when running', () => {
+    const idle = gait(0, 1.3)
+    expect(idle.hipL).toBe(0)
+    expect(idle.kneeL).toBe(0)
+    expect(idle.lean).toBeLessThan(0.06)
+    const run = gait(6.5, Math.PI / 2)
+    expect(run.hipL).toBeGreaterThan(0.6)
+    expect(run.hipR).toBeCloseTo(-run.hipL, 9)
+    expect(run.armL).toBeCloseTo(-run.armR, 9)
+    expect(Math.sign(run.armL)).toBe(Math.sign(run.hipL)) // each arm swings with the opposite leg: left arm with the right leg, which goes back as the left goes forward
+    expect(run.lean).toBeGreaterThan(gait(2, 1).lean)
+  })
+  it('knees bend only on the forward swing and more so at speed', () => {
+    expect(gait(6, 0).kneeL).toBeGreaterThan(0.8)
+    expect(gait(6, 0).kneeR).toBe(0)
+    expect(gait(6, Math.PI).kneeR).toBeGreaterThan(0.8)
+    expect(gait(2, 0).kneeL).toBeLessThan(gait(6, 0).kneeL)
+  })
+  it('swings the right leg through for a kick, and the window opens before the ball leaves', () => {
+    const k = gait(0, 0, 1)
+    expect(k.hipR).toBeCloseTo(1.5, 9)
+    expect(k.kneeL).toBeGreaterThan(0.3)
+    expect(kickPhase(-200, 600)).toBeGreaterThan(0) // wind-up
+    expect(kickPhase(-300, 600)).toBe(0)
+    expect(kickPhase(0, 600)).toBeGreaterThan(0.7)
+    expect(kickPhase(500, 600)).toBe(0)
+  })
+  it('advances the stride with distance, never more than a set amount a frame', () => {
+    expect(strideAdvance(0)).toBe(0)
+    expect(strideAdvance(1.2)).toBeCloseTo(0.9, 5) // capped
+    expect(strideAdvance(0.2)).toBeLessThan(strideAdvance(0.3))
   })
 })

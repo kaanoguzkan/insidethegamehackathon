@@ -12,5 +12,5 @@ export function webglSupported(): boolean {
   return supported
 }
 
-export type Cam = '2d' | 'bc' | 'end' | 'top'
-export const CAMS: Cam[] = ['2d', 'bc', 'end', 'top']
+export type Cam = '2d' | 'tv' | 'bc' | 'end' | 'top'
+export const CAMS: Cam[] = ['2d', 'tv', 'bc', 'end', 'top']

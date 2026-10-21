@@ -1,5 +1,6 @@
 import { useEffect, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
+import { gait, kickPhase, strideAdvance } from '../lib/gait'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import type { Replay } from '../lib/data'
 import { drawGraphic, drawLayers, type Labels, type Layers } from '../lib/layers'
@@ -10,6 +11,8 @@ import { drawEvidence, drawPitch, drawTag, L, PAD, SPRINT_TAG_KMH, W, type Pitch
 
 const TEX_W = 1800
 const TEX_H = Math.round((TEX_W * (W + PAD * 2)) / (L + PAD * 2))
+const KICK_TYPES = new Set(['pass', 'shot', 'clearance', 'goal_kick', 'free_kick', 'corner', 'cross'])
+const KICK_MS = 600 // how long a kick takes on screen, in wall milliseconds
 const SCALE = 2.0 // players are drawn a little larger than life so they read at broadcast distance
 const MIN_SEP = 2.4 // metres: figures are drawn at least this far apart (display only)
 const GROUND_FPS = 15 // how often the ground texture is repainted while a live graphic is on it
@@ -35,7 +38,8 @@ interface Props {
 function preset(cam: Exclude<Cam, '2d'>, aspect: number, fovDeg: number) {
   const hfov = 2 * Math.atan(Math.tan((fovDeg * Math.PI) / 360) * aspect)
   const fitLength = (L + 10) / (2 * Math.tan(hfov / 2)) // the whole length across the view
-  const [az, el, dist] = cam === 'bc' ? [0, 47, fitLength * 1.06] : cam === 'end' ? [-90, 26, 92] : [0, 88, fitLength * 1.02]
+  const [az, el, dist] =
+    cam === 'tv' ? [0, 36, fitLength * 0.62] : cam === 'bc' ? [0, 47, fitLength * 1.06] : cam === 'end' ? [-90, 26, 92] : [0, 88, fitLength * 1.02]
   const a = (az * Math.PI) / 180
   const e = (el * Math.PI) / 180
   return { dir: new THREE.Vector3(Math.cos(e) * Math.sin(a), Math.sin(e), Math.cos(e) * Math.cos(a)), dist }
@@ -169,44 +173,92 @@ export default function Pitch3D(props: Props) {
     // ----- players and ball ---------------------------------------------------------------------------------
     interface Actor {
       group: THREE.Group
+      upper: THREE.Group // everything above the hips: leans with the run
+      thigh: [THREE.Group, THREE.Group]
+      shin: [THREE.Group, THREE.Group]
+      arm: [THREE.Group, THREE.Group]
       ring: THREE.Mesh
       focus: THREE.Mesh
       heading: number
+      phase: number // where the player is in the stride
+      last: { x: number; y: number } | null
     }
-    const bodyGeo = geo(new THREE.CapsuleGeometry(0.27, 0.85, 4, 10))
-    const headGeo = geo(new THREE.SphereGeometry(0.17, 12, 10))
-    const shoulderGeo = geo(new THREE.BoxGeometry(0.66, 0.2, 0.3))
+    // A stylised figure, 1.85 m tall, built from a few shared shapes: legs in two segments, swinging arms, a torso that leans into the run.
+    const torsoGeo = geo(new THREE.CapsuleGeometry(0.17, 0.2, 4, 10))
+    const headGeo = geo(new THREE.SphereGeometry(0.12, 14, 12))
+    const thighGeo = geo(new THREE.CapsuleGeometry(0.085, 0.3, 3, 8))
+    const shinGeo = geo(new THREE.CapsuleGeometry(0.07, 0.3, 3, 8))
+    const bootGeo = geo(new THREE.BoxGeometry(0.1, 0.07, 0.27))
+    const armGeo = geo(new THREE.CapsuleGeometry(0.052, 0.3, 3, 8))
+    const handGeo = geo(new THREE.SphereGeometry(0.05, 8, 6))
     const shadowGeo = geo(new THREE.CircleGeometry(0.62, 20))
     const ringGeoHome = geo(new THREE.TorusGeometry(0.46, 0.035, 6, 24))
     const ringGeoAway = geo(new THREE.TorusGeometry(0.46, 0.09, 6, 24))
     const focusGeo = geo(new THREE.TorusGeometry(0.78, 0.07, 6, 28))
     const skin = mat(new THREE.MeshLambertMaterial({ color: '#d7b595' }))
+    const bootMat = mat(new THREE.MeshLambertMaterial({ color: '#15191a' }))
     const whiteBasic = mat(new THREE.MeshBasicMaterial({ color: '#ffffff' }))
     const goldBasic = mat(new THREE.MeshBasicMaterial({ color: '#ffd24a' }))
     const shadowMat = mat(new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0.38, depthWrite: false }))
     const actors: Actor[] = []
-    const kits = new Map<string, { body: THREE.Material; shoulder: THREE.Material }>()
+    const kits = new Map<string, { shirt: THREE.Material; shorts: THREE.Material; socks: THREE.Material }>()
     const kit = (team: TeamMeta, gk: boolean) => {
       const key = `${team.id}${gk ? 'g' : ''}`
       let k = kits.get(key)
       if (!k) {
-        const c = new THREE.Color(gk ? team.colors.secondary : team.colors.primary)
-        k = { body: mat(new THREE.MeshLambertMaterial({ color: c })), shoulder: mat(new THREE.MeshLambertMaterial({ color: c.clone().lerp(new THREE.Color('#ffffff'), 0.28) })) }
+        const main = new THREE.Color(gk ? team.colors.secondary : team.colors.primary)
+        const trim = new THREE.Color(gk ? team.colors.primary : team.colors.secondary)
+        k = {
+          shirt: mat(new THREE.MeshLambertMaterial({ color: main })),
+          shorts: mat(new THREE.MeshLambertMaterial({ color: trim })),
+          socks: mat(new THREE.MeshLambertMaterial({ color: main.clone().lerp(new THREE.Color('#ffffff'), 0.18) })),
+        }
         kits.set(key, k)
       }
       return k
+    }
+    const limb = (parent: THREE.Object3D, x: number, y: number) => {
+      const g = new THREE.Group()
+      g.position.set(x, y, 0)
+      parent.add(g)
+      return g
     }
     for (let slot = 0; slot < 22; slot++) {
       const team = slot < 11 ? meta.home : meta.away
       const gk = slot % 11 === 0
       const k = kit(team, gk)
       const g = new THREE.Group()
-      const body = new THREE.Mesh(bodyGeo, k.body)
-      body.position.y = 0.93
-      const shoulders = new THREE.Mesh(shoulderGeo, k.shoulder)
-      shoulders.position.y = 1.36
+      const upper = limb(g, 0, 0.95)
+      const torso = new THREE.Mesh(torsoGeo, k.shirt)
+      torso.position.y = 0.3
+      torso.scale.set(1.25, 1, 0.8)
       const head = new THREE.Mesh(headGeo, skin)
-      head.position.y = 1.82
+      head.position.y = 0.78
+      upper.add(torso, head)
+      const arm: THREE.Group[] = []
+      const thigh: THREE.Group[] = []
+      const shin: THREE.Group[] = []
+      for (const side of [-1, 1]) {
+        const sh = limb(upper, side * 0.27, 0.5)
+        const a = new THREE.Mesh(armGeo, k.shirt)
+        a.position.y = -0.2
+        const hand = new THREE.Mesh(handGeo, skin)
+        hand.position.y = -0.43
+        sh.add(a, hand)
+        arm.push(sh)
+        const hip = limb(g, side * 0.12, 0.95)
+        const t = new THREE.Mesh(thighGeo, k.shorts)
+        t.position.y = -0.22
+        hip.add(t)
+        const knee = limb(hip, 0, -0.44)
+        const sk = new THREE.Mesh(shinGeo, k.socks)
+        sk.position.y = -0.22
+        const boot = new THREE.Mesh(bootGeo, bootMat)
+        boot.position.set(0, -0.47, 0.06)
+        knee.add(sk, boot)
+        thigh.push(hip)
+        shin.push(knee)
+      }
       const shadow = new THREE.Mesh(shadowGeo, shadowMat)
       shadow.rotation.x = -Math.PI / 2
       shadow.position.y = 0.02
@@ -218,11 +270,14 @@ export default function Pitch3D(props: Props) {
       focus.rotation.x = Math.PI / 2
       focus.position.y = 0.07
       focus.visible = false
-      g.add(shadow, body, shoulders, head, ring, focus)
+      g.add(shadow, ring, focus)
       g.scale.setScalar(SCALE)
       g.visible = false
       scene.add(g)
-      actors.push({ group: g, ring, focus, heading: slot < 11 ? Math.PI / 2 : -Math.PI / 2 })
+      actors.push({
+        group: g, upper, thigh: [thigh[0], thigh[1]], shin: [shin[0], shin[1]], arm: [arm[0], arm[1]], ring, focus,
+        heading: slot < 11 ? Math.PI / 2 : -Math.PI / 2, phase: slot * 0.7, last: null,
+      })
     }
     const ball = new THREE.Mesh(geo(new THREE.SphereGeometry(0.4, 16, 12)), mat(new THREE.MeshLambertMaterial({ color: '#ffffff' })))
     scene.add(ball)
@@ -239,7 +294,7 @@ export default function Pitch3D(props: Props) {
     const goalTarget = new THREE.Vector3()
     const applyPreset = () => {
       const p = preset(wantCam, size.w / size.h, camera.fov)
-      goalTarget.set(0, 0, wantCam === 'bc' ? 2 : 0)
+      goalTarget.set(wantCam === 'tv' ? goalTarget.x : 0, 0, wantCam === 'bc' || wantCam === 'tv' ? 2 : 0) // the TV camera keeps following the ball along the pitch
       goalPos.copy(goalTarget).addScaledVector(p.dir, p.dist)
       if (wantCam === 'top') goalPos.z += 0.01
       tween = 1
@@ -278,6 +333,11 @@ export default function Pitch3D(props: Props) {
     const offs = actors.map(() => ({ x: 0, y: 0 })) // each figure's current display offset from its true position
     let lastGround = 0
     let lastKey = ''
+    let lastNow = 0
+    let lastMs = 0
+    let rate = 1 // match seconds per wall second, smoothed
+    let kickSrc: unknown = null
+    const kicks = new Map<string, number[]>() // player id -> the match times (ms) at which he kicks the ball
     let raf = 0
     const draw = (now: number) => {
       const p = latest.current
@@ -330,8 +390,24 @@ export default function Pitch3D(props: Props) {
         tex.needsUpdate = true
       }
 
-      // Players: place, face the way they are moving, mark the followed one.
+      // Players: place, face the way they are moving, stride, kick, mark the followed one.
       const seen = new Set<number>()
+      const dtWall = Math.max(8, now - lastNow)
+      rate += (Math.min(60, Math.max(1, Math.abs(ms - lastMs) / dtWall)) - rate) * 0.2 // how fast the match runs against the clock: a kick lasts a set time on screen
+      lastNow = now
+      lastMs = ms
+      const evs = latest.current.replay.events
+      if (evs !== kickSrc) {
+        kickSrc = evs
+        kicks.clear()
+        for (const e of evs) {
+          if (!e.player || !KICK_TYPES.has(e.type)) continue
+          const list = kicks.get(e.player)
+          if (list) list.push(e.clock.matchMs)
+          else kicks.set(e.player, [e.clock.matchMs])
+        }
+      }
+      const win = KICK_MS * rate
       f.players.forEach((q, i) => {
         const a = actors[q.slot]
         if (!a) return
@@ -339,9 +415,11 @@ export default function Pitch3D(props: Props) {
         a.group.visible = true
         a.group.position.set(shown[i].x - L / 2, 0, shown[i].y - W / 2)
         const pq = prevById.get(q.id)
+        let speed = 0
         if (pq) {
           const dx = q.x - pq.x
           const dz = q.y - pq.y
+          speed = Math.min(11, Math.hypot(dx, dz) / 0.2)
           if (Math.hypot(dx, dz) > 0.25) {
             const want = Math.atan2(dx, dz)
             let d = want - prevHeading[q.slot]
@@ -350,6 +428,25 @@ export default function Pitch3D(props: Props) {
             a.group.rotation.y = prevHeading[q.slot]
           }
         }
+        // the stride advances with the ground covered since the last frame: a paused match freezes mid-stride, a fast-forwarded one does not strobe
+        const moved = a.last ? Math.hypot(q.x - a.last.x, q.y - a.last.y) : 0
+        a.last = { x: q.x, y: q.y }
+        if (moved < 3) a.phase += strideAdvance(moved)
+        let kick = 0
+        for (const t of kicks.get(q.id) ?? []) {
+          const k = kickPhase(ms - t, win)
+          if (k > kick) kick = k
+        }
+        const g = gait(speed, a.phase, p.reducedMotion ? 0 : kick)
+        const m = p.reducedMotion ? 0.35 : 1
+        a.thigh[0].rotation.x = -g.hipL * m
+        a.thigh[1].rotation.x = -g.hipR * m
+        a.shin[0].rotation.x = g.kneeL * m
+        a.shin[1].rotation.x = g.kneeR * m
+        a.arm[0].rotation.x = -g.armL * m
+        a.arm[1].rotation.x = -g.armR * m
+        a.upper.rotation.x = g.lean * m
+        a.group.position.y = g.bob * SCALE * m
         const isFocus = p.focusPlayer === q.id
         a.focus.visible = isFocus
         if (isFocus) a.focus.scale.setScalar(p.reducedMotion ? 1 : 1 + 0.12 * Math.sin(now / 260))
@@ -366,8 +463,8 @@ export default function Pitch3D(props: Props) {
         camera.position.lerp(goalPos, 0.1)
         controls.target.lerp(goalTarget, 0.1)
         if (camera.position.distanceTo(goalPos) < 0.2) tween = 0
-      } else if (p.follow && p.cam !== 'top') {
-        const want = THREE.MathUtils.clamp((f.ball.x - L / 2) * 0.62, -34, 34)
+      } else if ((p.follow || p.cam === 'tv') && p.cam !== 'top') {
+        const want = THREE.MathUtils.clamp((f.ball.x - L / 2) * (p.cam === 'tv' ? 0.85 : 0.62), -34, 34)
         const dx = (want - controls.target.x) * 0.06
         controls.target.x += dx
         camera.position.x += dx

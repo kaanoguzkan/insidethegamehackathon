@@ -151,7 +151,7 @@ export function MatchStrip({ replay, ms, playing, speed, lang, layers, selected,
           <p className="pop-title">{t(lang, 'view')}</p>
           <div className="seg" role="radiogroup" aria-label={t(lang, 'view')}>
             <button type="button" role="radio" aria-checked={cam === '2d'} className={cam === '2d' ? 'on' : ''} onClick={() => onCam('2d')}>{t(lang, 'view2d')}</button>
-            <button type="button" role="radio" aria-checked={cam !== '2d'} className={cam !== '2d' ? 'on' : ''} disabled={!webglSupported()} onClick={() => onCam(cam === '2d' ? 'bc' : cam)}>{t(lang, 'view3d')}</button>
+            <button type="button" role="radio" aria-checked={cam !== '2d'} className={cam !== '2d' ? 'on' : ''} disabled={!webglSupported()} onClick={() => onCam(cam === '2d' ? 'tv' : cam)}>{t(lang, 'view3d')}</button>
           </div>
           {cam !== '2d' && (
             <>

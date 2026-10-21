@@ -117,7 +117,7 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
   const [layers, setLayers] = useState<Layers>(NO_LAYERS)
   const [railTab, setRailTab] = useState<RailTab>('story')
   const step = route.step
-  const cam: Cam = route.cam ?? (typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches ? '2d' : 'bc')
+  const cam: Cam = route.cam ?? (typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches ? '2d' : 'tv')
   const exploreTab: ViewId = isViewId(route.tab) ? route.tab : 'win'
   const [health, setHealth] = useState<Health>('healthy')
   const [variants, setVariants] = useState<Partial<Record<Health, Overlay[]>>>({})
