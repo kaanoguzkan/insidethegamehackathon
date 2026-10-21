@@ -34,6 +34,17 @@ class StreamRequest(BaseModel):
     cohorts: list[Cohort] = Field(default_factory=list, max_length=2, description="who the narrative overlays are written for; none: a casual English viewer")
 
 
+def public_meta(meta: dict) -> dict:
+    """The match sheet a viewer may see while the match is on: what is only known at the end (the score, how each side played over the whole match, the
+    formation it finished in) is left out."""
+    out = {k: v for k, v in meta.items() if k != "score"}
+    for side in ("home", "away"):
+        team = {k: v for k, v in meta[side].items() if k != "phases"}
+        team["formation"] = team.get("startFormation", team["formation"])
+        out[side] = team
+    return out
+
+
 def make_stream_router(hub: StreamHub, on_loop: Callable[[asyncio.AbstractEventLoop], None] | None = None) -> APIRouter:
     router = APIRouter()
 
@@ -74,7 +85,7 @@ def make_stream_router(hub: StreamHub, on_loop: Callable[[asyncio.AbstractEventL
         m = _info(sid).get("meta")
         if not m:
             raise HTTPException(404, "the match has not started yet")
-        return {**m, "package": {"llm": "live", "cohorts": [], "levels": {}, "moments": 0, "overlays": 0}}
+        return {**public_meta(m), "package": {"llm": "live", "cohorts": [], "levels": {}, "moments": 0, "overlays": 0}}
 
     @router.get("/api/stream/{sid}/chunks/{index}")
     async def chunk(sid: str, index: int) -> Response:
@@ -87,9 +98,10 @@ def make_stream_router(hub: StreamHub, on_loop: Callable[[asyncio.AbstractEventL
         return Response(data, media_type="application/json", headers={"Content-Encoding": "gzip", "Cache-Control": "private, max-age=3600, immutable"})
 
     @router.get("/api/stream/{sid}/feed")
-    async def feed(sid: str, event: int = -1, since: int = 0) -> dict[str, Any]:
+    async def feed(sid: str, event: int = -1, since: int = 0, full: bool = False, msince: int = 0, snap: int = 0) -> dict[str, Any]:
+        """As the live feed; ``full=1`` adds what the match center needs: every event whole, the moments created at or after ``msince`` with their evidence, the snapshots after ``snap``."""
         info = _info(sid)
-        page = await asyncio.to_thread(feed_page, hub.store, sid, event, since)
+        page = await asyncio.to_thread(lambda: feed_page(hub.store, sid, event, since, full=full, moment_since=msince, snapshot_after=snap))
         return {**summary(info), **page}
 
     @router.post("/api/stream/{sid}/cohorts")

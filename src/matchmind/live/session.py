@@ -152,7 +152,7 @@ class StreamHub:
         chunks = [(end, chunk_name(sid, i), data) for i, (end, _, data) in enumerate(src.chunks)]
         start_match(self.store, sid, src.meta, src.docs, scenario=src.demo.id, speed=speed, from_ms=s.from_ms, chunks=len(chunks))
         s.analyzer = AnalyzerWorker(self.store, self.frames, MemoryBlobs(), key=b"")
-        s.interpreter = InterpretWorker(self.store, None, self.intel or self._intel(), key=b"")
+        s.interpreter = InterpretWorker(self.store, None, self.intel or self._intel(), key=b"", keep_snapshots=True)
         s.thread = threading.Thread(target=self._run, args=(s, src, chunks), name=f"stream-{sid}", daemon=True)
         s.thread.start()
         return s

@@ -112,8 +112,11 @@ def summary(info: dict) -> dict:
     return out
 
 
-def feed_page(s: LiveStore, match_id: str, event: int, since: int) -> dict:
-    """What is new in a live match: feed events above sequence ``event``, overlays emitted at or after ``since`` (the client drops repeats by id), and every moment so far."""
+def feed_page(s: LiveStore, match_id: str, event: int, since: int, *, full: bool = False, moment_since: int = 0, snapshot_after: int = 0) -> dict:
+    """What is new in a live match: feed events above sequence ``event``, overlays emitted at or after ``since`` (the client drops repeats by id), and every moment so far.
+
+    ``full`` is what the match center needs from a stream session: every event whole (not the few kinds a ticker shows), the moments created at or after
+    ``moment_since`` with their evidence, and the per-minute snapshots after index ``snapshot_after``."""
     docs = s.docs_after(match_id, event, FEED_PAGE)
     events = [
         {"n": d["n"], "arrivalMs": d["arrivalMs"], **{k: d["doc"].get(k) for k in ("id", "type", "clock", "team", "player", "receiver", "outcome", "location")}}
@@ -121,11 +124,20 @@ def feed_page(s: LiveStore, match_id: str, event: int, since: int) -> dict:
     ]
     rows = s.overlays_since(match_id, max(since - 1, 0))
     moments = [{k: m.get(k) for k in ("id", "type", "label", "salience", "detectedAt", "subjectTeam", "facts", "createdMs")} for m in s.moments(match_id)]
-    return {
+    page = {
         "events": events, "eventCursor": docs[-1]["n"] if docs else event, "more": len(docs) >= FEED_PAGE,
         "overlays": [r["overlay"] | {"emittedMs": r["emittedMs"]} for r in rows], "overlayCursor": max([r["emittedMs"] for r in rows], default=since),
         "moments": moments,
     }
+    if full:
+        page["events"] = [{"n": d["n"], "arrivalMs": d["arrivalMs"], **d["doc"]} for d in docs if d["kind"] == "feed"]
+        fresh = [m for m in s.moments(match_id) if (m.get("createdMs") or 0) >= moment_since]
+        page["moments"] = fresh
+        page["momentCursor"] = max([m.get("createdMs") or 0 for m in fresh], default=moment_since)
+        snaps = s.get_state(match_id, "snapshots", [])
+        page["snapshots"] = snaps[snapshot_after:]
+        page["snapshotCursor"] = len(snaps)
+    return page
 
 
 def make_router(

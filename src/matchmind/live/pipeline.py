@@ -32,7 +32,7 @@ from ..intel.interpreter import Interpreter, InterpretOutput
 from ..intel.xt import XTGrid
 from .analysis import signing_key
 from .blobs import Blobs, sign, unsign
-from .feed import INF
+from .feed import INF, jsonable
 from .store import FINAL, LiveStore
 
 LOCK = "interpret"
@@ -64,8 +64,12 @@ class _Run:
 
 
 class InterpretWorker:
-    def __init__(self, store: LiveStore, checkpoints: Blobs | None = None, intel: Intel | None = None, key: bytes | None = None, checkpoint_every_s: float = CHECKPOINT_EVERY_S) -> None:
+    def __init__(
+        self, store: LiveStore, checkpoints: Blobs | None = None, intel: Intel | None = None, key: bytes | None = None, checkpoint_every_s: float = CHECKPOINT_EVERY_S,
+        keep_snapshots: bool = False,
+    ) -> None:
         self.store, self.checkpoints, self.intel = store, checkpoints, intel
+        self.keep_snapshots = keep_snapshots  # a stream session keeps the per-minute snapshots for the timeline; the Azure path has no use for them
         self.key = key if key is not None else signing_key()  # None: no checkpoints
         self.checkpoint_every_s = checkpoint_every_s
         self._cache: dict[str, _Run] = {}
@@ -116,6 +120,8 @@ class InterpretWorker:
         self._cache[match_id] = run
 
         new_moments = self.store.add_moments(match_id, out.moments)
+        if self.keep_snapshots and out.snapshots:
+            self.store.put_state(match_id, "snapshots", [*self.store.get_state(match_id, "snapshots", []), *(jsonable(s) for s in out.snapshots)])
         names = {pid: p["name"] for side in ("home", "away") for pid, p in meta[side]["players"].items()}
         short = {meta[s]["id"]: meta[s]["short"] for s in ("home", "away")}
         names = {**names, **short}

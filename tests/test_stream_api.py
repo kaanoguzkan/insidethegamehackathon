@@ -93,3 +93,33 @@ def test_a_viewers_profile_is_checked_and_can_change_during_the_match(client):
         assert client.post("/api/stream/s-unknown/cohorts", json={}).status_code == 404
     finally:
         client.delete(f"/api/stream/{sid}")
+
+
+def test_the_match_sheet_hides_what_is_only_known_at_the_end(client):
+    sid = client.post("/api/stream", json={"demo": "red-card-drama", "speed": 1}).json()["streamId"]
+    try:
+        m = client.get(f"/api/stream/{sid}/meta").json()
+        assert "score" not in m and all("phases" not in m[s] for s in ("home", "away"))
+        assert m["home"]["formation"] == m["home"]["startFormation"] and m["home"]["lineup"] and m["periods"]
+    finally:
+        client.delete(f"/api/stream/{sid}")
+
+
+def test_the_full_feed_carries_whole_events_evidence_and_snapshots_with_cursors(client):
+    sid = client.post("/api/stream", json={"demo": "red-card-drama", "speed": 500.0}).json()["streamId"]
+    cur = {"event": -1, "msince": 0, "snap": 0}
+    events, moments, snaps = [], {}, []
+    for _ in range(400):
+        p = client.get(f"/api/stream/{sid}/feed", params={"full": 1, **cur}).json()
+        events += p["events"]
+        moments.update({m["id"]: m for m in p["moments"]})
+        snaps += p["snapshots"]
+        cur = {"event": p["eventCursor"], "msince": p["momentCursor"], "snap": p["snapshotCursor"]}
+        if p["status"] == "finished" and not p["more"]:
+            break
+        time.sleep(0.1)
+    assert {e["type"] for e in events} >= {"pass", "shot", "goal", "tackle"} and all("location" in e or e["type"] != "pass" for e in events)
+    assert len({e["id"] for e in events}) == len(events), "each event arrives once"
+    m = next(iter(moments.values()))
+    assert m["eventIds"] and "metrics" in m and "glossary" in m and "players" in m
+    assert len(snaps) > 80 and [s["matchMs"] for s in snaps] == sorted(s["matchMs"] for s in snaps) and len({s["id"] for s in snaps}) == len(snaps)
