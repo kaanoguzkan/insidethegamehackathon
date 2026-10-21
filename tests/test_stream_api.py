@@ -25,7 +25,7 @@ def client():
 
 def test_the_demos_are_listed_with_their_clubs(client):
     d = client.get("/api/stream/demos").json()
-    assert {x["id"] for x in d["demos"]} >= {"red-card-drama", "pressing-collapse", "six-goal-thriller"}
+    assert {x["id"] for x in d["demos"]} >= {"red-card-drama", "pressing-collapse", "eight-goal-thriller"}
     rc = next(x for x in d["demos"] if x["id"] == "red-card-drama")
     assert rc["home"]["name"] == "Redmoor United" and rc["away"]["short"] == "Saltmarsh" and 5.0 in d["speeds"]
 
@@ -46,7 +46,7 @@ def test_a_started_match_is_polled_to_the_end_and_serves_its_tracking(client):
             break
         time.sleep(0.1)
     assert page["status"] == "finished"
-    assert sum(e["type"] == "goal" for e in events) == 3 and moments and overlays
+    assert sum(e["type"] == "goal" for e in events) == 6 and moments and overlays
     meta = client.get(f"/api/stream/{sid}/meta").json()
     assert meta["home"]["id"] == "RED" and meta["matchId"] == "red-card-drama"
     ch = client.get(f"/api/stream/{sid}/chunks/0")

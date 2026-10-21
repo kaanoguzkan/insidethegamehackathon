@@ -23,7 +23,7 @@ flowchart LR
   match; a season is about 60 MB in the `packs` blob container, not in the repository). From a pack the player builds the feed documents and the tracking chunks, byte for byte what
   `build_feed` / `build_chunks` give from the simulation (`tests/test_packs.py`); chunks are cut and encoded when they are due.
 * **The season** (`live/season.py`). Six clubs, home and away: 30 fixtures in 10 rounds, **round 1 being the three demo matches** (Redmoor v Saltmarsh with the red card, Harbour v
-  Northbridge with the pressing collapse, Kestrel v Aldergate with the six-goal thriller). Fixtures, results and the table live in the `season` Cosmos container.
+  Northbridge with the pressing collapse, Kestrel v Aldergate with the eight-goal thriller). Fixtures, results and the table live in the `season` Cosmos container.
 * **The season job** (`live/season_job.py`, Container Apps Job `caj-<env>-season`, 5 replicas). The replicas are not told which fixtures are theirs: each **claims** the next pending
   one (an atomic change of its status guarded by the document's etag; an abandoned claim expires after five minutes), simulates it, writes the pack and records the score, until none
   is left. **The whole 30-match season took about two and a half minutes** on 1 vCPU replicas (see "Measured"). *Simulate a new season* on the Season page starts it; the site

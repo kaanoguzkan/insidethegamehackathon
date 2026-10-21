@@ -40,7 +40,7 @@ def test_a_fast_session_finds_the_story_and_finds_it_the_same_way_every_time(hub
     assert info["status"] == "finished" and s.error is None
     first = {m["id"]: (m["type"], m["detectedAt"]["matchMs"]) for m in hub.store.moments(s.id)}
     types = [t for t, _ in first.values()]
-    assert types.count("goal") == 3 and "red_card" in types, "the three goals and the red card of the match are found as it is played"
+    assert types.count("goal") == 6 and "red_card" in types, "the six goals and the red card of the match are found as it is played"
     assert hub.store.overlays_since(s.id, 0), "facts and graphics are written as the match goes"
     slower = S.StreamHub(intel=intel, tick_s=0.3)  # other timing, same pipeline: the ids and the moments must not depend on when the ticks fall
     slower.speeds = (500.0,)

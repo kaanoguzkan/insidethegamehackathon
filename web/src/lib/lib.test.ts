@@ -282,9 +282,11 @@ describe('analytics data', () => {
   it('interpolates win probability between minute ticks and steps at goals', () => {
     const pre = winProbAt(an, 0)!
     expect(pre.home + pre.draw + pre.away).toBeCloseTo(1, 2)
-    const goal = an.winProbability.swings.find((s) => s.kind === 'goal')!
-    const before = winProbAt(an, goal.matchMs - 2)!
-    const after = winProbAt(an, goal.matchMs + 2)!
+    // a match with goals (the pressing-collapse demo ends 0-0)
+    const goals = JSON.parse(readFileSync(new URL('../../../data/replays/eight-goal-thriller/analytics.json', import.meta.url)).toString()) as Analytics
+    const goal = goals.winProbability.swings.find((s) => s.kind === 'goal')!
+    const before = winProbAt(goals, goal.matchMs - 2)!
+    const after = winProbAt(goals, goal.matchMs + 2)!
     expect(Math.abs(after.home - before.home) + Math.abs(after.away - before.away)).toBeGreaterThan(0.02)
     expect(winProbAt(null, 0)).toBeNull()
   })
