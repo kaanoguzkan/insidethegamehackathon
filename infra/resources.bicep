@@ -336,10 +336,11 @@ resource brain 'Microsoft.App/containerApps@2024-03-01' = {
           ]
         }
       ]
-      // Scales to zero when idle; at most 2 replicas as a cost guard.
+      // One replica, always on. A stream session (a match a viewer plays, docs/live-pipeline.md) lives in the memory of the replica that started it, so a
+      // second replica would answer a viewer's polls with "unknown stream"; always on also removes the cold start. 12 sessions at 10x take about 80% of a core.
       scale: {
-        minReplicas: 0
-        maxReplicas: 2
+        minReplicas: 1
+        maxReplicas: 1
         rules: [ { name: 'http', http: { metadata: { concurrentRequests: '20' } } } ]
       }
     }
