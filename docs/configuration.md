@@ -51,7 +51,7 @@ On Azure the Bicep sets the Brain's variables from `azd env` values (names in th
 | `LIVE_DELAY_S` | 25 | How far behind the live feed viewers watch, in wall seconds |
 | `STORAGE_ACCOUNT` | none | The storage account of the tracking chunks (`frames`) and the workers' checkpoints (`checkpoints`); the job, the Function app and the Brain read it (identity, no keys). Without it chunks stay in memory |
 | `LIVE_SPEED` | 5 | Match seconds per real second (the Brain passes it to the job; the job reads it too) |
-| `LIVE_SCENARIO`, `LIVE_FROM_MINUTE`, `LIVE_MATCH_ID` | red-card-drama, 0, generated | Read by the simulator job; the Brain sets them for each run |
+| `LIVE_SCENARIO`, `LIVE_FROM_MINUTE`, `LIVE_MATCH_ID` | a demo id from `data/demos.json`, 0, generated | Read by the simulator job; the Brain sets them for each run |
 | `MATCHMIND_LIVE_KEY` | none | Shared secret between the dispatcher Function and the Brain's `/api/live/{id}/beats` (`x-live-key`); it also signs the workers' checkpoints (without it there are no checkpoints). Set on both; a Container Apps secret on the Brain. `azd env set MATCHMIND_LIVE_KEY ...` |
 | `MATCHMIND_LIVE_OPEN` | off | `1` lets `/api/live/{id}/beats` be called without a key (development only; the endpoint otherwise fails closed) |
 | `MATCHMIND_LIVE_LOCAL` | off | `1` lets the Brain start the simulator in a thread of its own process when no job is configured (a laptop) |
@@ -76,7 +76,7 @@ On Azure the Bicep sets the Brain's variables from `azd env` values (names in th
 
 | Variable | Default | Effect |
 |---|---|---|
-| `MATCHMIND_DATA` | the repo's `data/` | Where the league, scenarios and replay packages live (`/app/data` in the image) |
+| `MATCHMIND_DATA` | the repo's `data/` | Where the league, the demo list and the replay packages live (`/app/data` in the image) |
 | `VITE_BRAIN_URL` | none | Build time, web app: the Brain's address. With none, the Live AI switch does not appear. `azd deploy` builds with the Brain's address as `BRAIN_URI`; the Pages workflow uses the repository variable `BRAIN_URL` |
 | `PORT` | 8088 | The Foundry hosted agent's port (set by the platform) |
 

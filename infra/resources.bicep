@@ -348,7 +348,7 @@ resource brain 'Microsoft.App/containerApps@2024-03-01' = {
 
 // ---------------------------------------------------------------- the live pipeline: simulator job and Functions
 
-// The simulator plays a scenario as a live feed into Cosmos DB. It runs the Brain's image with another command; the image is updated after each
+// The simulator plays a demo match as a live feed into Cosmos DB. It runs the Brain's image with another command; the image is updated after each
 // `azd deploy` by the postdeploy hook in azure.yaml (this template only knows the placeholder).
 resource simJob 'Microsoft.App/jobs@2024-03-01' = {
   dependsOn: [ rolePull ]

@@ -23,7 +23,7 @@
 
 | Part | Status | Notes |
 |---|---|---|
-| Fictional league, simulator, tracking feed, scenarios | Done | 19 realism bands enforced by a test; 3 scripted stories (seeds 104, 85, 102), re-picked on 12 October after the shape rework below |
+| Fictional league, simulator, tracking feed, managers | Done | 19 realism bands enforced by a test; unscripted: managers react to the match, 3 demo matches are seeds picked for what happened (`data/demos.json`) |
 | **Teams move as a unit around the ball** | **Done (12 Oct)** | The shape slides toward the ball's flank, players near the ball lean toward it and step to open spaces, far-side wide players tuck in; models, baselines, season history and the three demo matches regenerated; hidden-story detection 16 of 16 (`docs/tactics.md`, `docs/metrics.md`) |
 | Formations, phase shapes, tactic tags, set pieces | Done | 9 formations with attacking and defensive shapes, club tags, corner/free-kick/goal-kick/throw-in routines, in-match formation changes (`docs/tactics.md`); recalibrated, detectors re-derived |
 | Physical analyzer, interpreter, evidence packs | Done | Pressing detected from tracking; streaming equals batch |
@@ -54,7 +54,7 @@
 * **Realism.** All 19 league averages inside their bands over 100 matches (table in `docs/data-card.md`), after re-calibrating for phase shapes and set pieces.
 * **Pressing-collapse detection.** Found in 15 of 16 seeds, median 9 minutes after the change at 55:00; no false collapse in 16 controls (study in `docs/metrics.md`). The other detectors are noisier and carry lower salience.
 * **Quality gates over the three replay packages (472 narrative overlays).** Numeric fidelity 1.0, verification 1.0, language 1.0, honesty about contradicting metrics 1.0, recaps 24 of 24 verified per match, analyst text 3 to 5 times as number-dense as casual.
-* **Resilience demo.** Healthy: 440 agent-written overlays, 32 template. Unreliable model: none first time, 204 recovered by retry, 268 template. Outage: all 472 template, none lost.
+* **Resilience demo.** Healthy: 408 agent-written overlays, 64 template. Unreliable model: 16 first time, 174 recovered by retry, 282 template. Outage: all 472 template, none lost.
 * **Tactical shifts.** Defensive shape is compared like with like (opponent in possession, ball in the middle zone); thresholds re-derived at 7 m line / 10 m width: about 0.7 false alarms a match, the scripted shift found in 17 of 20 seeds.
 * **Model switched (11 October).** `gpt-6-luna` replaced `gpt-4.1-mini` to cut cost: about a second slower, so the live deadline is 6 s, the hedge 4 s and the match center shows a loading bar; 27 of 27 overlays model-written, median 2.8 s, 90th percentile 3.8 s (`docs/agents.md`).
 * **Live latency and quality (new).** Measured earlier on the deployed Brain, `gpt-4.1-mini` through registered Foundry agents, 15 uncached requests of three cohorts: median 2.6 s, 95th percentile 4.2 s, no call past the deadline; 43 of 45 overlays written by the model and verified, 1 mended, 1 template; 16% of calls hedged; a repeated request 2 ms from memory and about 280 ms from Cosmos DB after a restart.
@@ -168,7 +168,7 @@ MatchMind turns a live stream of synthetic football events into **explained, per
 - **Analyst view:** timelines, indices and the evidence drawer. Stretch: an "Ask the match" Q&A.
 - **Recap page:** pre-match preview, half-time and full-time recaps per profile and language.
 - **Overlay output:** a transparent page with overlays only, for broadcast tools that capture a browser source.
-- **Director console:** start a match (seed, scenario, start minute, speed), inject events (red card, tactical change) and simulate failures.
+- **Director console:** start a match (fixture, seed, start minute, speed), inject events (red card, tactical change) and simulate failures.
 
 ---
 
@@ -280,7 +280,7 @@ Every external dependency sits behind a small interface (ports and adapters):
 
 There are two adapter sets:
 
-- **Local:** in-memory bus, local files, local model (Foundry Local or Ollama). One command runs everything on your laptop for $0: `matchmind run-local --scenario pressing-collapse`.
+- **Local:** in-memory bus, local files, local model (Foundry Local or Ollama). One command runs everything on your laptop for $0: `matchmind run-local pressing-collapse`.
 - **Azure:** Cosmos DB, Blob Storage, Storage Queue, SignalR and Foundry, wired as in §4.1.
 
 Build and test the whole pipeline locally first (6–14 October). After that, moving to Azure means swapping adapters. This is the main risk reducer for a solo build.
@@ -326,28 +326,16 @@ Build and test the whole pipeline locally first (6–14 October). After that, mo
 - **Also modelled, in simplified form:** set pieces, fouls, cards and offsides.
 - **Seeded randomness:** the same seed always produces the same match.
 
-### 5.3 Scenarios
+### 5.3 Managers and demo matches
 
-Scenarios are scripted changes that make the demo reliable. You know a pressing collapse will happen around 55 minutes, and the pipeline has to detect and explain it without being told.
+Nothing in a match is scripted. Each side has a manager that reacts to the score, the clock, a sending-off and tired legs
+(`sim/manager.py`, [docs/tactics.md](docs/tactics.md)): the side that is losing late pushes up, presses and adds a forward, the side
+that is winning drops deeper, ten men go compact, a pressing side whose legs have gone stops pressing high. The pipeline is never
+told; it has to detect the consequences from events and tracking and explain them.
 
-```yaml
-id: pressing-collapse
-seed: 42
-home: HAR
-away: NOR
-script:
-  - at: "55:00"
-    team: NOR
-    change: { press_intensity: -0.35 }   # tired front line stops pressing
-  - at: "70:00"
-    team: HAR
-    event: substitution                   # fresh winger
-  - at: "78:30"
-    team: NOR
-    change: { line_height: +8 }           # desperate high line, invites counters
-```
-
-The Director console can also inject events live during a match, such as a red card or a tactical switch.
+A demo match is only a fixture and a seed (`data/demos.json`). The seed is chosen by playing the fixture over a hundred seeds
+(`matchmind pick-demos HAR NOR --seeds 1-100`) and keeping one where something worth telling happened. The Director console can
+still inject events live during a match, such as a red card or a tactical switch.
 
 ### 5.4 Output
 
@@ -742,7 +730,7 @@ All three pass the Verifier. Every number and name in them traces back to the sa
 
 | Container | Partition key | Holds | Notes |
 |---|---|---|---|
-| `matches` | `/matchId` | Metadata, lineups, scenario, status | |
+| `matches` | `/matchId` | Metadata, lineups, demo id, status | |
 | `events` | `/matchId` | One document per event | ID = event ID (idempotent). TTL on live demo matches (e.g., 7 days). |
 | `state` | `/matchId` | The interpreter's rolling aggregates | Excluded from indexing, kept small |
 | `moments` | `/matchId` | Evidence pack, status, agent outputs, errors | The workflow's shared state |
@@ -977,7 +965,7 @@ matchmind/
 ├── schemas/                   # JSON Schemas: event, evidence, overlay, profile, scenario  [next: generated from core/contracts.py]
 ├── src/matchmind/             # one Python package shared by every service
 │   ├── core/                  # geometry, xG/xPass models, clock, contracts, paths  [built]
-│   ├── sim/                   # simulator: league, outcome models, movement, scenarios, realism  [built]
+│   ├── sim/                   # simulator: league, outcome models, movement, managers, realism  [built]
 │   ├── tracking/              # chunk format + physical auto-eventing from frames  [built]
 │   ├── intel/                 # metrics, indices, detectors, evidence packs, xT, baselines  [built]
 │   ├── agents/                # workflow, agents, prompts, verifier, templates, producer  [templates done; verifier drafted, untested; rest next]
@@ -991,7 +979,7 @@ matchmind/
 ├── web/                       # React + TypeScript + Vite (Static Web Apps)
 ├── data/
 │   ├── league/                # clubs, squads, season history
-│   ├── scenarios/             # demo scenarios (YAML)
+│   ├── demos.json             # the demo matches: a fixture and a seed each
 │   └── replays/               # pre-generated replay packages
 ├── evals/                     # golden set, custom evaluators, run script
 ├── docs/                      # architecture, metrics, agents, overlay contract, data card, responsible AI
@@ -1089,16 +1077,16 @@ This schedule is aggressive for one person. §19 says what to drop first.
 | 0:00–0:08 | Split screen: the same chance, analyst view in English and casual view in Spanish | "Same moment. Two fans. Two different stories, both built from the same verified data." |
 | 0:08–0:20 | Title and a one-line architecture graphic | "MatchMind turns a live stream of football events into explained, personalized match intelligence, on Microsoft Foundry and Agent Framework." |
 | 0:20–0:45 | Live Match Center: name tags, speed badge, pass-difficulty card, momentum bar, chaos meter | "Code computes the stats from the event and tracking feed: pass difficulty, speed, momentum, pressure, control versus chaos." |
-| 0:45–1:05 | The pressing-collapse beat appears; click "Why?" to open the evidence drawer with the event chain highlighted on the pitch | "Agents decide what matters and explain why. Every number links to evidence, and a verifier checks each claim before it goes on screen." |
+| 0:45–1:05 | The match center on `red-card-drama` (the classic replay view, not the live channel): the red card (45') and what the managers did next (shape change at 49', Redmoor's pressing collapse at 62'); click "Why?" to open the evidence drawer with the event chain highlighted on the pitch | "Agents decide what matters and explain why. Every number links to evidence, and a verifier checks each claim before it goes on screen." |
 | 1:05–1:20 | Switch profile: club fan, then player focus, then Turkish | "Change the viewer, and the same intelligence becomes a different experience." |
 | 1:20–1:38 | Foundry trace: Editor → Explainer → Verifier → Storyteller → Localizer. Flip "model outage" and the template overlay still lands on time. | "Specialized agents hand off through shared state. If a model fails, the system degrades gracefully. The overlay still lands on time." |
 | 1:38–1:50 | Full-time recap in three languages; the overlay output page over a plain background | "Automated recaps for studio and streaming, and overlay output a broadcast graphics system can render." |
 | 1:50–1:55 | End card: Microsoft technologies used + repo URL | n/a |
 
 **Production notes:**
-- **Recording:** 1080p, browser zoomed so text is readable, English captions.
+- **Recording:** record the classic match center (`#/`), not the live channel. 1080p, browser zoomed so text is readable, English captions.
 - **Content:** no music, or only music you own the rights to. No real logos, clubs or players.
-- **Reliability:** use a seeded scenario so the key moment happens on cue.
+- **Reliability:** use a demo seed whose key moment was found by `pick-demos`, so it happens on cue.
 - **Upload:** upload as **Public** on YouTube and check that it plays when logged out.
 - **Screenshots:** prepare 3–4 for the project page. Judges may judge without opening the app.
 
@@ -1106,14 +1094,14 @@ This schedule is aggressive for one person. §19 says what to drop first.
 
 ## 21. Submission checklist
 
-- [ ] Registered before Tue 20 Oct, 22:00 your time.
+- [ ] Registered before Tue 20 Oct, 22:00 your time (the registration period is over: confirm the registration exists).
 - [ ] Eligibility confirmed: age of majority where you live, and your country is not excluded (rule 3).
 - [ ] Public GitHub repo:
   - README with the pitch, architecture, Microsoft technologies, setup steps and testing instructions
   - license file
   - third-party license list
   - no secrets
-- [ ] Commit history starts after 29 Sep 2026 (new project, rule 4.3).
+- [ ] The project's own commits all start after 29 Sep 2026 (new project, rule 4.3); the older commits in the history are Microsoft's template repository.
 - [ ] Demo video under 2:00, at a public URL (YouTube or Vimeo):
   - shows the project running in the browser
   - English, or English captions

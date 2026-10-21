@@ -37,5 +37,5 @@ Read `SOLUTION PLAN.md` (status section first), `docs/architecture.md` and `docs
 - Foundry and Azure: `uv run matchmind foundry-register | foundry-evals | foundry-host`, `azd provision && azd deploy` (Docker must be running); the Dockerfile builds from `ghcr.io`, not Docker Hub.
 - After changing the simulator, run `uv run matchmind report-realism`; every metric must stay in its band.
 - After changing templates, prompts or contracts: `uv run matchmind export-schemas`, rebuild packages with
-  `uv run matchmind build-replay <scenario>` and run `uv run matchmind evals`.
+  `uv run matchmind build-replay <demo id from data/demos.json>` and run `uv run matchmind evals`.
 - Check exit codes directly; do not pipe test output into `tail` in a chain you rely on.

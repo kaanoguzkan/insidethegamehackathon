@@ -70,11 +70,25 @@ corners; Redmoor United are direct and physical in a 4-4-2 with long goal kicks,
 long throw; Kestrel Vale use a 3-4-3 with wing-backs for width; Aldergate Rovers defend in a 5-3-2 low
 block and break; Saltmarsh Town build from a dropping pivot in a 4-1-4-1.
 
-Scenarios can change shape mid-match (`formation: "5-3-2"` or `tags: {fullbacks: inverted}` in the
-script). Players are re-assigned to the new slots by role fit; a sent-off player's slot goes to the most
-advanced role, so ten men give up a forward. In `red-card-drama` Redmoor lose a defender, withdraw a
-striker and reorganise from a 4-4-2 to a 4-1-4-1 while Saltmarsh go to a back three to push the
-advantage; in `high-line-gamble` Aldergate switch from a back five to a back three to chase the game.
+Managers change shape mid-match ([`manager.py`](../src/matchmind/sim/manager.py)); nothing is scripted. Each manager has a
+temperament drawn once from a random stream of its own (how readily he acts, and the minute from which he will chase a
+deficit or protect a lead), then looks at the match every twenty seconds and sees only what a touchline sees: the score,
+the clock, the numbers on the pitch and how drained his players look. The reactions are a coach's:
+
+| Trigger | Reaction |
+|---|---|
+| A man down | after a minute or two, a more compact formation, a lower line and an easier press |
+| The other side has a man down | a higher line, more press and width, sometimes a more attacking shape |
+| Losing late (from about 58-74') | line up, press harder, more direct, a more attacking formation |
+| Winning late (from about 66-80') | line down, press less, break on the counter, a more defensive formation |
+| A pressing side's four most tired players are drained (from 55') | stops pressing high |
+
+Players are re-assigned to the new slots by role fit; a sent-off player's slot goes to the most advanced role, so ten men
+give up a forward. A manager makes at most three changes and none after the 86th minute. Because the stream is separate,
+a match is identical to what it would have been without managers until the first reaction, and the same seed always
+gives the same managers. Style changes emit no event (the pipeline has to see them in the tracking); a change of formation
+emits `formation_change`. The demo matches are seeds chosen for what the managers did with them: `uv run matchmind
+pick-demos HAR NOR --seeds 1-100` lists, for each seed, the score, the cards and every reaction.
 
 ## Set pieces ([`setpieces.py`](../src/matchmind/sim/setpieces.py))
 
@@ -105,7 +119,7 @@ team in the match center's Tactics tab (Understand step).
   a team's defensive line legitimately sits higher or deeper with the ball. The analyzer now samples
   defensive shape only while the opponent has the ball in the middle of the pitch, and the thresholds were
   re-derived from data (line change at least 7 m, width at least 10 m): about 0.7 false alarms a match,
-  and the scripted line change is found in 17 of 20 seeds. See [metrics.md](metrics.md).
+  and an injected line change is found in 20 of 20 seeds (re-measured with the managers). See [metrics.md](metrics.md).
 * **A latent template bug surfaced.** Claims were linked to evidence by number coincidence, so a 0.3 in one
   sentence could cite an unrelated metric that also read 0.3. A metric now counts as cited only when both
   its before and after values appear.

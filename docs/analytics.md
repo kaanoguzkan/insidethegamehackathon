@@ -6,7 +6,7 @@ evidence-pack, glossary and Verifier discipline as every other number in MatchMi
 ways: in the match center (the **Explore** step and live pitch graphics, called Lenses), through MCP tools
 (`get_win_probability`, `get_key_actions` ... 25 tools in all) and as `analytics.json` in every replay package.
 
-![Win probability for high-line-gamble: Kestrel lead, Aldergate turn it round, with each goal's swing marked](img/insights-winprob.png)
+![Win probability over a match, with each goal's swing marked (a screenshot from an earlier demo match)](img/insights-winprob.png)
 
 ## What is implemented
 
@@ -82,7 +82,7 @@ as a quick entry.
 
 **Season and prediction.** Everything is synthetic: 30 matches of last season and four rounds of this one,
 simulated with each club's default style. Team strengths are expected goals for and against shrunk toward
-the league mean as if each club had three league-average matches already. The three scripted fixtures are
+the league mean as if each club had three league-average matches already. The three demo fixtures are
 round five.
 
 **Milestones.** "Goal number N this season" (1, 5, 10, 15), hat-tricks, the fastest goal in the league's

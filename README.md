@@ -61,7 +61,7 @@ Clubs play recognisable European archetypes: a 4-3-3 with inverted fullbacks and
 4-2-3-1 with overlapping fullbacks, a direct 4-4-2 with long throws, a 3-4-3 with wing-backs that becomes
 a 5-4-1 without the ball, a 5-3-2 low block. Corners come as near-post, far-post, short and edge-of-box
 routines against zonal or man-marking defences; free kicks get walls; goal kicks are built short or sent long
-against a pressing line; and scripted stories include in-match formation changes. All of it is in the tracking
+against a pressing line; and the managers change shape mid-match on their own. All of it is in the tracking
 and the events, and visible in the **Tactics** tab (Understand step). See [docs/tactics.md](docs/tactics.md).
 
 ## Opta-style analytics
@@ -192,7 +192,7 @@ Details: [docs/architecture.md](docs/architecture.md), the agents in [docs/agent
 | **Microsoft Foundry** | The model (`gpt-6-luna`), eight agents registered as versioned prompt agents that the Brain calls, a hosted agent (`matchmind-newsroom`), Foundry evaluations, and traces in Application Insights | **Run against a live project** (Oct 2026); the SDK parts are experimental. Results and caveats: [docs/foundry.md](docs/foundry.md) |
 | **GitHub Copilot** | Built with it; `.github/copilot-instructions.md` and the MCP config for agent mode | In use |
 | **Azure Container Apps, Static Web Apps, Cosmos DB, Application Insights, Log Analytics, Container Registry** | `infra/` Bicep on the free tier: the Brain, the web app, a shared cache in Cosmos DB (identity only, no keys), traces, a budget with alerts, a daily log cap | **Deployed and verified** (Oct 2026): scale-to-zero cold start, rate limits, the shared cache across a restart, traces. See [docs/running-on-azure.md](docs/running-on-azure.md) |
-| **Azure Functions (Flex Consumption), Container Apps Jobs, Event Grid, Cosmos DB change feed, Blob Storage, SignalR** | The **live pipeline**: a simulator job plays a scenario into Cosmos DB (events) and Blob Storage (tracking chunks); an Event Grid-triggered Function runs the physical analyzer on each chunk; a change-feed Function interprets the feed up to a watermark; another asks the Brain for the narrative overlays; Functions push everything stored to the browser over Azure SignalR, which draws the match on a 3D pitch | **Deployed and verified end to end** (Oct 2026): [docs/live-pipeline.md](docs/live-pipeline.md) |
+| **Azure Functions (Flex Consumption), Container Apps Jobs, Event Grid, Cosmos DB change feed, Blob Storage, SignalR** | The **live pipeline**: a simulator job plays a demo match into Cosmos DB (events) and Blob Storage (tracking chunks); an Event Grid-triggered Function runs the physical analyzer on each chunk; a change-feed Function interprets the feed up to a watermark; another asks the Brain for the narrative overlays; Functions push everything stored to the browser over Azure SignalR, which draws the match on a 3D pitch | **Deployed and verified end to end** (Oct 2026): [docs/live-pipeline.md](docs/live-pipeline.md) |
 | **Key Vault** | Provisioned by the same Bicep | Provisioned only; nothing uses it |
 | **GitHub Actions** | CI (lint, tests in parallel, quality gates, schema sync, web build, Bicep compile, container smoke test), Pages mirror, OIDC deploy | CI passes on GitHub. Two runs failed, both on a Docker Hub rate limit (HTTP 429) while pulling the base image; since the Dockerfile builds from `ghcr.io`, the last four runs pass. Pages is live |
 
@@ -203,17 +203,17 @@ plan's status section.
 ## Measured results
 
 * **Realistic synthetic data.** 100 simulated matches, all 19 league averages inside target bands (goals
-  2.6, shots 26, passes 1,103, pass completion 79%, distance 11.9 km, top speed 34.8 km/h ...).
+  2.9, shots 29, passes 1,111, pass completion 84%, distance 11.9 km, top speed 33.7 km/h ...).
   `uv run matchmind report-realism`; a test enforces it. See [docs/data-card.md](docs/data-card.md).
-* **Detects a hidden story.** The pressing collapse scripted at 55:00 is found in **16 of 16** seeds, a
-  median 10 minutes later, and never fires as a false collapse in 16 unscripted controls. Pressing is read
+* **Detects a hidden story.** A pressing collapse injected at 55:00 (the pipeline is never told) is found in **15 of 16** seeds, a
+  median 9 minutes later, and never fires as a false collapse in 16 controls where nothing changed. Pressing is read
   from tracking (PPDA over five minutes rests on 0-3 actions and is too noisy); see
   [docs/metrics.md](docs/metrics.md).
 * **Quality gates.** Over the three replay packages (472 narrative overlays): numeric fidelity 1.0, 100% of narrative text
   verified, 24/24 recaps verified per match, contradicting evidence always admitted, analyst text 3 to 5 times as
   number-dense as casual text. `uv run matchmind evals` (CI-gated).
-* **Graceful degradation.** The same three matches three ways: healthy (440 agent-written overlays, 32 template), unreliable model
-  (none first time, 204 recovered by retry, 268 template), outage (all 472 template, none lost).
+* **Graceful degradation.** The same three matches three ways: healthy (408 agent-written overlays, 64 template), unreliable model
+  (16 first time, 174 recovered by retry, 282 template), outage (all 472 template, none lost).
 * **The live pipeline runs end to end on Azure.** The home page's match is played from a pack by the Brain into Cosmos DB and Blob Storage, its tracking analyzed by an Event Grid-triggered Function,
   its feed interpreted by a change-feed Function, written up by the agents through the Brain and pushed to the page over SignalR. In one run of a match (15 moments, 91 of 120 story overlays model-written) a moment took a median of 9.6 s (9.0 to 13.3 s, seven moments)
   from being detectable to its overlay being stored, at 5 times real time; the first version measured 19.8 s with a worst case of 51 s. A 30-match season is simulated in about 140 s by five replicas.
@@ -236,7 +236,7 @@ apps/brain/      FastAPI service: REST + MCP + both agent paths + the live API, 
 apps/functions/  Azure Functions: the two Cosmos DB change-feed triggers of the live pipeline
 foundry/hosted/  the entry point of the Foundry hosted agent
 web/             React + TypeScript match center (replay player, overlays, evidence drawer, recaps, Live AI, Ask, the Live pipeline page)
-data/            league, scenarios (3 stories), replay packages (3 matches, ~10 MB)
+data/            league, demos.json (3 fixtures and seeds), replay packages (3 matches, ~10 MB)
 infra/           Bicep + azure.yaml          schemas/   JSON Schemas of the public contracts
 docs/            architecture, agents, live-pipeline, brain-api, configuration, foundry, running-on-azure, tactics, analytics, metrics,
                  overlay contract, data card, responsible AI, report

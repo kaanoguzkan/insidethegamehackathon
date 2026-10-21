@@ -40,17 +40,17 @@ possession changes and duels per minute, long-ball share, average possession len
 
 In a five-minute window a team makes 0-3 defensive actions in the build-up zone, so PPDA jumps by a factor
 of two on one tackle and flip-flopped between "collapse" and "surge". A 24-seed study measured candidate
-rules against how often they fired by chance in the first hour of unscripted matches:
+rules against how often they fired by chance in the first hour of matches in which nothing changed:
 
-| Rule (8/15-minute windows) | False alarms per team-match | Scripted collapse caught |
+| Rule (8/15-minute windows) | False alarms per team-match | Injected collapse caught |
 |---|---|---|
 | nearest-defender gap of 2.0 m alone | 15% | 92% |
 | gap of 2.0 m plus pressure rate down 25%, held two minutes (chosen) | 4% | 88% |
 | gap of 3.0 m alone | 2% | 71% |
 
-On the full pipeline over 16 seeds, after teams learned to change shape with the ball (see
-[tactics.md](tactics.md)), the chosen rule caught 16, a median 10 minutes after the change, and never fired as
-a false collapse in 16 unscripted controls (it fired once too early, before the scripted change, in two of the scripted matches).
+On the full pipeline over 16 seeds (the test in `tests/test_detection.py` switches the managers off, makes Northbridge stop pressing at 55:00 and
+has a control of the same match where nothing changes), re-measured with the managers in the engine, the chosen rule caught 15, a median 9 minutes after
+the change, and never fired as a false collapse in the 16 controls. The study tables above and below are from the earlier engine.
 
 ### Tactical shifts and shape that breathes with the ball
 
@@ -59,9 +59,9 @@ who has the ball and where, and a naive detector fired 5.9 times a match. Defens
 only while the opponent has the ball in the middle zone (35-75 m from the defending team's own goal), which
 brought the noise down to a 99th percentile of 8.4 m for the change in line height and 10.0 m for width
 (3-minute against 10-minute means, 30 matches). Operating points, with false alarms per match and how
-often the scripted high-line change by Aldergate at 60:00 was found in 20 seeds:
+often a high-line change by Aldergate at 60:00 (injected by the test) was found in 20 seeds:
 
-| Line / width threshold | False alarms per match | Scripted shift found |
+| Line / width threshold | False alarms per match | Injected shift found |
 |---|---|---|
 | 6.5 m / 10 m | 1.0 | 17/20 |
 | **7 m / 10 m (chosen)** | **0.7** | **17/20** |
