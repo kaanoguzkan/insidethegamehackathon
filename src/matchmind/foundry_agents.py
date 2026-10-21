@@ -51,7 +51,7 @@ def register(endpoint: str | None = None, model: str | None = None) -> list[dict
     from azure.identity import DefaultAzureCredential
 
     endpoint = endpoint or os.environ["FOUNDRY_PROJECT_ENDPOINT"]
-    model = model or os.environ.get("MATCHMIND_LLM_MODEL", "gpt-4.1-mini")
+    model = model or os.environ.get("MATCHMIND_LLM_MODEL", "gpt-6-luna")
     cred = DefaultAzureCredential()
     chat = FoundryChatClient(project_endpoint=endpoint, model=model, credential=cred)
     project = AIProjectClient(endpoint=endpoint, credential=cred)

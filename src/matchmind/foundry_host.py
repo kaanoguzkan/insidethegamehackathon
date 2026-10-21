@@ -51,7 +51,7 @@ def deploy(endpoint: str | None = None, model: str | None = None, wait_s: int = 
     from azure.identity import DefaultAzureCredential
 
     endpoint = endpoint or os.environ["FOUNDRY_PROJECT_ENDPOINT"]
-    model = model or os.environ.get("MATCHMIND_LLM_MODEL", "gpt-4.1-mini")
+    model = model or os.environ.get("MATCHMIND_LLM_MODEL", "gpt-6-luna")
     zpath = build_zip()
     definition = HostedAgentDefinition(
         cpu="1", memory="2Gi",

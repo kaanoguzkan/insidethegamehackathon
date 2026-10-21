@@ -74,7 +74,7 @@ class Newsroom(BaseAgent):
     def __init__(self) -> None:
         super().__init__(name="matchmind-newsroom", description="Explained, personalized match overlays: editor, composer, verifier, repairer, producer.")
         client = FoundryChatClient(
-            project_endpoint=os.environ["FOUNDRY_PROJECT_ENDPOINT"], model=os.environ.get("MATCHMIND_LLM_MODEL", "gpt-4.1-mini"),
+            project_endpoint=os.environ["FOUNDRY_PROJECT_ENDPOINT"], model=os.environ.get("MATCHMIND_LLM_MODEL", "gpt-6-luna"),
             credential=DefaultAzureCredential(),
         )
         self.team = AgentTeam(client, AgentSettings.from_env())

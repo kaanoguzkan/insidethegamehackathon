@@ -85,7 +85,7 @@ async def run(per_group: int = 12, evaluators: tuple[str, ...] = DEFAULT_EVALUAT
     from agent_framework.foundry import FoundryChatClient, FoundryEvals
     from azure.identity import DefaultAzureCredential
 
-    model = model or os.environ.get("MATCHMIND_LLM_MODEL", "gpt-4.1-mini")
+    model = model or os.environ.get("MATCHMIND_LLM_MODEL", "gpt-6-luna")
     client = FoundryChatClient(project_endpoint=os.environ["FOUNDRY_PROJECT_ENDPOINT"], model=model, credential=DefaultAzureCredential())
     results: dict[str, Any] = {"model": model, "evaluators": list(evaluators), "groups": {}}
     for kind, items in sample(root, per_group).items():
