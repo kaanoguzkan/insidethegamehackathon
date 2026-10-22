@@ -1,6 +1,5 @@
-from fastapi.testclient import TestClient
-
 from apps.brain.main import create_app
+from fastapi.testclient import TestClient
 
 
 def test_ops_and_ready():

@@ -15,6 +15,8 @@ param appInsightsConnectionString string
 param adminKey string
 @secure()
 param liveKey string
+// Who is told when an alert fires. Empty: the alerts are still evaluated and shown in the portal, nobody is mailed.
+param alertContact string = ''
 
 // Container Apps capacity differs by region and by subscription; the apps can sit in another region from the data.
 var appsRegion = empty(appsLocation) ? location : appsLocation
@@ -346,6 +348,142 @@ resource brain 'Microsoft.App/containerApps@2024-03-01' = {
         rules: [ { name: 'http', http: { metadata: { concurrentRequests: '20' } } } ]
       }
     }
+  }
+}
+
+// ---------------------------------------------------------------- monitoring: is the Brain up, fast and healthy
+
+resource alertGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
+  name: 'ag-${environmentName}'
+  location: 'global'
+  tags: tags
+  properties: {
+    groupShortName: take('mm${prefix}', 12)
+    enabled: true
+    emailReceivers: empty(alertContact) ? [] : [{ name: 'operator', emailAddress: alertContact, useCommonAlertSchema: true }]
+  }
+}
+
+// An availability test: every five minutes, from three places, GET /ready. It fails when the Brain is down or cannot do its job (see GET /ready).
+resource readyTest 'Microsoft.Insights/webtests@2022-06-15' = {
+  name: 'ready-${environmentName}'
+  location: location
+  tags: union(tags, { 'hidden-link:${insights.id}': 'Resource' })
+  kind: 'standard'
+  properties: {
+    SyntheticMonitorId: 'ready-${environmentName}'
+    Name: 'Brain is ready'
+    Enabled: true
+    Frequency: 300
+    Timeout: 30
+    Kind: 'standard'
+    RetryEnabled: true
+    Locations: [{ Id: 'emea-nl-ams-azr' }, { Id: 'us-va-ash-azr' }, { Id: 'emea-gb-db3-azr' }]
+    Request: { RequestUrl: 'https://${brain.properties.configuration.ingress.fqdn}/ready', HttpVerb: 'GET', ParseDependentRequests: false }
+    ValidationRules: { ExpectedHttpStatusCode: 200, SSLCheck: true, SSLCertRemainingLifetimeCheck: 7 }
+  }
+}
+
+resource readyAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+  name: 'alert-ready-${environmentName}'
+  location: 'global'
+  tags: union(tags, { 'hidden-link:${insights.id}': 'Resource', 'hidden-link:${readyTest.id}': 'Resource' })
+  properties: {
+    description: 'The Brain failed its readiness check from at least two places.'
+    severity: 1
+    enabled: true
+    scopes: [readyTest.id, insights.id]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT15M'
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.WebtestLocationAvailabilityCriteria'
+      webTestId: readyTest.id
+      componentId: insights.id
+      failedLocationCount: 2
+    }
+    actions: [{ actionGroupId: alertGroup.id }]
+  }
+}
+
+resource errorsAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+  name: 'alert-5xx-${environmentName}'
+  location: 'global'
+  tags: tags
+  properties: {
+    description: 'The Brain answered more than five requests with a 5xx in ten minutes.'
+    severity: 2
+    enabled: true
+    scopes: [brain.id]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT10M'
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [{
+        name: 'fivexx'
+        criterionType: 'StaticThresholdCriterion'
+        metricNamespace: 'Microsoft.App/containerApps'
+        metricName: 'Requests'
+        dimensions: [{ name: 'statusCodeCategory', operator: 'Include', values: ['5xx'] }]
+        operator: 'GreaterThan'
+        threshold: 5
+        timeAggregation: 'Total'
+      }]
+    }
+    actions: [{ actionGroupId: alertGroup.id }]
+  }
+}
+
+resource cpuAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+  name: 'alert-cpu-${environmentName}'
+  location: 'global'
+  tags: tags
+  properties: {
+    description: 'The Brain used more than 85% of its CPU for fifteen minutes: live matches are at capacity (the hub caps them at six).'
+    severity: 2
+    enabled: true
+    scopes: [brain.id]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT15M'
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [{
+        name: 'cpu'
+        criterionType: 'StaticThresholdCriterion'
+        metricNamespace: 'Microsoft.App/containerApps'
+        metricName: 'UsageNanoCores'
+        operator: 'GreaterThan'
+        threshold: 1700000000
+        timeAggregation: 'Average'
+      }]
+    }
+    actions: [{ actionGroupId: alertGroup.id }]
+  }
+}
+
+resource restartAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+  name: 'alert-restarts-${environmentName}'
+  location: 'global'
+  tags: tags
+  properties: {
+    description: 'The Brain restarted: every viewer\'s live match on that replica was lost with it (sessions live in memory).'
+    severity: 2
+    enabled: true
+    scopes: [brain.id]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT15M'
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [{
+        name: 'restarts'
+        criterionType: 'StaticThresholdCriterion'
+        metricNamespace: 'Microsoft.App/containerApps'
+        metricName: 'RestartCount'
+        operator: 'GreaterThan'
+        threshold: 0
+        timeAggregation: 'Maximum'
+      }]
+    }
+    actions: [{ actionGroupId: alertGroup.id }]
   }
 }
 

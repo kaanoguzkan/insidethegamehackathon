@@ -58,7 +58,6 @@ from matchmind.analytics.report import MatchAnalytics
 from matchmind.analytics.season import load_season
 from matchmind.core.paths import replays_dir
 from matchmind.demos import load_demos
-from matchmind.ops import ops
 from matchmind.guards import ADMIN_HEADER, PUBLIC_MAX_DEADLINE_MS, RateLimitMiddleware, is_admin
 from matchmind.live.api import ContainerAppsJobStarter
 from matchmind.live.api import make_router as make_live_router
@@ -76,6 +75,7 @@ from matchmind.live.store import LiveStore
 from matchmind.live.stream_api import make_stream_router
 from matchmind.mcp_server.registry import MatchRegistry, UnknownMatch, preload
 from matchmind.mcp_server.server import build_server
+from matchmind.ops import ops
 from matchmind.runner import build_analytics
 from matchmind.telemetry import setup_tracing
 

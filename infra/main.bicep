@@ -88,6 +88,7 @@ module resources 'resources.bicep' = {
     appInsightsConnectionString: appInsightsConnectionString
     adminKey: adminKey
     liveKey: liveKey
+    alertContact: budgetContact
   }
 }
 
