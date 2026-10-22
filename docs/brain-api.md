@@ -15,8 +15,10 @@ after idle takes about 20 seconds, so call `/health` first). Interactive docs ar
 | `POST /api/beats` | **Overlays for chosen moments and viewer cohorts, written now** (below) |
 | `POST /api/ask` | **Ask the match a question**: an answer written from the match-data tools only, checked by the Verifier (below) |
 | `GET /api/live`, `GET /api/live/{id}`, `GET /api/live/{id}/feed`, `/meta`, `/chunks/{n}`, `GET /api/live/config` | **The live pipeline**: live and recent matches, one match with its clock, what is new in it, its metadata and tracking chunks, and the deployment's push address ([below](#live-pipeline)) |
-| `GET /api/channel`, `POST /api/channel/tune` | **The channel**: what is on air, and join it or start the next fixture |
-| `GET /api/season`, `POST /api/season/simulate` | **The season**: fixtures, results, tables and simulation progress; plan and simulate a new season (public, limited) |
+| `GET /api/ops` | **Operations**: the last 15 minutes of requests (counts, 5xx, p50/p95 per group), how stories were made (model, repaired, template), claims verified, cache hits, tokens, live matches against capacity, model and cache status. Public, read-only |
+| `GET /ready` | **Readiness**: 200 when the matches are loaded, a model client is configured and the shared cache is reachable; 503 with the failing checks otherwise. The availability test calls it |
+| `GET /api/channel`, `POST /api/channel/tune` | **The channel** (not used by the web app): what is on air, and join it or start the next fixture |
+| `GET /api/season`, `POST /api/season/simulate` | **The season** (not used by the web app): fixtures, results, tables and simulation progress; plan and simulate a new season (public, limited) |
 | `POST /api/live/start` | Start the simulator job on a demo match (public, limited) |
 | `GET /api/stream/demos`, `POST /api/stream`, `GET /api/stream/{id}` (`/meta`, `/feed`, `/chunks/{n}`), `POST /api/stream/{id}/cohorts`, `DELETE /api/stream/{id}` | A match of your own, played and interpreted in the Brain's process (public, limited); see [live-pipeline.md](live-pipeline.md#streams-the-same-stages-in-one-process) |
 | `POST /api/live/{id}/beats` | Internal: write the narrative overlays for new moments (the dispatcher Function calls it; needs `x-live-key`) |

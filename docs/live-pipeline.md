@@ -1,14 +1,15 @@
 # The live pipeline
 
-**Open the site and a match is on.** The home page is a live channel: a fixture of a simulated season is being played, and the page shows it on a 3D pitch with the
-scoreboard, the overlays and the pipeline working. Behind it, a match's events and its tracking are stored as they arrive, a chain of event-driven Functions turns them
-into moments and verified overlays while the match is still being played, and the overlays reach the browser by push. Nothing is simulated while a viewer waits: matches
-are simulated ahead of time into **packs**, a **season** of 30 fixtures is simulated in parallel by a job, and starting a match means reading a pack.
+Two live paths share the same stages (analyse, detect moments, write verified stories) and the same code:
 
-* [The channel and the season](#the-channel-and-the-season): what happens when you open the site, packs, the season job.
-* [The pipeline](#the-pipeline): what happens to a match once it is on air.
+* **Streams** (what the match center's *Go live* uses): one viewer, one match, played in the Brain's process with that viewer's own clock. See [Streams](#streams-the-same-stages-in-one-process).
+* **The event-driven path** (the *Cloud pipeline* page, `#pipeline`): a Container Apps Job plays the match into Cosmos DB and Blob Storage and Azure carries it through Event Grid, Functions, the Brain and SignalR,
+  as described under [The pipeline](#the-pipeline). It runs one match at a time and is the cloud-native reference for the stages.
 
-## The channel and the season
+The older "channel and season" design (a 30-match season simulated ahead of time into packs, one shared channel on the home page) is still in the code and the API
+([brain-api.md](brain-api.md)), but no page of the web app uses it any more. It is kept below for reference.
+
+## The channel and the season (not used by the web app)
 
 ```mermaid
 flowchart LR

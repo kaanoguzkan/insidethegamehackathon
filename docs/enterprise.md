@@ -7,7 +7,7 @@ What an operator gets, and where the limits are. Everything here is in the repos
 - Every Azure service is reached with a **user-assigned managed identity** and role assignments from `infra/resources.bicep` (blob, queue, table, Cosmos DB data roles, ACR pull, SignalR). No connection string or storage key is in the code or in the image.
 - The model is reached with the same identity through the Foundry project endpoint. There is no model API key to leak.
 - The only shared secrets are the two keys that guard operator endpoints (`MATCHMIND_ADMIN_KEY`, `MATCHMIND_LIVE_KEY`), compared in constant time, and they are Container Apps secrets.
-- **Limit:** a Key Vault is provisioned and the identity can read it, but the two keys are still Container Apps secrets rather than Key Vault references. There is no end-user sign-in: the match center is public by design, and what it exposes is read-only simulated data.
+- **Limit:** a Key Vault is provisioned but nothing reads it: the two keys are still Container Apps secrets rather than Key Vault references. There is no end-user sign-in: the match center is public by design, and what it exposes is read-only simulated data.
 
 ## Reliability
 

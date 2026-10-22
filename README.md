@@ -12,13 +12,13 @@ number in every sentence is traced to computed evidence and checked by code befo
 
 All data is synthetic. The league, clubs, crests and players are fictional.
 
-**Try it:** open the site on Azure Static Web Apps (<https://happy-beach-0379fb50f.5.azurestaticapps.net>) and **a match is already on**: the home page
-is a live channel playing a fixture of a simulated 30-match season, on a 3D pitch, with the overlays the agents write while it is played. **Season** shows
-the table and every fixture and can **simulate a whole new season** (five parallel workers, about two and a half minutes); **Replays** is the match center
-described below, which plays three pre-generated matches from static files (it is also the GitHub Pages mirror,
-<http://kaanoguzkan.com/insidethegamehackathon/>, and has a **Live AI** switch that asks the Azure-hosted Brain to write the story for the selected moment
-*now*, for your viewer settings, in about six seconds at most). The channel is described in [docs/live-pipeline.md](docs/live-pipeline.md), the Brain's API in
-[docs/brain-api.md](docs/brain-api.md).
+**Try it:** open the site on Azure Static Web Apps (<https://happy-beach-0379fb50f.5.azurestaticapps.net>). It opens on the match center with a recorded match:
+pause anywhere, ask *why* a moment mattered, ask the match a question, switch viewer profile. **Go live** plays a match of your own, with your own clock, inside the Brain
+(a simulator, the detectors and the agents running while you watch, at 1, 5 or 10 times real time); everything it shows has been written for the minute you are at.
+**Tools** has the Live AI switch, the match report, **Operations** (`#ops`: latency, errors, how every story was made, live matches against capacity) and **Cloud pipeline**
+(`#pipeline`: the same match run as a Container Apps Job and carried by Event Grid, Functions, the Brain and SignalR, stage by stage). The static mirror on GitHub Pages
+(<http://kaanoguzkan.com/insidethegamehackathon/>) plays the recorded matches with no backend. The live path is described in [docs/live-pipeline.md](docs/live-pipeline.md),
+the Brain's API in [docs/brain-api.md](docs/brain-api.md), running it as a service in [docs/enterprise.md](docs/enterprise.md).
 
 ## How to use the match center (Replays)
 
@@ -196,8 +196,7 @@ Details: [docs/architecture.md](docs/architecture.md), the agents in [docs/agent
 | **Key Vault** | Provisioned by the same Bicep | Provisioned only; nothing uses it |
 | **GitHub Actions** | CI (lint, tests in parallel, quality gates, schema sync, web build, Bicep compile, container smoke test), Pages mirror, OIDC deploy | CI passes on GitHub. Two runs failed, both on a Docker Hub rate limit (HTTP 429) while pulling the base image; since the Dockerfile builds from `ghcr.io`, the last four runs pass. Pages is live |
 
-What is **not** built: Microsoft Fabric, and the replay match center's tabs (evidence drawer, recaps, tactics, the Explore workspace) on the live channel. The replay path (static files, no backend) is what the demo and the judge link
-use; the Brain runs the same agents on demand for Live AI, and the live pipeline plays a match through Azure as it is being played. See [docs/running-on-azure.md](docs/running-on-azure.md) and the
+What is **not** built: Microsoft Fabric. The replay path (static files, no backend) is what the judge link uses; the Brain runs the same agents on demand for Live AI, and the live pipeline plays a match through Azure as it is being played. See [docs/running-on-azure.md](docs/running-on-azure.md) and the
 plan's status section.
 
 ## Measured results
@@ -250,10 +249,9 @@ tests/ evals/    Python tests (3 slow) + 92 web tests      SOLUTION PLAN.md   de
   fallbacks and a hedged second call. The Foundry evaluation scores recorded text and uses a judge from the same model family.
 * **The first request after idle is slow.** The Brain scales to zero (free tier), so a cold start takes about 20 seconds; the page wakes it on load
   and shows "Waking the AI service" meanwhile.
-* **The live channel plays simulated matches.** Matches are simulated ahead of time into packs (by a five-replica job) and played at a chosen speed (default 5 times real time, so
-  the pipeline's real-time delay is five times longer in match time), and viewers watch 25 seconds behind it. The live page shows the pipeline and the 3D pitch with the overlays,
-  not the replay match center's other tabs. One live match runs at a time, and it was run one viewer at a time: there is no load measurement (SignalR's free tier allows 20 concurrent
-  connections).
+* **A live match lives in one replica's memory.** Each viewer's match is played in the Brain's process (so it has the full match center, not a reduced page), which is why the Brain runs
+  as one always-on replica (2 vCPU) and takes at most six live matches at once; a restart ends them. The event-driven path through Functions and SignalR is real and deployed, and
+  runs one match at a time from the Cloud pipeline page; it is not what carries the match center. There is no load test beyond that cap.
 * **Experimental SDK parts.** Registered Foundry agents, the hosted agent and Foundry evaluations use experimental Agent Framework APIs that may change.
   The hosted agent's first call to a new session can time out while its container starts.
 * The demo video is not recorded.

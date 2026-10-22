@@ -7,7 +7,8 @@
 
 | Resource | Region | What uses it |
 |---|---|---|
-| Container App `ca-matchmind-brain` (1 vCPU, 2 GiB, 0 to 2 replicas, scales on 20 concurrent requests) | North Europe | The Brain: REST, MCP, both agent paths |
+| Container App `ca-matchmind-brain` (2 vCPU, 4 GiB, one always-on replica: live matches are held in the replica's memory, capped at six) | North Europe | The Brain: REST, MCP, both agent paths |
+| Availability test `ready-matchmind`, action group, four metric alerts (readiness, 5xx, CPU, restarts) | Sweden Central / global | Monitoring of the Brain; see [enterprise.md](enterprise.md). Mail goes to `BUDGET_CONTACT` when set |
 | Static Web App `swa-matchmind` | East US 2 | The match center, built with the Brain's address (`BRAIN_URI`) |
 | Microsoft Foundry account and project `kaanoguzkan-9930` | Sweden Central | The models (`gpt-6-luna` in use, `gpt-4.1-mini` kept as a fallback deployment, 120 000 tokens a minute for the latter), eight registered prompt agents, the hosted agent `matchmind-newsroom`, evaluations |
 | Cosmos DB (free tier), database `matchmind` | Sweden Central | `beats`: the Brain's shared cache of verified model text (7-day expiry). `matches`, `events`, `moments`, `overlays`, `state`, `leases`: the live pipeline. `season`: the season's fixtures and results. Identity only, no keys |
