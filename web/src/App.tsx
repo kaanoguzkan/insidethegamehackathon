@@ -107,11 +107,11 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
   const clock = useClock(total, broadcast ? 1 : 5)
   const { ms, msRef, playing, setPlaying, speed } = clock
   const follow = useLiveFollow(stream, clock)
-  // First visit: say what this is and what to try. Remembered once dismissed, and never in the way of a link that starts at a given minute.
+  // Each visit: say what this is and put watching it live first. Remembered for the session once dismissed, and never in the way of a link that starts at a given minute.
   const [welcome, setWelcome] = useState(() => {
     if (stream || route.view === 'broadcast' || route.t !== null) return false
     try {
-      return window.localStorage.getItem('mm.welcome') !== '1'
+      return window.sessionStorage.getItem('mm.welcome') !== '1'
     } catch {
       return true
     }
@@ -119,7 +119,7 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
   const closeWelcome = useCallback(() => {
     setWelcome(false)
     try {
-      window.localStorage.setItem('mm.welcome', '1')
+      window.sessionStorage.setItem('mm.welcome', '1')
     } catch {
       /* private window: it will be shown again next time */
     }
@@ -259,6 +259,7 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
         </div>
 
         <div className="tb-right">
+          {!stream && brainConfigured && <GoLive lang={lang} demo={replay.id} cohorts={liveCohorts} onStarted={(id) => setRoute({ stream: id })} />}
           <Popover label={<><span className="pop-key">{t(lang, 'viewer')}</span><span className="pop-val">{viewerSummary}</span></>} title={t(lang, 'viewer')} className="viewer-pop">
             <ProfilePanel profile={profile} onChange={setProfile} replay={replay} heading={route.split ? `${t(lang, 'viewer')} A` : undefined} />
             {route.split && <ProfilePanel profile={profileB} onChange={setProfileB} replay={replay} heading={`${t(lang, 'viewer')} B`} />}
@@ -268,7 +269,6 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
           </Popover>
           {!stream && (
             <>
-              {brainConfigured && <GoLive lang={lang} demo={replay.id} cohorts={liveCohorts} onStarted={(id) => setRoute({ stream: id })} />}
               <Popover
                 label={<><span className={`health-dot h-${health}`} aria-hidden="true" /><span className="pop-key">{t(lang, 'tools.menu')}</span></>}
                 title={t(lang, 'tools.title')}

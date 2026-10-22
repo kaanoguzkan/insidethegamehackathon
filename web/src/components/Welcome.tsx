@@ -16,13 +16,13 @@ export function Welcome({ lang, onPlay, onLive, onSkip }: Props) {
         <h2>{t(lang, 'welcome.title')}</h2>
         <p>{t(lang, 'welcome.body')}</p>
         <ul>
+          {onLive && <li>{t(lang, 'welcome.li3')}</li>}
           <li>{t(lang, 'welcome.li1')}</li>
           <li>{t(lang, 'welcome.li2')}</li>
-          {onLive && <li>{t(lang, 'welcome.li3')}</li>}
         </ul>
         <div className="welcome-actions">
-          <button type="button" className="btn primary" onClick={onPlay} autoFocus>{t(lang, 'welcome.play')}</button>
-          {onLive && <button type="button" className="btn" onClick={onLive}>{t(lang, 'welcome.live')}</button>}
+          {onLive && <button type="button" className="btn primary live-cta" onClick={onLive} autoFocus><span className="live-dot" aria-hidden="true" />{t(lang, 'welcome.live')}</button>}
+          <button type="button" className={`btn${onLive ? '' : ' primary'}`} onClick={onPlay} autoFocus={!onLive}>{t(lang, 'welcome.play')}</button>
           <button type="button" className="btn" onClick={onSkip}>{t(lang, 'welcome.skip')}</button>
         </div>
       </div>

@@ -657,3 +657,10 @@ body:has(.broadcast) { background: transparent; }
 .ops-stat small, .ops-label { opacity: 0.7; font-size: 0.78rem; }
 .ops table { width: 100%; border-collapse: collapse; margin-top: 8px; }
 .ops th, .ops td { text-align: left; padding: 6px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+
+/* Watching live is the first thing to do: a filled call to action, one click */
+.golive { display: inline-flex; align-items: center; gap: 6px; }
+.btn.live-cta { display: inline-flex; align-items: center; gap: 8px; background: #d93636; border-color: #d93636; color: #fff; font-weight: 700; }
+.btn.live-cta:hover:not(:disabled) { background: #ef4444; }
+.btn.live-cta .live-dot { background: #fff; margin-right: 0; }
+.golive-error { color: #ffb4b4; }
