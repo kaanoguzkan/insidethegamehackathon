@@ -34,7 +34,9 @@ export function AskPanel({ replay, profile, ms, streamId }: Props) {
     awake.current = false
     if (brainConfigured && !streamId) prewarm(BRAIN_URL, replay.id) // opening the tab starts the Brain (if asleep) and loads this match's data while the viewer types
   }, [replay.id, streamId])
-  useEffect(() => end.current?.scrollIntoView?.({ block: 'nearest' }), [turns, busy])
+  useEffect(() => {
+    end.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [turns, busy])
 
   if (!brainConfigured) return <p className="hint">{t(lang, 'askNeedsBrain')}</p>
 
