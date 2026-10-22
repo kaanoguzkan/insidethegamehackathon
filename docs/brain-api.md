@@ -20,7 +20,7 @@ after idle takes about 20 seconds, so call `/health` first). Interactive docs ar
 | `GET /api/channel`, `POST /api/channel/tune` | **The channel** (not used by the web app): what is on air, and join it or start the next fixture |
 | `GET /api/season`, `POST /api/season/simulate` | **The season** (not used by the web app): fixtures, results, tables and simulation progress; plan and simulate a new season (public, limited) |
 | `POST /api/live/start` | Start the simulator job on a demo match (public, limited) |
-| `GET /api/stream/demos`, `POST /api/stream`, `GET /api/stream/{id}` (`/meta`, `/feed`, `/chunks/{n}`), `POST /api/stream/{id}/cohorts`, `DELETE /api/stream/{id}` | A match of your own, played and interpreted in the Brain's process (public, limited); see [live-pipeline.md](live-pipeline.md#streams-the-same-stages-in-one-process) |
+| `GET /api/stream/demos`, `POST /api/stream`, `GET /api/stream/{id}` (`/meta`, `/feed`, `/chunks/{n}`), `POST /api/stream/{id}/cohorts`, `POST /api/stream/{id}/speed` (1, 5 or 10: the match carries on from the same minute at the new speed), `DELETE /api/stream/{id}` | A match of your own, played and interpreted in the Brain's process (public, limited); see [live-pipeline.md](live-pipeline.md#streams-the-same-stages-in-one-process) |
 | `POST /api/live/{id}/beats` | Internal: write the narrative overlays for new moments (the dispatcher Function calls it; needs `x-live-key`) |
 | `/mcp/` | The Match Data MCP server, streamable HTTP, stateless, 25 tools |
 | `GET/POST /api/director/faults` | The model-fault switch of the resilience demo. Only exists when `MATCHMIND_DIRECTOR=1`; key-protected by `X-Director-Key` |
