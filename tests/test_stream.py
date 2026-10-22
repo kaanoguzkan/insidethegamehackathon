@@ -190,3 +190,17 @@ def test_changing_the_speed_carries_the_match_on_from_the_same_minute(hub):
     with pytest.raises(ValueError):
         hub.set_speed(s.id, 7.0)
     hub.stop(s.id)
+
+
+def test_a_question_is_answered_from_the_match_as_the_viewer_has_seen_it(hub):
+    s = hub.start("red-card-drama", speed=2000.0)
+    wait(hub, s.id)
+    docs = [d for d in hub.store.docs(s.id) if d["kind"] != "final"]
+    last_ms = max(d["arrivalMs"] for d in docs)
+    early = hub.view_at(s.id, 10 * 60_000)
+    late = hub.view_at(s.id, last_ms)
+    assert early is not None and late is not None
+    assert max(e["_ms"] for e in early.events) <= 10 * 60_000  # nothing from after the viewer's minute
+    assert len(late.events) > len(early.events)
+    assert sum(early.score.values()) <= sum(late.score.values())
+    assert hub.view_at("s-unknown-00000000", 1000) is None

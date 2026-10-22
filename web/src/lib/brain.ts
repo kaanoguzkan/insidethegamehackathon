@@ -110,6 +110,24 @@ export interface AskAnswer {
   usage: { inputTokens: number; outputTokens: number; costUsd: number }
 }
 
+/** Ask a match that is being played: answered from what had happened by ``atMs`` (the viewer's position), never from what is still to come. */
+export async function askLive(
+  req: { streamId: string; question: string; language: string; mode: string; atMs: number },
+  base = BRAIN_URL,
+  signal?: AbortSignal,
+): Promise<AskAnswer> {
+  if (!SAFE_ID.test(req.streamId)) throw new Error('invalid id')
+  const limit = AbortSignal.timeout(60_000)
+  const res = await fetch(`${base}/api/ask/live`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ...req, atMs: Math.max(0, Math.round(req.atMs)) }),
+    signal: signal ? AbortSignal.any([signal, limit]) : limit,
+  })
+  if (!res.ok) throw new Error(res.status === 429 ? 'rate' : `brain: ${res.status}`)
+  return (await res.json()) as AskAnswer
+}
+
 /** Ask the match a question. The Brain plans, runs match-data tools and answers only from what they return. */
 export async function askBrain(
   req: { matchId: string; question: string; language: string; mode: string; minute: number | null },

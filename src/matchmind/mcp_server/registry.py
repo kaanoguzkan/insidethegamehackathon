@@ -75,6 +75,11 @@ class MatchRegistry:
         with self._lock:
             self._live[match_id] = ip
 
+    def forget(self, match_id: str) -> None:
+        """Drop a registered (live) interpreter, for a match that is over."""
+        with self._lock:
+            self._live.pop(match_id, None)
+
     def get(self, match_id: str) -> Interpreter:
         if not isinstance(match_id, str) or not SAFE_ID.match(match_id) or match_id not in self.ids():
             raise UnknownMatch(f"unknown match {match_id!r}; known: {', '.join(self.ids()) or 'none'}")

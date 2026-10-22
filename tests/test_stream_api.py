@@ -134,3 +134,14 @@ def test_the_speed_of_a_running_match_can_be_changed(client):
     assert client.post(f"/api/stream/{sid}/speed", json={"speed": 7}).status_code == 422
     assert client.post("/api/stream/nope/speed", json={"speed": 10}).status_code == 404
     client.delete(f"/api/stream/{sid}")
+
+
+def test_ask_a_live_match_uses_only_what_the_viewer_has_seen(client):
+    sid = client.post("/api/stream", json={"demo": "red-card-drama", "speed": 500}).json()["streamId"]
+    time.sleep(1.0)
+    r = client.post("/api/ask/live", json={"streamId": sid, "question": "Who had the shots?", "atMs": 600_000})
+    assert r.status_code == 200, r.text
+    assert r.json()["answer"]
+    assert client.post("/api/ask/live", json={"streamId": "s-nope-00000000", "question": "Who had the shots?", "atMs": 1000}).status_code == 404
+    assert client.post("/api/ask/live", json={"streamId": sid, "question": "?", "atMs": 1000}).status_code == 422
+    client.delete(f"/api/stream/{sid}")

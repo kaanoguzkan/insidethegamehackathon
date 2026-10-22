@@ -88,6 +88,14 @@ class AskRequest(BaseModel):
     minute: float | None = Field(None, ge=0, le=130, description="where the viewer is in the match; the planner is told, answers may still use the whole match")
 
 
+class LiveAskRequest(BaseModel):
+    streamId: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")
+    question: str = Field(min_length=2, max_length=MAX_QUESTION_CHARS + 120)
+    language: Literal["en", "es", "tr"] = "en"
+    mode: Literal["analyst", "casual"] = "casual"
+    atMs: int = Field(ge=0, le=8_000_000, description="where the viewer is in the match, in match milliseconds: nothing after it is used")
+
+
 class FaultRequest(BaseModel):
     mode: Literal["none", "error", "slow", "hallucinate"] = "none"
     delay_s: float = Field(5.0, ge=0, le=30)
@@ -223,6 +231,7 @@ def create_app(
             ("/api/season/simulate", "POST", 2, 60.0),
             ("/api/channel/tune", "POST", 20, 60.0),
             ("/api/live", "GET", int(os.environ.get("MATCHMIND_LIVE_POLL_PER_MIN", "240")), 60.0),  # a viewer polls the feed about once a second
+            ("/api/stream/", "POST", int(os.environ.get("MATCHMIND_STREAM_CHANGE_PER_MIN", "60")), 60.0),  # speed and profile changes of a running match
             ("/api/stream", "POST", int(os.environ.get("MATCHMIND_STREAM_START_PER_MIN", "6")), 60.0),
             ("/api/stream", "GET", int(os.environ.get("MATCHMIND_STREAM_POLL_PER_MIN", "900")), 60.0),  # the feed once a second, and the tracking chunks of up to 10x speed
             ("/api/ask", "POST", int(os.environ.get("MATCHMIND_ASK_PER_MIN", "10")), 60.0),
@@ -374,6 +383,7 @@ def create_app(
     stream_hub = stream_hub_override or StreamHub(dispatch=stream_dispatch, recap=stream_recap, max_sessions=int(os.environ.get("STREAM_MAX_SESSIONS", "12")))
     app.include_router(make_stream_router(stream_hub, lambda loop: stream_loop.append(loop) if not stream_loop else None))
     app.state.stream_hub = stream_hub
+    stream_hub.on_release.append(reg.forget)
     season_ok = bool(os.environ.get("SEASON_JOB_ID")) or in_process_ok or season_store is not None
     app.include_router(make_season_router(get_channel, get_seasons, get_live_store, run_season_job if season_ok else None, ensure_default_season if season_ok else None))
 
@@ -504,6 +514,26 @@ def create_app(
                 while len(ask_cache) > ask_max:
                     ask_cache.popitem(last=False)
             return {**out, "cached": False}
+        finally:
+            ask_inflight[0] -= 1
+
+    @app.post("/api/ask/live")
+    async def ask_live(req: LiveAskRequest) -> dict:
+        """Ask a match that is being played. The answer is written from the match as the viewer has seen it so far (what had happened by ``atMs``), never from
+        what is still to come; otherwise it is the same agents, tools and Verifier as /api/ask."""
+        if ask_inflight[0] >= max_ask:
+            raise HTTPException(503, "busy, retry shortly", headers={"Retry-After": "3"})
+        ask_inflight[0] += 1
+        try:
+            hub = app.state.stream_hub
+            ip = await asyncio.to_thread(hub.view_at, req.streamId, req.atMs)
+            if ip is None:
+                raise HTTPException(404, f"unknown stream {req.streamId}")
+            reg.register(req.streamId, ip)  # the tools find the match by id: this id now means the match as seen so far
+            names = Registry.from_meta(ip.meta)
+            team = await asyncio.to_thread(get_team)
+            res = await ask_the_match(team, mcp, names, match_id=req.streamId, question=req.question, language=req.language, mode=req.mode, minute=round(req.atMs / 60_000, 1))
+            return {**res.public(), "cached": False}
         finally:
             ask_inflight[0] -= 1
 

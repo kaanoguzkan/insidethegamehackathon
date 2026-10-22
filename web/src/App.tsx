@@ -208,7 +208,7 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
       else if (e.key === ']') setSpeed(stream ? nextStreamSpeed(speed, 1) : Math.min(60, speed * 2))
       else if (e.key === '[') setSpeed(stream ? nextStreamSpeed(speed, -1) : Math.max(1, Math.round(speed / 2)))
       else if (e.key === 'Escape') setSelected(null)
-      else if (e.key >= '1' && e.key <= '5' && !e.metaKey && !e.ctrlKey && !e.altKey) selectTab(PANEL_TABS.filter((id) => !(stream && id === 'ask'))[Number(e.key) - 1])
+      else if (e.key >= '1' && e.key <= '5' && !e.metaKey && !e.ctrlKey && !e.altKey) selectTab(PANEL_TABS[Number(e.key) - 1])
     }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
@@ -333,7 +333,7 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
             ))}
           </div>
         </section>
-        <Rail tab={panelTab} onTab={selectTab} replay={replay} profile={profile} ms={ms} selected={selected} onPick={pick} live={!!stream} numbersTab={exploreTab} onNumbersTab={(tab) => setRoute({ tab })} layers={layers} onLens={onLens} />
+        <Rail tab={panelTab} onTab={selectTab} replay={replay} profile={profile} ms={ms} selected={selected} onPick={pick} live={!!stream} streamId={stream?.id} numbersTab={exploreTab} onNumbersTab={(tab) => setRoute({ tab })} layers={layers} onLens={onLens} />
       </main>
 
       <MatchStrip replay={replay} ms={ms} playing={playing} speed={stream ? nearestStreamSpeed(stream.speed) : speed} lang={lang} layers={layers} selected={selected} cam={cam} follow={route.follow} onCam={(c) => setRoute({ cam: c })} onFollow={(on) => setRoute({ follow: on })} toggle={toggle} setSpeed={setSpeed} speeds={stream ? STREAM_SPEEDS : undefined} seek={seek} onPick={pick} onLayer={onLayer} onClearLayers={() => setLayers(NO_LAYERS)} />

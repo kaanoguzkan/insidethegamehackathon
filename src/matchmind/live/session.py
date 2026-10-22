@@ -34,9 +34,9 @@ from ..sim.engine import simulate
 from ..sim.league import load_league
 from .analysis import AnalyzerWorker
 from .blobs import MemoryBlobs
-from .feed import build_chunks, build_feed, chunk_name, play, start_match
+from .feed import build_chunks, build_feed, chunk_name, live_clock_ms, play, start_match
 from .pipeline import Intel, InterpretWorker
-from .store import MemoryLiveStore, now_ms
+from .store import FINAL, MemoryLiveStore, now_ms
 
 SPEEDS = (1.0, 2.0, 5.0, 10.0)
 MAX_SESSIONS = 12  # matches being played at once: each holds a store, and a few seconds of CPU per match
@@ -94,6 +94,8 @@ class Session:
     analyzer: AnalyzerWorker | None = None
     interpreter: InterpretWorker | None = None
     thread: threading.Thread | None = None
+    view: tuple[int, object] | None = None  # (bucket, interpreter): the match as the viewer has seen it, for questions
+    view_lock: threading.Lock = field(default_factory=threading.Lock)
 
 
 class StreamHub:
@@ -114,6 +116,7 @@ class StreamHub:
         self._source_locks: dict[str, threading.Lock] = {}
         self._lock = threading.RLock()
         self.started = 0  # matches started since this replica began
+        self.on_release: list[Callable[[str], None]] = []  # told when a session's data is dropped (whoever lent its interpreter out forgets it)
 
     # ----- sources ---------------------------------------------------------------------------------
 
@@ -234,7 +237,39 @@ class StreamHub:
         for s in drop:
             self._release(s)
 
+    def view_at(self, sid: str, at_ms: int):  # noqa: ANN201
+        """The match as it stands at ``at_ms`` of match time (never later than the match clock): an interpreter fed only the documents that had arrived by then.
+
+        This is what a question is answered from, so it cannot give away anything the viewer has not seen. It is built from the session's documents (a few
+        seconds of CPU for a long match) and kept for the next question asked within ten seconds of match time. None if there is no such session.
+        """
+        s = self.get(sid)
+        info = self.store.get_match(sid)
+        if s is None or not info or not info.get("meta"):
+            return None
+        at = max(0, min(int(at_ms), live_clock_ms(info)))
+        bucket = at // 10_000
+        with s.view_lock:
+            if s.view is not None and s.view[0] == bucket:
+                return s.view[1]
+            intel = self.intel or self._intel()
+            from ..analytics.season import context_for
+            from ..intel.interpreter import Interpreter
+
+            meta = info["meta"]
+            ip = Interpreter(meta, baselines=intel.baselines, xt=intel.xt, models=intel.models, season=context_for(intel.season, meta["home"]["id"], meta["away"]["id"]))
+            for d in self.store.docs(sid):
+                if d["kind"] != FINAL and d["arrivalMs"] <= at:
+                    ip.ingest(d["doc"], arrival_ms=d["arrivalMs"])
+            s.view = (bucket, ip)
+            return ip
+
     def _release(self, s: Session) -> None:
+        for fn in self.on_release:
+            try:
+                fn(s.id)
+            except Exception:  # noqa: BLE001, S110 - forgetting is best effort
+                pass
         self.store.purge(s.id)
         self.frames.purge(f"{s.id}/")
         if s.analyzer is not None:

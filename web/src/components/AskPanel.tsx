@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { t } from '../i18n'
 import { LoadBar } from './LoadBar'
-import { type AskAnswer, askBrain, BRAIN_URL, brainConfigured, prewarm, waitWarm, wakeBrain } from '../lib/brain'
+import { type AskAnswer, askBrain, askLive, BRAIN_URL, brainConfigured, prewarm, waitWarm, wakeBrain } from '../lib/brain'
 import type { Replay } from '../lib/data'
 import type { Profile } from '../lib/types'
 
@@ -9,6 +9,8 @@ interface Props {
   replay: Replay
   profile: Profile
   ms: number
+  /** A match being played: the question is asked of it, as far as the viewer has seen. */
+  streamId?: string
 }
 
 type Turn = { id: number; question: string; answer?: AskAnswer; error?: 'failed' | 'rate' }
@@ -18,7 +20,7 @@ type Turn = { id: number; question: string; answer?: AskAnswer; error?: 'failed'
  * "Ask the match": a question box. The Brain answers from the match-data tools only and checks every number, so each
  * answer says which tools it looked at, whether it was checked and how long it took.
  */
-export function AskPanel({ replay, profile, ms }: Props) {
+export function AskPanel({ replay, profile, ms, streamId }: Props) {
   const lang = profile.language
   const [turns, setTurns] = useState<Turn[]>([])
   const [text, setText] = useState('')
@@ -30,8 +32,8 @@ export function AskPanel({ replay, profile, ms }: Props) {
   useEffect(() => {
     setTurns([])
     awake.current = false
-    if (brainConfigured) prewarm(BRAIN_URL, replay.id) // opening the tab starts the Brain (if asleep) and loads this match's data while the viewer types
-  }, [replay.id])
+    if (brainConfigured && !streamId) prewarm(BRAIN_URL, replay.id) // opening the tab starts the Brain (if asleep) and loads this match's data while the viewer types
+  }, [replay.id, streamId])
   useEffect(() => end.current?.scrollIntoView?.({ block: 'nearest' }), [turns, busy])
 
   if (!brainConfigured) return <p className="hint">{t(lang, 'askNeedsBrain')}</p>
@@ -43,14 +45,16 @@ export function AskPanel({ replay, profile, ms }: Props) {
     setText('')
     setTurns((v) => [...v, { id, question: q }])
     try {
-      if (!awake.current) {
+      if (!awake.current && !streamId) {
         setBusy('waking')
         awake.current = await wakeBrain(BRAIN_URL)
         setBusy('loading')
         await waitWarm(replay.id, BRAIN_URL)
       }
       setBusy('asking')
-      const answer = await askBrain({ matchId: replay.id, question: q, language: lang, mode: profile.mode, minute: Math.round(ms / 60000) })
+      const answer = streamId
+        ? await askLive({ streamId, question: q, language: lang, mode: profile.mode, atMs: ms })
+        : await askBrain({ matchId: replay.id, question: q, language: lang, mode: profile.mode, minute: Math.round(ms / 60000) })
       setTurns((v) => v.map((x) => (x.id === id ? { ...x, answer } : x)))
     } catch (e) {
       setTurns((v) => v.map((x) => (x.id === id ? { ...x, error: (e as Error).message === 'rate' ? 'rate' : 'failed' } : x)))

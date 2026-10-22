@@ -11,7 +11,7 @@ import { TacticsPanel } from './TacticsPanel'
 /** The right-hand panel: one tab bar that is always there, so any view of the match is one click away and the pitch never leaves the screen. */
 export type PanelTab = 'moments' | 'story' | 'tactics' | 'numbers' | 'ask'
 export const PANEL_TABS: PanelTab[] = ['moments', 'story', 'tactics', 'numbers', 'ask']
-const LIVE_TABS: PanelTab[] = ['moments', 'story', 'tactics', 'numbers'] // Ask answers from a finished match: not offered while one is being played
+// In a live match Ask is answered from the match as the viewer has seen it so far, so every tab is there.
 
 interface Props {
   tab: PanelTab
@@ -22,6 +22,8 @@ interface Props {
   selected: string | null
   onPick: (id: string) => void
   live?: boolean
+  /** The live match being played, when there is one: Ask is then asked of it. */
+  streamId?: string
   // the Numbers workspace
   numbersTab: ViewId
   onNumbersTab: (id: ViewId) => void
@@ -29,9 +31,9 @@ interface Props {
   onLens: (keys: (keyof Layers)[], on: boolean) => void
 }
 
-export function Rail({ tab, onTab, replay, profile, ms, selected, onPick, live = false, numbersTab, onNumbersTab, layers, onLens }: Props) {
+export function Rail({ tab, onTab, replay, profile, ms, selected, onPick, live = false, streamId, numbersTab, onNumbersTab, layers, onLens }: Props) {
   const lang: Lang = profile.language
-  const tabs = live ? LIVE_TABS : PANEL_TABS
+  const tabs = PANEL_TABS
   return (
     <aside className="rail" aria-label={t(lang, `rail.${tab}`)}>
       <div className="rail-tabs" role="tablist" aria-label={t(lang, 'path')}>
@@ -50,7 +52,7 @@ export function Rail({ tab, onTab, replay, profile, ms, selected, onPick, live =
         )}
         {tab === 'story' && (live && replay.recaps.length === 0 ? <p className="muted pad">{t(lang, 'stream.storyWait')}</p> : <RecapPanel replay={replay} profile={profile} ms={ms} onPick={onPick} />)}
         {tab === 'tactics' && <TacticsPanel replay={replay} ms={ms} lang={lang} />}
-        {tab === 'ask' && <AskPanel replay={replay} profile={profile} ms={ms} />}
+        {tab === 'ask' && <AskPanel replay={replay} profile={profile} ms={ms} streamId={live ? streamId : undefined} />}
         {tab === 'numbers' &&
           (replay.analytics ? (
             <Insights replay={replay} ms={ms} lang={lang} tab={numbersTab} onTab={onNumbersTab} layers={layers} onLens={onLens} />
