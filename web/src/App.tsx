@@ -336,7 +336,7 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
         <Rail tab={panelTab} onTab={selectTab} replay={replay} profile={profile} ms={ms} selected={selected} onPick={pick} live={!!stream} numbersTab={exploreTab} onNumbersTab={(tab) => setRoute({ tab })} layers={layers} onLens={onLens} />
       </main>
 
-      <MatchStrip replay={replay} ms={ms} playing={playing} speed={speed} lang={lang} layers={layers} selected={selected} cam={cam} follow={route.follow} onCam={(c) => setRoute({ cam: c })} onFollow={(on) => setRoute({ follow: on })} toggle={toggle} setSpeed={setSpeed} speeds={stream ? STREAM_SPEEDS : undefined} seek={seek} onPick={pick} onLayer={onLayer} onClearLayers={() => setLayers(NO_LAYERS)} />
+      <MatchStrip replay={replay} ms={ms} playing={playing} speed={stream ? nearestStreamSpeed(stream.speed) : speed} lang={lang} layers={layers} selected={selected} cam={cam} follow={route.follow} onCam={(c) => setRoute({ cam: c })} onFollow={(on) => setRoute({ follow: on })} toggle={toggle} setSpeed={setSpeed} speeds={stream ? STREAM_SPEEDS : undefined} seek={seek} onPick={pick} onLayer={onLayer} onClearLayers={() => setLayers(NO_LAYERS)} />
       <EvidenceDrawer moment={moment} replay={replay} lang={lang} onClose={() => setSelected(null)} onSeek={seek} showOnPitch={showOnPitch} setShowOnPitch={setShowOnPitch} health={health} live={stream ? undefined : live} />
       <footer className="foot">
         <span>{t(lang, 'synthetic')}</span>
