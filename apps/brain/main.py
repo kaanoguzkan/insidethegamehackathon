@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import hmac
+import json
 import logging
 import os
 import time
@@ -32,7 +33,7 @@ from typing import Any, Literal
 from agent_framework import Content, Message
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 from matchmind import __version__
@@ -57,6 +58,7 @@ from matchmind.analytics.report import MatchAnalytics
 from matchmind.analytics.season import load_season
 from matchmind.core.paths import replays_dir
 from matchmind.demos import load_demos
+from matchmind.ops import ops
 from matchmind.guards import ADMIN_HEADER, PUBLIC_MAX_DEADLINE_MS, RateLimitMiddleware, is_admin
 from matchmind.live.api import ContainerAppsJobStarter
 from matchmind.live.api import make_router as make_live_router
@@ -230,7 +232,9 @@ def create_app(
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):  # noqa: ANN202
+        t0 = time.monotonic()
         resp = await call_next(request)
+        ops.record_request(request.url.path, resp.status_code, (time.monotonic() - t0) * 1000)
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("Referrer-Policy", "no-referrer")
         resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
@@ -247,6 +251,30 @@ def create_app(
             reg.want(match)
         start_preload(0.0)  # a replica that was just woken by this very call starts loading now, not after the boot delay
         return {"loaded": reg.loaded(), "status": "ok", "llm": kind, "agents": agents_mode[0], "sharedCache": beat_cache.status() if isinstance(beat_cache, SharedBeatCache) else {"enabled": False}, "version": __version__, "matches": len(reg.ids())}
+
+    @app.get("/api/ops")
+    async def operations() -> dict:
+        """What the service did in the last fifteen minutes and how it stands now: request latency and errors, how stories were made (model, repaired, template),
+        how much the verifier let through, the cache, and how busy the live matches are. Public and read-only: nothing in it identifies a viewer."""
+        hub = app.state.stream_hub
+        return {
+            **ops.snapshot(),
+            "streams": hub.status(),
+            "model": {"client": kind, "agents": agents_mode[0], "name": os.environ.get("MATCHMIND_LLM_MODEL", "")},
+            "cache": beat_cache.status() if isinstance(beat_cache, SharedBeatCache) else {"enabled": False},
+            "version": __version__, "region": os.environ.get("AZURE_LOCATION", ""),
+        }
+
+    @app.get("/ready")
+    async def ready() -> Response:
+        """Whether this replica can do its job now: the matches are known, a model client is configured, the shared cache (when there is one) is reachable.
+        Answers 503 with the reason when not, so a load balancer or an availability test can act on it."""
+        checks = {"matches": len(reg.ids()) > 0, "model": kind != "offline" or os.environ.get("MATCHMIND_ALLOW_OFFLINE") == "1"}
+        if isinstance(beat_cache, SharedBeatCache):
+            st = beat_cache.status()
+            checks["sharedCache"] = bool(st.get("connected")) or not st.get("enabled")
+        ok = all(checks.values())
+        return Response(json.dumps({"ready": ok, "checks": checks}), status_code=200 if ok else 503, media_type="application/json")
 
     # The live pipeline: a simulator job writes a match's feed to Cosmos DB, Functions interpret it and ask this Brain for the narrative overlays,
     # viewers poll the feed below. See docs/live-pipeline.md.

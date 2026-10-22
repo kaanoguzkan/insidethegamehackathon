@@ -113,6 +113,7 @@ class StreamHub:
         self._sources: dict[str, Source] = {}
         self._source_locks: dict[str, threading.Lock] = {}
         self._lock = threading.RLock()
+        self.started = 0  # matches started since this replica began
 
     # ----- sources ---------------------------------------------------------------------------------
 
@@ -154,6 +155,7 @@ class StreamHub:
             sid = f"s-{src.demo.id}-{secrets.token_hex(4)}"[:64]
             s = Session(id=sid, demo_id=src.demo.id, speed=speed, from_ms=int(from_minute * 60_000), cohorts=cohorts)
             self.sessions[sid] = s
+            self.started += 1
         for x in evict:
             self._release(x)
         chunks = [(end, chunk_name(sid, i), data) for i, (end, _, data) in enumerate(src.chunks)]
@@ -192,6 +194,12 @@ class StreamHub:
                 for kind, pack in s.recap_packs.items():
                     self.recap(self.store, sid, kind, pack, _recap_cohorts([cohort]))
         return True
+
+    def status(self) -> dict:
+        """How busy the hub is: matches being played now, against how many it takes at once, and how many finished ones it still holds."""
+        with self._lock:
+            running = sum(1 for s in self.sessions.values() if s.finished_at is None)
+            return {"active": running, "capacity": self.max_sessions, "retained": len(self.sessions) - running, "started": self.started, "demosLoaded": sorted(self._sources)}
 
     def stop(self, sid: str) -> bool:
         with self._lock:

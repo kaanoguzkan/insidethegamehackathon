@@ -645,3 +645,15 @@ body:has(.broadcast) { background: transparent; }
 .rail-body.flush { padding: 0; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 .rail-body.flush .explore { border: 0; border-radius: 0; flex: 1; min-height: 0; }
 .rail-body .pad { padding: 14px; }
+
+/* Operations page */
+.ops { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; color: var(--ink, #e8ecf4); }
+.ops header { display: grid; gap: 6px; margin-bottom: 20px; }
+.ops h1 { margin: 8px 0 0; }
+.ops h2 { margin: 28px 0 8px; font-size: 1.05rem; }
+.ops-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin: 10px 0; }
+.ops-stat { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 8px; }
+.ops-stat strong { font-size: 1.25rem; }
+.ops-stat small, .ops-label { opacity: 0.7; font-size: 0.78rem; }
+.ops table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.ops th, .ops td { text-align: left; padding: 6px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }

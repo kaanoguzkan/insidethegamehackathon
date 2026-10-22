@@ -16,6 +16,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from ..core.contracts import Cohort
+from ..ops import ops
 from .cache import BeatCache
 from .fast import run_fast
 from .pricing import cost_usd
@@ -110,7 +111,7 @@ async def serve_beats(
         results = await run_batch(build_workflow(WorkflowDeps(team=team, registry=registry, store=store)), batch)
     if req.mode == "fast":
         stats["costUsd"] = cost_usd(stats.get("inputTokens", 0), stats.get("outputTokens", 0))  # model calls that were hedged or cut off count too
-    return {
+    answer = {
         "mode": req.mode,
         "stats": {**stats, "cacheSize": len(cache) if cache is not None else 0} if req.mode == "fast" else None,
         "elapsedMs": round((time.monotonic() - t0) * 1000),
@@ -123,3 +124,5 @@ async def serve_beats(
             for r in sorted(results, key=lambda r: r.momentId)
         ],
     }
+    ops.record_beats(answer)  # what the agents did, for the Operations summary
+    return answer
