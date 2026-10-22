@@ -27,6 +27,10 @@ from .feed import chunk_name
 from .session import SPEEDS, StreamBusy, StreamHub, new_session_summary
 
 
+class SpeedRequest(BaseModel):
+    speed: float
+
+
 class StreamRequest(BaseModel):
     demo: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")
     speed: float = 5.0
@@ -103,6 +107,18 @@ def make_stream_router(hub: StreamHub, on_loop: Callable[[asyncio.AbstractEventL
         info = _info(sid)
         page = await asyncio.to_thread(lambda: feed_page(hub.store, sid, event, since, full=full, moment_since=msince, snapshot_after=snap, analytics_version=av, recap_after=rv))
         return {**summary(info), **page}
+
+    @router.post("/api/stream/{sid}/speed")
+    async def set_speed(sid: str, req: SpeedRequest) -> dict:
+        """Play the match faster or slower from where it stands now (one of the hub's speeds). The picture continues from the same minute."""
+        _info(sid)
+        try:
+            s = hub.set_speed(sid, req.speed)
+        except ValueError as e:
+            raise HTTPException(422, str(e)) from e
+        if s is None:
+            raise HTTPException(404, f"unknown stream {sid}")
+        return {"speed": s.speed}
 
     @router.post("/api/stream/{sid}/cohorts")
     async def add_cohort(sid: str, cohort: Cohort) -> dict:

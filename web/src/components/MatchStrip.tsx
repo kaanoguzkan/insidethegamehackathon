@@ -43,6 +43,8 @@ interface Props {
   onFollow: (on: boolean) => void
   toggle: () => void
   setSpeed: (s: number) => void
+  /** The speeds on offer; a live match offers the ones the server plays at. */
+  speeds?: readonly number[]
   seek: (ms: number) => void
   onPick: (momentId: string) => void
   onLayer: (k: (typeof LAYER_KEYS)[number]) => void
@@ -53,7 +55,7 @@ interface Props {
  * Everything about time in one place: play, speed, the pitch lenses, and a story ribbon you can drag.
  * The ribbon stacks win probability, momentum, chaos and pressure so the shape of the match is visible at a glance.
  */
-export function MatchStrip({ replay, ms, playing, speed, lang, layers, selected, cam, follow, onCam, onFollow, toggle, setSpeed, seek, onPick, onLayer, onClearLayers }: Props) {
+export function MatchStrip({ replay, ms, playing, speed, lang, layers, selected, cam, follow, onCam, onFollow, toggle, setSpeed, speeds = SPEEDS, seek, onPick, onLayer, onClearLayers }: Props) {
   const total = totalMs(replay.meta)
   const { home, away } = replay.meta
   const snaps = replay.snapshots
@@ -122,7 +124,7 @@ export function MatchStrip({ replay, ms, playing, speed, lang, layers, selected,
         <label className="speed">
           <span className="sr-only">{t(lang, 'speed')}</span>
           <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))} aria-label={t(lang, 'speed')}>
-            {SPEEDS.map((s) => (
+            {speeds.map((s) => (
               <option key={s} value={s}>{s}×</option>
             ))}
           </select>

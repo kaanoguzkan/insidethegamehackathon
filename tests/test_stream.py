@@ -168,3 +168,25 @@ def test_analytics_and_recaps_follow_the_match_and_are_written_once_per_kind(int
     h.sessions[s.id].finished_at = None  # a viewer who switches profile later gets the recaps already due written for the new one
     assert h.add_cohort(s.id, S.Cohort(language="tr"))
     assert [k for k, _ in asked[3:]] == ["preview", "half_time", "full_time"] and asked[3][1] == ["casual/tr/neutral/-"]
+
+
+def test_changing_the_speed_carries_the_match_on_from_the_same_minute(hub):
+    from matchmind.live.feed import live_clock_ms
+
+    s = hub.start("red-card-drama", speed=5.0)
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline and not (hub.store.get_match(s.id) or {}).get("wallStartMs"):
+        time.sleep(0.05)
+    time.sleep(0.5)
+    before = live_clock_ms(hub.store.get_match(s.id))
+    hub.set_speed(s.id, 10.0)
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline and (hub.store.get_match(s.id) or {}).get("speed") != 10.0:
+        time.sleep(0.02)
+    info = hub.store.get_match(s.id)
+    after = live_clock_ms(info)
+    assert info["speed"] == 10.0 and info.get("anchorMs") is not None
+    assert before <= after < before + 5_000  # no jump: the clock went on from where it was, at most a few seconds of wall time later
+    with pytest.raises(ValueError):
+        hub.set_speed(s.id, 7.0)
+    hub.stop(s.id)

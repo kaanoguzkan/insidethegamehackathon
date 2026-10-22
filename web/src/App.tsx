@@ -17,7 +17,7 @@ import { useStream, type StreamHandle } from './hooks/useStream'
 import { t } from './i18n'
 import { brainConfigured, cohortKey } from './lib/brain'
 import { cohortForMatch } from './lib/cohort'
-import { addStreamCohort, LIVE_DELAY_S, startStream, stopStream } from './lib/stream'
+import { addStreamCohort, LIVE_DELAY_S, nearestStreamSpeed, nextStreamSpeed, setStreamSpeed, startStream, STREAM_SPEEDS, stopStream } from './lib/stream'
 import { totalMs } from './lib/clock'
 import { LAYER_KEYS, NO_LAYERS, type Layers } from './lib/layers'
 import type { Cam } from './lib/webgl'
@@ -130,7 +130,8 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
   // In a live match any move of the playhead is a rewind: it detaches the viewer from the live picture until they go back to live.
   const seek = useCallback((to: number) => { follow.detach(); clock.seek(to) }, [follow.detach, clock.seek]) // eslint-disable-line react-hooks/exhaustive-deps
   const toggle = useCallback(() => { if (stream) follow.detach(); clock.toggle() }, [stream, follow.detach, clock.toggle]) // eslint-disable-line react-hooks/exhaustive-deps
-  const setSpeed = useCallback((v: number) => { if (stream) follow.detach(); clock.setSpeed(v) }, [stream, follow.detach, clock.setSpeed]) // eslint-disable-line react-hooks/exhaustive-deps
+  // In a live match the speed is the match's own: the server plays it faster or slower from this minute, and the viewer stays on the live picture.
+  const setSpeed = useCallback((v: number) => { if (stream) void setStreamSpeed(stream.id, nearestStreamSpeed(v)).catch(() => undefined); else clock.setSpeed(v) }, [stream, clock.setSpeed]) // eslint-disable-line react-hooks/exhaustive-deps
   const profile = route.profile
   const lang = profile.language
   const [selected, setSelected] = useState<string | null>(null)
@@ -204,8 +205,8 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
         toggle()
       } else if (e.key === 'ArrowRight') seek(msRef.current + (e.shiftKey ? 60_000 : 10_000))
       else if (e.key === 'ArrowLeft') seek(msRef.current - (e.shiftKey ? 60_000 : 10_000))
-      else if (e.key === ']') setSpeed(Math.min(60, speed * 2))
-      else if (e.key === '[') setSpeed(Math.max(1, Math.round(speed / 2)))
+      else if (e.key === ']') setSpeed(stream ? nextStreamSpeed(speed, 1) : Math.min(60, speed * 2))
+      else if (e.key === '[') setSpeed(stream ? nextStreamSpeed(speed, -1) : Math.max(1, Math.round(speed / 2)))
       else if (e.key === 'Escape') setSelected(null)
       else if (e.key >= '1' && e.key <= '5' && !e.metaKey && !e.ctrlKey && !e.altKey) selectTab(PANEL_TABS.filter((id) => !(stream && id === 'ask'))[Number(e.key) - 1])
     }
@@ -335,7 +336,7 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
         <Rail tab={panelTab} onTab={selectTab} replay={replay} profile={profile} ms={ms} selected={selected} onPick={pick} live={!!stream} numbersTab={exploreTab} onNumbersTab={(tab) => setRoute({ tab })} layers={layers} onLens={onLens} />
       </main>
 
-      <MatchStrip replay={replay} ms={ms} playing={playing} speed={speed} lang={lang} layers={layers} selected={selected} cam={cam} follow={route.follow} onCam={(c) => setRoute({ cam: c })} onFollow={(on) => setRoute({ follow: on })} toggle={toggle} setSpeed={setSpeed} seek={seek} onPick={pick} onLayer={onLayer} onClearLayers={() => setLayers(NO_LAYERS)} />
+      <MatchStrip replay={replay} ms={ms} playing={playing} speed={speed} lang={lang} layers={layers} selected={selected} cam={cam} follow={route.follow} onCam={(c) => setRoute({ cam: c })} onFollow={(on) => setRoute({ follow: on })} toggle={toggle} setSpeed={setSpeed} speeds={stream ? STREAM_SPEEDS : undefined} seek={seek} onPick={pick} onLayer={onLayer} onClearLayers={() => setLayers(NO_LAYERS)} />
       <EvidenceDrawer moment={moment} replay={replay} lang={lang} onClose={() => setSelected(null)} onSeek={seek} showOnPitch={showOnPitch} setShowOnPitch={setShowOnPitch} health={health} live={stream ? undefined : live} />
       <footer className="foot">
         <span>{t(lang, 'synthetic')}</span>

@@ -126,3 +126,11 @@ def test_the_full_feed_carries_whole_events_evidence_and_snapshots_with_cursors(
     m = next(iter(moments.values()))
     assert m["eventIds"] and "metrics" in m and "glossary" in m and "players" in m
     assert len(snaps) > 80 and [s["matchMs"] for s in snaps] == sorted(s["matchMs"] for s in snaps) and len({s["id"] for s in snaps}) == len(snaps)
+
+
+def test_the_speed_of_a_running_match_can_be_changed(client):
+    sid = client.post("/api/stream", json={"demo": "red-card-drama", "speed": 5}).json()["streamId"]
+    assert client.post(f"/api/stream/{sid}/speed", json={"speed": 10}).json() == {"speed": 10.0}
+    assert client.post(f"/api/stream/{sid}/speed", json={"speed": 7}).status_code == 422
+    assert client.post("/api/stream/nope/speed", json={"speed": 10}).status_code == 404
+    client.delete(f"/api/stream/{sid}")

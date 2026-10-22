@@ -18,6 +18,15 @@ export const STREAM_STARTS = [0, 44] as const
 /** Speeds a viewer can pick (match seconds per wall second). */
 export const STREAM_SPEEDS = [1, 5, 10] as const
 
+/** The speed a live match offers that is closest to ``v``. */
+export const nearestStreamSpeed = (v: number): number => STREAM_SPEEDS.reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a))
+
+/** The next faster (+1) or slower (-1) speed a live match offers, or the same one at the end of the list. */
+export const nextStreamSpeed = (v: number, dir: 1 | -1): number => {
+  const i = STREAM_SPEEDS.indexOf(nearestStreamSpeed(v) as (typeof STREAM_SPEEDS)[number])
+  return STREAM_SPEEDS[Math.max(0, Math.min(STREAM_SPEEDS.length - 1, i + dir))]
+}
+
 /** How far behind the feed the picture runs, in wall seconds: time for the pipeline to write what the viewer is about to see (a broadcast delay). */
 export const LIVE_DELAY_S = 6
 
@@ -95,6 +104,9 @@ export async function startStream(demo: string, speed: number, cohorts: Cohort[]
 }
 
 export const addStreamCohort = (id: string, cohort: Cohort, base = BRAIN_URL, signal?: AbortSignal) => post(`${base}/api/stream/${id}/cohorts`, cohort, signal).then((r) => call<{ cohort: string }>(r))
+
+/** Play the running match faster or slower from where it stands; the server re-anchors its clock, so the picture carries on from the same minute. */
+export const setStreamSpeed = (id: string, speed: number, base = BRAIN_URL) => post(`${base}/api/stream/${id}/speed`, { speed }).then((r) => call<{ speed: number }>(r))
 
 export const stopStream = (id: string, base = BRAIN_URL) => fetch(`${base}/api/stream/${id}`, { method: 'DELETE', keepalive: true }).catch(() => undefined)
 

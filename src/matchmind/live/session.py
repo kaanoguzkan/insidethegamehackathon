@@ -195,6 +195,15 @@ class StreamHub:
                     self.recap(self.store, sid, kind, pack, _recap_cohorts([cohort]))
         return True
 
+    def set_speed(self, sid: str, speed: float) -> Session | None:
+        """Change how fast a running match is played; the player re-anchors its clock on its next tick. None if there is no such match."""
+        if speed not in self.speeds:
+            raise ValueError(f"speed must be one of {self.speeds}")
+        s = self.get(sid)
+        if s is not None and s.finished_at is None:
+            s.speed = speed
+        return s
+
     def status(self) -> dict:
         """How busy the hub is: matches being played now, against how many it takes at once, and how many finished ones it still holds."""
         with self._lock:
@@ -252,7 +261,7 @@ class StreamHub:
                     raise
 
         try:
-            play(self.store, s.id, src.docs, speed=s.speed, from_ms=s.from_ms, chunks=chunks, blobs=self.frames, sleep=sleep, tick_s=self.tick_s, on_tick=tick)
+            play(self.store, s.id, src.docs, speed=s.speed, from_ms=s.from_ms, chunks=chunks, blobs=self.frames, sleep=sleep, tick_s=self.tick_s, on_tick=tick, speed_of=lambda: s.speed)
             for _ in range(40):  # the last chunk was just published: let the analyzer and the interpreter reach the end
                 tick()
                 if (self.store.get_state(s.id, "analyzer") or {}).get("final") and self._finished(s):

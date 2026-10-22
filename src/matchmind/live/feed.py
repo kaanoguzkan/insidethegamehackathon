@@ -94,6 +94,7 @@ def play(
     store: LiveStore, match_id: str, docs: list[dict], *, speed: float, from_ms: int = 0,
     chunks: list[tuple[int, str, bytes]] | None = None, blobs: Blobs | None = None,
     now: Callable[[], int] = now_ms, sleep: Callable[[float], None] = time.sleep, tick_s: float = 0.5, on_tick: Callable[[], None] | None = None,
+    speed_of: Callable[[], float] | None = None,
 ) -> int:
     """Release the feed at ``speed`` times real time, starting ``from_ms`` into the match. Returns the number of documents written.
 
@@ -101,14 +102,22 @@ def play(
     follows the clock. Each tick writes the documents that are due, then **states the feed watermark** (every document up to that match time is
     written: this is what lets the interpreter consume the feed deterministically), then publishes the tracking chunks that are complete, in order. The
     match is marked live when the first document goes out and finished when both are exhausted.
+
+    ``speed_of`` lets the speed change while the match is played: when it answers something new, the clock is re-anchored where it stands (match time
+    ``anchorMs`` at wall time ``wallStartMs``), so the match carries on from the same minute at the new speed and never jumps.
     """
     info = store.get_match(match_id) or {}
     wall0 = now()
     store.put_match(match_id, {**info, "status": "live", "speed": speed, "fromMs": from_ms, "wallStartMs": wall0})
     chunks = chunks or []
     sent = published = 0
+    base_ms = float(from_ms)  # the match time at wall0
     while sent < len(docs) or published < len(chunks):
-        sim_ms = from_ms + (now() - wall0) * speed
+        if speed_of is not None and speed_of() != speed:
+            base_ms, wall0, speed = base_ms + (now() - wall0) * speed, now(), speed_of()
+            info = store.get_match(match_id) or info
+            store.put_match(match_id, {**info, "speed": speed, "anchorMs": int(base_ms), "wallStartMs": wall0})
+        sim_ms = base_ms + (now() - wall0) * speed
         due = []
         while sent + len(due) < len(docs) and docs[sent + len(due)]["arrivalMs"] <= sim_ms:
             due.append(docs[sent + len(due)])
@@ -133,7 +142,7 @@ def play(
 def live_clock_ms(info: dict, at_ms: int | None = None) -> int:
     """Where the match clock stands now, in match milliseconds, from a match document (0 until it starts, frozen once it has finished)."""
     if not info.get("wallStartMs"):
-        return int(info.get("fromMs") or 0)
+        return int(info.get("anchorMs") if info.get("anchorMs") is not None else (info.get("fromMs") or 0))
     t = (at_ms if at_ms is not None else now_ms()) - info["wallStartMs"]
-    clock = int(info.get("fromMs") or 0) + t * float(info.get("speed") or 1.0)
+    clock = int(info.get("anchorMs") if info.get("anchorMs") is not None else (info.get("fromMs") or 0)) + t * float(info.get("speed") or 1.0)
     return int(min(clock, info.get("durationMs") or clock)) if info.get("status") == "finished" else int(clock)
