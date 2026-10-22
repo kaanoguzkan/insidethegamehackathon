@@ -14,7 +14,7 @@ All data is synthetic. The league, clubs, crests and players are fictional.
 
 **Try it:** open the site on Azure Static Web Apps (<https://happy-beach-0379fb50f.5.azurestaticapps.net>). It opens on the match center with a recorded match:
 pause anywhere, ask *why* a moment mattered, ask the match a question, switch viewer profile. **Go live** plays a match of your own, with your own clock, inside the Brain
-(a simulator, the detectors and the agents running while you watch, at 1, 5 or 10 times real time); everything it shows has been written for the minute you are at.
+(a simulator, the detectors and the agents running while you watch, at 1, 5 or 10 times real time, changeable while it plays); everything it shows has been written for the minute you are at, and **Ask** answers questions about the match so far without ever using what is still to come.
 **Tools** has the Live AI switch, the match report, **Operations** (`#ops`: latency, errors, how every story was made, live matches against capacity) and **Cloud pipeline**
 (`#pipeline`: the same match run as a Container Apps Job and carried by Event Grid, Functions, the Brain and SignalR, stage by stage). The static mirror on GitHub Pages
 (<http://kaanoguzkan.com/insidethegamehackathon/>) plays the recorded matches with no backend. The live path is described in [docs/live-pipeline.md](docs/live-pipeline.md),
