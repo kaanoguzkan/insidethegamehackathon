@@ -13,7 +13,6 @@ from matchmind.core.paths import league_dir
 from matchmind.intel.baselines import load_baselines
 from matchmind.intel.pipeline import interpret_match
 from matchmind.intel.xt import XTGrid
-from matchmind.sim.engine import simulate
 from matchmind.sim.league import load_league
 
 pytestmark = pytest.mark.slow
@@ -51,7 +50,7 @@ def test_a_shape_change_is_found_and_possession_swings_are_not_mistaken_for_one(
     clubs = load_league(league_dir() / "league.json")
     per_match = []
     for seed, (h, a) in zip(range(200, 206), (("HAR", "NOR"), ("RED", "KES"), ("ALD", "SAL"), ("NOR", "ALD"), ("KES", "HAR"), ("SAL", "RED")), strict=True):
-        res = simulate("q", clubs[h], clubs[a], seed=seed)
+        res = Forced("q", clubs[h], clubs[a], seed=seed).run()  # the managers off: this control is about how the teams breathe with the ball, not about what a manager does
         _, out = interpret_match(res, baselines=load_baselines(), xt=XTGrid.load(league_dir() / "xt_grid.json"))
         per_match.append(sum(m["type"] == "tactical_shift" for m in out.moments))
     assert sum(per_match) / len(per_match) <= 2.0, per_match
