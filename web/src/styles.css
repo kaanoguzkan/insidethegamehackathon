@@ -675,3 +675,10 @@ body:has(.broadcast) { background: transparent; }
 .vision .hint { font-size: 11px; margin: 4px 0 0; }
 .vision.closed { width: auto; padding: 4px 8px; }
 @media (max-width: 760px) { .vision { display: none; } }
+
+/* Architecture page */
+.arch { max-width: 1280px; }
+.arch figure { margin: 28px 0 0; }
+.arch figure img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 12px; background: #0d1310; }
+.arch figcaption { margin: 10px 2px 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.arch figcaption b { color: var(--text, #e8ecf4); }

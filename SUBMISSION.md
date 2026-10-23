@@ -42,6 +42,12 @@ https://happy-beach-0379fb50f.5.azurestaticapps.net
 
 MatchMind turns synthetic football events into explainable match intelligence in real time. Press **Watch live** and a match of your own is played on a 3D pitch with humanoid players. While it plays, the system detects what matters (a pressing collapse, a red card, a momentum swing), explains why, and writes the story for *you*: an analyst gets the numbers, a casual fan gets the narrative, in English, Spanish or Turkish. You can change the match's speed (1x, 5x, 10x) while it plays, and **ask the match a question** at any point.
 
+### Architecture
+
+![One match, five stages, and the Azure services behind each one](https://raw.githubusercontent.com/kaanoguzkan/insidethegamehackathon/main/docs/img/architecture-stages.svg)
+
+More figures (two live paths, a story's path, the Azure map): `docs/img/architecture-*.svg`, and on the site at `#architecture`.
+
 ### The five stages
 
 1. **Ingest.** A 5 Hz agent-based simulator plays fictional clubs; each side has a manager who reacts to the score, the clock, a sending-off and tired legs. Nothing is scripted.

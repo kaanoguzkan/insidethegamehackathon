@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><title>MatchMind architecture figure</title>
+<style>
+html,body{margin:0;height:100%;background:#0d1310;overflow:hidden}
+body{display:flex;align-items:center;justify-content:center}
+img{max-width:100vw;max-height:100vh;width:auto;height:auto}
+</style>
+<!-- Full-screen architecture figure for the demo video: figure.html?f=stages | paths | story | azure -->
+<img id="f" alt="">
+<script>
+const f = new URLSearchParams(location.search).get('f') || 'stages'
+document.getElementById('f').src = `../../docs/img/architecture-${f}.svg`
+</script>
