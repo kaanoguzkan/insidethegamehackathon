@@ -114,3 +114,18 @@ def test_a_chunk_the_shared_reader_has_not_reached_is_the_providers(match):
         time.sleep(0.05)
     assert feed.skipped == len(truth) and all(feed.blobs.exists(n) for _, n, _ in truth)  # all of them exist for the analyzer, as the provider's
     feed.close()
+
+
+def test_the_baked_reading_of_a_demo_matches_the_demo(vision_hub):
+    """data/vision/<demo>.pkl is made by `matchmind vision-bake`; if the demo or the simulator changes, it must be baked again."""
+    from matchmind.demos import load_demos
+    from matchmind.vision.shared import SharedVision
+
+    for demo_id in load_demos():
+        if not SharedVision.baked_path(demo_id).exists():
+            continue
+        src = vision_hub.source(demo_id)
+        feed = S.VisionFeed(demo_id, [(end, f"b/{i:05d}", data) for i, (end, _, data) in enumerate(src.chunks)], src.docs, src.meta["hz"]) if hasattr(S, "VisionFeed") else None
+        assert feed is not None and feed.shared.baked, f"{demo_id}: the baked reading does not fit the demo; run `uv run matchmind vision-bake {demo_id}`"
+        assert len(feed.shared.results) == len(src.chunks)
+        feed.close()
