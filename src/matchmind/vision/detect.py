@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from scipy import ndimage
 
-from .render import AWAY, BALL, BALL_R_M, HOME, PLAYER_R_M, PX, to_m
+from .render import AWAY, BALL_R_M, HOME, PLAYER_R_M, PX, to_m
 
 PLAYER_AREA = np.pi * (PLAYER_R_M * PX) ** 2  # pixels
 BALL_AREA = np.pi * (BALL_R_M * PX) ** 2
@@ -53,11 +53,11 @@ def _blobs(mask: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.nda
 
 
 def _team_points(mask: np.ndarray) -> list[tuple[float, float]]:
-    l, xs, ys, area, n = _blobs(mask)
+    lab, xs, ys, area, n = _blobs(mask)
     out: list[tuple[float, float]] = []
     if n == 0:
         return out
-    sx, sy = np.bincount(l, xs, minlength=n + 1), np.bincount(l, ys, minlength=n + 1)
+    sx, sy = np.bincount(lab, xs, minlength=n + 1), np.bincount(lab, ys, minlength=n + 1)
     for i in range(1, n + 1):
         if area[i] < MIN_BLOB:
             continue
@@ -65,7 +65,7 @@ def _team_points(mask: np.ndarray) -> list[tuple[float, float]]:
         if k == 1:
             out.append((sx[i] / area[i], sy[i] / area[i]))
         else:
-            sel = l == i
+            sel = lab == i
             pts = np.stack([xs[sel], ys[sel]], axis=1)
             out.extend((float(p[0]), float(p[1])) for p in _split(pts, k))
     return out
@@ -82,7 +82,7 @@ def detect(img: np.ndarray) -> Detections:
         mx, my = to_m(xs, ys)
         teams.append(np.stack([mx, my], axis=1) if len(pts) else np.zeros((0, 2)))
     # The ball is the white blob that is not a line: lines are long and thin, so keep compact blobs of about a ball's size
-    l, xs, ys, area, n = _blobs(np.min(px, axis=2) > 222)
+    lab, xs, ys, area, n = _blobs(np.min(px, axis=2) > 222)
     ball = None
     best = 1e9
     for i in range(1, n + 1):
@@ -91,7 +91,7 @@ def detect(img: np.ndarray) -> Detections:
         score = abs(area[i] - BALL_AREA)
         if score < best:
             best = score
-            sel = l == i
+            sel = lab == i
             cx, cy, r_px = float(xs[sel].mean()), float(ys[sel].mean()), float(np.sqrt(area[i] / np.pi))
             bx, by = to_m(cx, cy)
             height = max(0.0, (r_px / (BALL_R_M * PX) - 1.0) * 5.0)  # the apparent size says how high the ball is

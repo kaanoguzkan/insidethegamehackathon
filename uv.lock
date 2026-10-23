@@ -1224,6 +1224,7 @@ dev = [
     { name = "pytest-xdist" },
     { name = "reportlab" },
     { name = "ruff" },
+    { name = "scipy" },
     { name = "uvicorn" },
 ]
 
@@ -1264,6 +1265,7 @@ dev = [
     { name = "pytest-xdist", specifier = ">=3.5" },
     { name = "reportlab", specifier = ">=4.2" },
     { name = "ruff", specifier = ">=0.6" },
+    { name = "scipy", specifier = ">=1.18.1" },
     { name = "uvicorn", specifier = ">=0.30" },
 ]
 

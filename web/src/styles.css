@@ -664,3 +664,14 @@ body:has(.broadcast) { background: transparent; }
 .btn.live-cta:hover:not(:disabled) { background: #ef4444; }
 .btn.live-cta .live-dot { background: #fff; margin-right: 0; }
 .golive-error { color: #ffb4b4; }
+
+/* The video feed card on a live match */
+.vision { position: absolute; left: 12px; bottom: 12px; z-index: 5; width: min(300px, 46%); background: rgba(10, 14, 12, 0.88); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; box-shadow: var(--shadow); }
+.vision header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.vision header .btn { padding: 0 8px; min-height: 24px; }
+.vision img { display: block; width: 100%; height: auto; border-radius: 6px; image-rendering: pixelated; }
+.vision-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0 2px; font-size: 12px; color: var(--muted); }
+.vision-stats b { color: var(--text, #e8ecf4); }
+.vision .hint { font-size: 11px; margin: 4px 0 0; }
+.vision.closed { width: auto; padding: 4px 8px; }
+@media (max-width: 760px) { .vision { display: none; } }

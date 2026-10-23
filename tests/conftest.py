@@ -1,7 +1,11 @@
+import os
+
 import pytest
 
 from matchmind.sim.engine import simulate
 from matchmind.sim.league import generate_league
+
+os.environ.setdefault("STREAM_VISION", "0")  # live matches read the provider's tracking in most tests; the vision tests switch the video feed on
 
 
 @pytest.fixture(scope="session")

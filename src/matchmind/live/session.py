@@ -16,6 +16,7 @@ through the Brain's beat cache, because the moment ids of a demo are the same fo
 
 from __future__ import annotations
 
+import os
 import secrets
 import threading
 import time
@@ -32,6 +33,7 @@ from ..demos import Demo, get_demo
 from ..intel.recap import build_pack, build_preview_pack
 from ..sim.engine import simulate
 from ..sim.league import load_league
+from ..vision.feed import TeeBlobs, VisionFeed
 from .analysis import AnalyzerWorker
 from .blobs import MemoryBlobs
 from .feed import build_chunks, build_feed, chunk_name, live_clock_ms, play, start_match
@@ -94,6 +96,7 @@ class Session:
     analyzer: AnalyzerWorker | None = None
     interpreter: InterpretWorker | None = None
     thread: threading.Thread | None = None
+    vision: VisionFeed | None = None  # the video feed the analyzer reads (None: it reads the provider's tracking)
     view: tuple[int, object] | None = None  # (bucket, interpreter): the match as the viewer has seen it, for questions
     view_lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -101,7 +104,7 @@ class Session:
 class StreamHub:
     def __init__(
         self, *, dispatch: Dispatch | None = None, recap: RecapDispatch | None = None, intel: Intel | None = None, max_sessions: int = MAX_SESSIONS, tick_s: float = 0.5,
-        keep_finished_s: float = KEEP_FINISHED_S, idle_stop_s: float = IDLE_STOP_S,
+        keep_finished_s: float = KEEP_FINISHED_S, idle_stop_s: float = IDLE_STOP_S, vision: bool | None = None,
     ) -> None:
         self.store = MemoryLiveStore()
         self.frames = MemoryBlobs()
@@ -116,6 +119,7 @@ class StreamHub:
         self._source_locks: dict[str, threading.Lock] = {}
         self._lock = threading.RLock()
         self.started = 0  # matches started since this replica began
+        self.vision = os.environ.get("STREAM_VISION", "1") != "0" if vision is None else vision  # the analyzer reads the video feed's reconstruction of the tracking
         self.on_release: list[Callable[[str], None]] = []  # told when a session's data is dropped (whoever lent its interpreter out forgets it)
 
     # ----- sources ---------------------------------------------------------------------------------
@@ -163,7 +167,11 @@ class StreamHub:
             self._release(x)
         chunks = [(end, chunk_name(sid, i), data) for i, (end, _, data) in enumerate(src.chunks)]
         start_match(self.store, sid, src.meta, src.docs, scenario=src.demo.id, speed=speed, from_ms=s.from_ms, chunks=len(chunks))
-        s.analyzer = AnalyzerWorker(self.store, self.frames, MemoryBlobs(), key=b"")
+        if self.vision:
+            s.vision = VisionFeed(chunks, src.docs, src.meta.get("hz", 5), s.from_ms)
+            s.analyzer = AnalyzerWorker(self.store, s.vision.blobs, MemoryBlobs(), key=b"")  # the physical facts come from what the video model saw
+        else:
+            s.analyzer = AnalyzerWorker(self.store, self.frames, MemoryBlobs(), key=b"")
         s.interpreter = InterpretWorker(self.store, None, self.intel or self._intel(), key=b"", keep_snapshots=True)
         s.thread = threading.Thread(target=self._run, args=(s, src, chunks), name=f"stream-{sid}", daemon=True)
         s.thread.start()
@@ -265,6 +273,8 @@ class StreamHub:
             return ip
 
     def _release(self, s: Session) -> None:
+        if s.vision is not None:
+            s.vision.close()
         for fn in self.on_release:
             try:
                 fn(s.id)
@@ -296,7 +306,9 @@ class StreamHub:
                     raise
 
         try:
-            play(self.store, s.id, src.docs, speed=s.speed, from_ms=s.from_ms, chunks=chunks, blobs=self.frames, sleep=sleep, tick_s=self.tick_s, on_tick=tick, speed_of=lambda: s.speed)
+            play(self.store, s.id, src.docs, speed=s.speed, from_ms=s.from_ms, chunks=chunks, blobs=TeeBlobs(self.frames, s.vision) if s.vision else self.frames, sleep=sleep, tick_s=self.tick_s, on_tick=tick, speed_of=lambda: s.speed)
+            while s.vision is not None and s.vision.pending() > 0:  # the video model is still reading the last chunks
+                sleep(0.1)
             for _ in range(40):  # the last chunk was just published: let the analyzer and the interpreter reach the end
                 tick()
                 if (self.store.get_state(s.id, "analyzer") or {}).get("final") and self._finished(s):

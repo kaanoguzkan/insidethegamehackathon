@@ -32,6 +32,7 @@ class Track:
     vel: np.ndarray = field(default_factory=lambda: np.zeros(2))
     missing: int = 0
     on: bool = True
+    never: bool = False  # not on the pitch when the tracker started: nothing to pick up again
     role: np.ndarray | None = None  # running average of where this player stands relative to his team's centre: who he is, when two players cross
 
 
@@ -69,7 +70,7 @@ class VideoTracker:
     """Turns the frames of a video feed into tracking chunks, one chunk after another (the tracker's state carries over)."""
 
     def __init__(self, first_frame: np.ndarray, seed: int = 0) -> None:
-        self.tracks = [Track(pos=first_frame[i].astype(np.float64), on=not np.isnan(first_frame[i, 0])) for i in range(22)]
+        self.tracks = [Track(pos=np.nan_to_num(first_frame[i].astype(np.float64), nan=-100.0), on=not np.isnan(first_frame[i, 0]), never=np.isnan(first_frame[i, 0])) for i in range(22)]
         self.rng = np.random.default_rng(seed)
         self.stats = VisionStats()
         self.last_ball = np.array([52.5, 34.0, 0.0])
@@ -99,17 +100,29 @@ class VideoTracker:
                 t.role = off if t.role is None else (1 - ROLE_RATE) * t.role + ROLE_RATE * off
                 claimed.add(c)
                 matched.add(active[r])
+        if active and len(dets) >= 0.7 * len(active) and len(matched) < 0.5 * len(active):
+            # Most of the team lost its detection at once: a restart that moved everyone (half-time, a goal kick for the whole side). Start the team again from the
+            # pattern of roles: each player is the detection that sits where he usually stands relative to his team.
+            dc = dets.mean(axis=0)
+            role = np.array([tr[j].role if tr[j].role is not None else tr[j].pos - np.mean([tr[k].pos for k in active], axis=0) for j in active])
+            cost = np.linalg.norm(role[:, None, :] - (dets - dc)[None, :, :], axis=2)
+            rows, cols = linear_sum_assignment(cost)
+            for r, c in zip(rows, cols, strict=True):
+                t = tr[active[r]]
+                t.pos, t.vel, t.missing = dets[c].copy(), np.zeros(2), 0
+                matched.add(active[r])
+                claimed.add(c)
         for j in active:
             if j in matched:
                 continue
             t = tr[j]
             t.missing += 1
-            t.pos = t.pos + t.vel * DT
+            t.pos = t.pos + t.vel * DT * 0.5  # a track that is not seen is carried on, gently: it may have stopped, or been moved
             if t.missing > LOST_AFTER:
                 t.on = False
         # A detection nobody claimed is a track that was lost (a player hidden in a cluster, a restart that moved everyone): the nearest lost track takes it
         free = [c for c in range(len(dets)) if c not in claimed]
-        lost = [j for j, t in enumerate(tr) if (not t.on) or t.missing > 0]
+        lost = [j for j, t in enumerate(tr) if not t.never and ((not t.on) or t.missing > 0)]
         if free and lost:
             cost = np.linalg.norm(np.array([tr[j].pos for j in lost])[:, None, :] - dets[free][None, :, :], axis=2)
             rows, cols = linear_sum_assignment(cost)

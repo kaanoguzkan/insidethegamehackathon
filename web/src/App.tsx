@@ -17,6 +17,7 @@ import { useStream, type StreamHandle } from './hooks/useStream'
 import { t } from './i18n'
 import { brainConfigured, cohortKey } from './lib/brain'
 import { cohortForMatch } from './lib/cohort'
+import { VisionPanel } from './components/VisionPanel'
 import { addStreamCohort, LIVE_DELAY_S, nearestStreamSpeed, nextStreamSpeed, setStreamSpeed, startStream, STREAM_SPEEDS, stopStream } from './lib/stream'
 import { totalMs } from './lib/clock'
 import { LAYER_KEYS, NO_LAYERS, type Layers } from './lib/layers'
@@ -326,6 +327,7 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
                 onSkip={closeWelcome}
               />
             )}
+            {stream && <VisionPanel lang={lang} streamId={stream.id} msRef={msRef} />}
             {screens.map((sc, i) => (
               <div className="cell" key={i}>
                 <Screen replay={replay} ms={ms} msRef={msRef} profile={sc.profile} evidenceMoment={showOnPitch ? selected : null} onWhy={pick} overlays={overlays} layers={layers} title={sc.title} cam={cam} follow={route.follow} />

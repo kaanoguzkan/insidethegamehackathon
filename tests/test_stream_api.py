@@ -145,3 +145,11 @@ def test_ask_a_live_match_uses_only_what_the_viewer_has_seen(client):
     assert client.post("/api/ask/live", json={"streamId": "s-nope-00000000", "question": "Who had the shots?", "atMs": 1000}).status_code == 404
     assert client.post("/api/ask/live", json={"streamId": sid, "question": "?", "atMs": 1000}).status_code == 422
     client.delete(f"/api/stream/{sid}")
+
+
+def test_the_video_feed_endpoints_say_so_when_a_match_has_none(client):
+    sid = client.post("/api/stream", json={"demo": "red-card-drama", "speed": 500}).json()["streamId"]
+    assert client.get(f"/api/stream/{sid}/vision").json() == {"enabled": False}
+    assert client.get(f"/api/stream/{sid}/vision/frame", params={"atMs": 1000}).status_code == 404
+    assert client.get("/api/stream/s-nope-00000000/vision").status_code == 404
+    client.delete(f"/api/stream/{sid}")

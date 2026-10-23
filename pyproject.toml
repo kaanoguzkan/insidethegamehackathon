@@ -55,6 +55,7 @@ dev = [
     "agent-framework-openai>=1.15",
     "reportlab>=4.2",
     "pypdf>=6.19.0",
+    "scipy>=1.18.1",
 ]
 
 [build-system]

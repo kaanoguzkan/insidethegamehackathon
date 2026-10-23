@@ -197,6 +197,36 @@ def cmd_pick_demos(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_vision_eval(args: argparse.Namespace) -> int:
+    """Read a demo match through the video model (render, detect, track) and print how close what it saw is to the simulator's truth."""
+    import json
+    import time
+
+    from .core.paths import league_dir
+    from .demos import get_demo
+    from .live.feed import build_feed
+    from .sim.engine import simulate
+    from .sim.league import load_league
+    from .tracking.frames import iter_chunks
+    from .vision.feed import events_for_anchoring
+    from .vision.track import VideoTracker
+
+    for demo_id in args.demos:
+        d = get_demo(demo_id)
+        clubs = load_league(league_dir() / "league.json")
+        res = simulate(d.id, clubs[d.home], clubs[d.away], seed=d.seed)
+        chunks = list(iter_chunks(res))[: args.chunks or None]
+        ev = events_for_anchoring(build_feed(res), res.meta["hz"]) if not args.no_events else []
+        vt = VideoTracker(chunks[0].frames[0])
+        t0 = time.perf_counter()
+        for ch in chunks:
+            a, b = ch.first_frame, ch.first_frame + ch.n
+            vt.process(ch, [e for e in ev if a <= e[0] < b])
+        out = {"demo": d.id, "chunks": len(chunks), "secondsPerChunk": round((time.perf_counter() - t0) / len(chunks), 3), "events": not args.no_events, **vt.stats.summary()}
+        print(json.dumps(out))
+    return 0
+
+
 def cmd_build_pdf(args: argparse.Namespace) -> int:
     """Write report.pdf into replay packages (every committed one unless ids are given)."""
     from .core.paths import replays_dir
@@ -277,6 +307,12 @@ def main(argv: list[str] | None = None) -> int:
     pk.add_argument("--top", type=int, default=8)
     pk.add_argument("--workers", type=int, default=None)
     pk.set_defaults(fn=cmd_pick_demos)
+
+    ve = sub.add_parser("vision-eval", help="read demo matches through the video model and report how close the tracking it rebuilt is to the truth")
+    ve.add_argument("demos", nargs="+", help="demo ids from data/demos.json")
+    ve.add_argument("--chunks", type=int, default=0, help="only the first N chunks of 5 s (0: the whole match)")
+    ve.add_argument("--no-events", action="store_true", help="do not use the event feed to tell players apart")
+    ve.set_defaults(fn=cmd_vision_eval)
 
     r2 = sub.add_parser("build-replay", aliases=["run-local"], help="simulate a demo match and write a replay package")
     r2.add_argument("demo", nargs="?", default=None, help="a demo id from data/demos.json")

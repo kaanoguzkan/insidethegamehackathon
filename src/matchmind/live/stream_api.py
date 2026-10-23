@@ -23,7 +23,7 @@ from ..core.paths import league_dir
 from ..demos import load_demos
 from ..sim.league import load_league
 from .api import feed_page, summary
-from .feed import chunk_name
+from .feed import chunk_name, live_clock_ms
 from .session import SPEEDS, StreamBusy, StreamHub, new_session_summary
 
 
@@ -107,6 +107,28 @@ def make_stream_router(hub: StreamHub, on_loop: Callable[[asyncio.AbstractEventL
         info = _info(sid)
         page = await asyncio.to_thread(lambda: feed_page(hub.store, sid, event, since, full=full, moment_since=msince, snapshot_after=snap, analytics_version=av, recap_after=rv))
         return {**summary(info), **page}
+
+    @router.get("/api/stream/{sid}/vision")
+    async def vision(sid: str) -> dict:
+        """How the video feed reading is going: frames read, how close the tracking it rebuilt is to the truth, how long a chunk takes."""
+        _info(sid)
+        s = hub.get(sid)
+        if s is None or s.vision is None:
+            return {"enabled": False}
+        return {"enabled": True, **s.vision.stats()}
+
+    @router.get("/api/stream/{sid}/vision/frame")
+    async def vision_frame(sid: str, atMs: int = 0) -> Response:
+        """The video frame at ``atMs`` with what the detector found boxed. Never later than the match clock."""
+        info = _info(sid)
+        s = hub.get(sid)
+        if s is None or s.vision is None:
+            raise HTTPException(404, "this match has no video feed")
+        at = max(0, min(atMs, live_clock_ms(info)))
+        data = await asyncio.to_thread(s.vision.frame_png, round(at * int(info["meta"]["hz"]) / 1000))
+        if data is None:
+            raise HTTPException(404, "that frame is not available")
+        return Response(data, media_type="image/png", headers={"Cache-Control": "no-store"})
 
     @router.post("/api/stream/{sid}/speed")
     async def set_speed(sid: str, req: SpeedRequest) -> dict:
