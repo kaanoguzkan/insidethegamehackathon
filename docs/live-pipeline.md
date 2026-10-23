@@ -171,6 +171,10 @@ The Azure path above spends its time on hops: the feed in Cosmos DB, the Event G
 * **One match per viewer.** `POST /api/stream {demo, speed, fromMinute, cohorts}` answers at once; the demo is simulated once and kept (preloaded at boot), and the session's own
   store holds only what the session's clock has reached, so nothing from a viewer's future is ever in their store. There is no shared live match and no one-at-a-time limit; the
   Brain caps matches being played at once (`MAX_SESSIONS`, 12), stops a match whose viewer stopped polling (5 minutes) and frees a finished one after 15.
+* **Physical facts from a video feed.** The analyzer of a stream session does not read the provider's tracking but what a video model rebuilt from rendered video of it
+  (`vision/`, [vision.md](vision.md)): frames are rendered, a detector finds the players and the ball in the pixels, a tracker turns them back into tracking chunks. If
+  the video model falls more than three chunks behind (a fast match, a busy server) the next chunks are the provider's tracking and the model starts again after them.
+  `STREAM_VISION=0` switches it off. A viewer who joins mid-match gets the earlier chunks from the provider and the video model from the join point.
 * **Speed can change while it plays.** `POST /api/stream/{id}/speed` (1, 5 or 10): the player re-anchors its clock where it stands, so the match carries on from the same minute.
   The picture holds for a few seconds when the match speeds up (the delay is in wall seconds, so it needs a longer lead) and runs a quick catch-up when it slows down.
 * **Ask the match, so far.** `POST /api/ask/live` answers from an interpreter rebuilt from only the documents that had arrived by the viewer's position (and never past the

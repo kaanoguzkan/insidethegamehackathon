@@ -54,6 +54,10 @@ MatchMind turns synthetic football events into explainable match intelligence in
 
 *Code gets the evidence, the model only phrases it.* A **Verifier** checks every number, player and club in every story against the evidence. A story that fails is repaired once; if it still fails it falls back to a template. Nothing unchecked reaches a viewer, and the share of stories written by the model, repaired and templated is shown live on the Operations page.
 
+### Auto-eventing from video
+
+The challenge asks for a model over a video feed that generates the pass and speed metrics automatically. With no footage provided, MatchMind renders its own video feed from the tracking, and in a live match the physical analysis reads **only what a vision model saw in the pixels**: a detector finds the players and the ball in each frame, a tracker rebuilds the tracking chunks, and the speeds, sprints, pass difficulty and shot speed are derived from that. A **Video feed** card shows the frame with the detections boxed and the live error against the simulator's truth. Measured over whole matches: player position error 8–10 cm, ball 3.5 cm, player speed 1.5–2.2 km/h, ball speed under 0.5 km/h; "who is who" is the weak spot (64–76% kept, corrected by the event feed), and `docs/vision.md` says so.
+
 ### Ask the match, as far as you have seen it
 
 Ask planners choose from an allow-list of tools on our own **MCP server** (20+ match-data tools); code runs them and the answer is verified like the stories. In a live match the tools read the match **only as the viewer has seen it**: an interpreter is rebuilt from the documents that had arrived by the viewer's position, so a question cannot give away a goal or a card that has not happened yet (tested on Azure with the position forced to the end of the match).
@@ -73,7 +77,7 @@ Managed identities and role assignments instead of keys, a readiness endpoint, a
 
 ### Honest limits
 
-All data is synthetic. A live match lives in one Brain replica's memory, so a restart ends live matches and the Brain is capped at six at once. The first live start after a deploy can take about 30 seconds. Key Vault is provisioned but not yet used for the two operator keys. There is no end-user sign-in.
+All data is synthetic. A live match lives in one Brain replica's memory, so a restart ends live matches and the Brain is capped at six at once. The video feed is synthetic, top-down and simple, not broadcast footage, and under load or at 10x speed the video model skips chunks and the provider's tracking is used for them. The first live start after a deploy can take about 30 seconds. Key Vault is provisioned but not yet used for the two operator keys. There is no end-user sign-in.
 
 ### How to try it (2 minutes)
 

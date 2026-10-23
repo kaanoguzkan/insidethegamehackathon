@@ -666,7 +666,7 @@ body:has(.broadcast) { background: transparent; }
 .golive-error { color: #ffb4b4; }
 
 /* The video feed card on a live match */
-.vision { position: absolute; left: 12px; bottom: 12px; z-index: 5; width: min(300px, 46%); background: rgba(10, 14, 12, 0.88); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; box-shadow: var(--shadow); }
+.vision { position: absolute; left: 12px; bottom: 12px; z-index: 5; width: min(250px, 40%); background: rgba(10, 14, 12, 0.88); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; box-shadow: var(--shadow); }
 .vision header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
 .vision header .btn { padding: 0 8px; min-height: 24px; }
 .vision img { display: block; width: 100%; height: auto; border-radius: 6px; image-rendering: pixelated; }
