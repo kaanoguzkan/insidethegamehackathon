@@ -682,3 +682,4 @@ body:has(.broadcast) { background: transparent; }
 .arch figure img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 12px; background: #0d1310; }
 .arch figcaption { margin: 10px 2px 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
 .arch figcaption b { color: var(--text, #e8ecf4); }
+.ops header .btn { justify-self: start; }
