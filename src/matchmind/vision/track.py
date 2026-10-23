@@ -78,6 +78,11 @@ class VideoTracker:
         self.last_detections: dict[int, Detections] = {}  # by frame index, for the preview
         self._prev: tuple | None = None
 
+    def reseed(self, first_frame: np.ndarray) -> None:
+        """Start the tracks again from known positions (the video was skipped for a while); the running error figures are kept."""
+        self.tracks = [Track(pos=np.nan_to_num(first_frame[i].astype(np.float64), nan=-100.0), on=not np.isnan(first_frame[i, 0]), never=np.isnan(first_frame[i, 0])) for i in range(22)]
+        self._prev = None
+
     def _step_team(self, slots: range, dets: np.ndarray) -> None:
         tr = [self.tracks[i] for i in slots]
         active = [j for j, t in enumerate(tr) if t.on]

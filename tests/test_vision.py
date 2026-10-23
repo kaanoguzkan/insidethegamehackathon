@@ -74,7 +74,26 @@ def test_a_live_match_reads_its_physical_facts_from_the_video_feed(vision_hub):
         time.sleep(0.1)
     assert s.finished_at is not None and s.error is None
     st = s.vision.stats()
-    assert st["chunks"] > 5 and st["positionRmseCm"] < 25, st  # the late chunks went through the video model; the earlier ones are the archive
+    assert st["chunks"] + st["skippedChunks"] > 5, st  # the late chunks went through the video model or, at 2000x, were skipped because it could not keep up
+    assert st["chunks"] == 0 or st["positionRmseCm"] < 25, st
     kinds = {d["kind"] for d in vision_hub.store.docs(s.id)}
     assert "physical" in kinds or "enrichment" in kinds  # facts the analyzer derived from the reconstruction
     assert s.vision.frame_png(s.vision.tracker.stats.frames and max(s.vision._det)) is not None
+
+
+def test_a_video_model_that_falls_behind_is_skipped_not_waited_for(match):
+    from matchmind.tracking.frames import encode_chunk
+    from matchmind.vision.feed import MAX_BACKLOG, VisionFeed
+
+    chunks = list(iter_chunks(match))[:12]
+    truth = [((c.index + 1) * 5000, f"m/{c.index:05d}", encode_chunk(c)) for c in chunks]
+    feed = VisionFeed(truth, [], 5, 0)
+    feed.pool.submit(time.sleep, 0.5)  # the model is busy
+    for _, name, _ in truth:
+        feed.submit(name)
+    assert feed.skipped >= len(truth) - MAX_BACKLOG - 1  # the rest were taken from the provider at once
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline and not all(feed.blobs.exists(n) for _, n, _ in truth):
+        time.sleep(0.05)
+    assert all(feed.blobs.exists(n) for _, n, _ in truth)  # every chunk exists for the analyzer, whichever way it got there
+    feed.close()

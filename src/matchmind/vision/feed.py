@@ -19,6 +19,7 @@ from .detect import Detections
 from .render import PX, png, render_frame, to_px
 from .track import VideoTracker
 
+MAX_BACKLOG = 3  # chunks the video model may be behind before the next ones are taken from the provider's tracking instead, so the match never waits for it
 KEEP_FRAMES = 750  # frames of detections kept for the preview (2.5 minutes of match: the picture runs up to a minute behind the feed at 10x)
 BOX = {"home": (255, 220, 120), "away": (140, 220, 255), "ball": (255, 255, 0)}
 
@@ -48,6 +49,8 @@ class VisionFeed:
         self.done = 0
         self.busy_s = 0.0
         self.failed = 0
+        self.skipped = 0
+        self.resync = False
         self._decoded: dict[str, Chunk] = {}
         self._lock = threading.Lock()
         self._det: dict[int, Detections] = {}
@@ -57,6 +60,11 @@ class VisionFeed:
     def submit(self, name: str) -> None:
         if self.ends.get(name, 0) <= self.from_ms:
             self.blobs.put(name, self.truth[name])  # before the join point: the archive, as the provider delivers it
+            return
+        if self.pending() >= MAX_BACKLOG:
+            self.blobs.put(name, self.truth[name])  # the video model is behind (a fast match, a busy server): this chunk is the provider's tracking, and the model starts again after it
+            self.skipped += 1
+            self.resync = True
             return
         self.submitted += 1
         self.pool.submit(self._process, name)
@@ -70,6 +78,9 @@ class VisionFeed:
             truth = decode_chunk(self.truth[name])
             if self.tracker is None:
                 self.tracker = VideoTracker(truth.frames[0])
+            elif self.resync:
+                self.resync = False
+                self.tracker.reseed(truth.frames[0])
             a, b = truth.first_frame, truth.first_frame + truth.n
             seen = self.tracker.process(truth, [e for e in self.events if a <= e[0] < b], keep_frames=True)
             with self._lock:
@@ -112,7 +123,7 @@ class VisionFeed:
 
     def stats(self) -> dict:
         s = self.tracker.stats.summary() if self.tracker else {}
-        return {**s, "chunks": self.done, "msPerChunk": round(1000 * self.busy_s / self.done, 1) if self.done else None, "pxPerMetre": PX}
+        return {**s, "chunks": self.done, "skippedChunks": self.skipped, "msPerChunk": round(1000 * self.busy_s / self.done, 1) if self.done else None, "pxPerMetre": PX}
 
     def close(self) -> None:
         self.pool.shutdown(wait=False, cancel_futures=True)

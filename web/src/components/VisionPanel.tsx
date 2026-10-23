@@ -12,6 +12,7 @@ interface Stats {
   speedErrorKmh?: number | null
   identityKept?: number | null
   msPerChunk?: number | null
+  skippedChunks?: number
 }
 
 interface Props {
@@ -83,6 +84,7 @@ export function VisionPanel({ lang, streamId, msRef }: Props) {
             {stats.speedErrorKmh != null && <span>{t(lang, 'vision.speed')} <b>{stats.speedErrorKmh} km/h</b></span>}
             {stats.identityKept != null && <span>{t(lang, 'vision.ids')} <b>{Math.round(stats.identityKept * 100)}%</b></span>}
           </p>
+          {(stats.skippedChunks ?? 0) > 0 && <p className="hint">{t(lang, 'vision.skipped').replace('{n}', String(stats.skippedChunks))}</p>}
           <p className="hint">{t(lang, 'vision.note')}</p>
         </>
       )}
