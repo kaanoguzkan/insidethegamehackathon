@@ -45,6 +45,11 @@ Measured against the simulator's truth (`matchmind vision-eval <demo>`), whole m
 * **Who is who is the weak spot**, and it is honest to say so. Two simulated players can stand 0.1 to 0.4 m apart, which from above is one blob; when they separate
   the tracker can swap them. The event feed (a pass, a shot, a tackle names the player and the place) corrects most swaps; the rest is shown as the last column. The facts that
   name a player (a sprint, the fastest runner) can therefore be wrong about *which* player; facts about the ball, the team and the moment are not affected.
+* **One reading for everyone.** A demo match is deterministic, so what the video model sees in it is the same for every viewer. It is read **once per demo**
+  (`vision/shared.py`), not once per viewer: a background worker reads each demo chunk by chunk, and a session takes the rebuilt chunk as it is ready (or the provider's
+  tracking for a chunk the worker has not reached, so a match never waits). The reading can also be **baked** ahead of time (`matchmind vision-bake <demo>` writes
+  `data/vision/<demo>.pkl`, which the Docker image carries), so a freshly started Brain has nothing left to compute. Before this, every viewer paid for their own
+  reading, which was the main reason several viewers made the Brain lag.
 * **Cost.** About 3 to 5 ms a frame on a laptop (the background is subtracted first, so only the few hundred pixels that differ from the empty pitch are classified), so a
   5-second chunk takes roughly 0.1 s of one core; on the Container App's cores it is slower (about 0.4 s a chunk before this was optimised). It runs in its own thread,
   in order, and the analyzer simply waits for the next chunk. The first version of the tracker lost 40 cm on average over a whole match because everyone moves at

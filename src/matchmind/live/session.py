@@ -142,6 +142,27 @@ class StreamHub:
         for d in demo_ids:
             self.source(d)
 
+    def prewarm_vision(self, demo_ids: list[str]) -> None:
+        """Have the video model read the demos now, one after another, in the background: a viewer then finds the reading done and costs nothing for it."""
+        if not self.vision:
+            return
+
+        def run() -> None:
+            from ..vision.feed import events_for_anchoring
+            from ..vision.shared import shared_for
+
+            for d in demo_ids:
+                try:
+                    src = self.source(d)
+                    chunks = [(end, chunk_name(f"warm-{d}", i), data) for i, (end, _, data) in enumerate(src.chunks)]
+                    sv = shared_for(d, chunks, events_for_anchoring(src.docs, src.meta.get("hz", 5)))
+                    while sv._thread is not None and sv._thread.is_alive():  # noqa: SLF001 - one demo at a time
+                        time.sleep(1.0)
+                except Exception as e:  # noqa: BLE001 - a demo that cannot be warmed is read when the first viewer asks
+                    print(f"WARN vision prewarm {d}: {type(e).__name__}: {e}", flush=True)
+
+        threading.Thread(target=run, name="vision-prewarm", daemon=True).start()
+
     # ----- sessions --------------------------------------------------------------------------------
 
     def start(self, demo_id: str, speed: float = 5.0, from_minute: float = 0.0, cohorts: list[Cohort] | None = None) -> Session:
@@ -168,7 +189,7 @@ class StreamHub:
         chunks = [(end, chunk_name(sid, i), data) for i, (end, _, data) in enumerate(src.chunks)]
         start_match(self.store, sid, src.meta, src.docs, scenario=src.demo.id, speed=speed, from_ms=s.from_ms, chunks=len(chunks))
         if self.vision:
-            s.vision = VisionFeed(chunks, src.docs, src.meta.get("hz", 5), s.from_ms)
+            s.vision = VisionFeed(src.demo.id, chunks, src.docs, src.meta.get("hz", 5), from_ms=s.from_ms)
             s.analyzer = AnalyzerWorker(self.store, s.vision.blobs, MemoryBlobs(), key=b"")  # the physical facts come from what the video model saw
         else:
             s.analyzer = AnalyzerWorker(self.store, self.frames, MemoryBlobs(), key=b"")

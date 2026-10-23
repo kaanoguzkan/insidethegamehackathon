@@ -47,6 +47,7 @@ export function VisionPanel({ lang, streamId, msRef }: Props) {
     if (!open || !stats?.enabled) return
     const ctl = new AbortController()
     const tick = async () => {
+      if (document.hidden) return // a tab nobody is looking at does not ask for pictures
       try {
         const res = await fetch(`${BRAIN_URL}/api/stream/${streamId}/vision/frame?atMs=${Math.round(msRef.current)}`, { signal: ctl.signal })
         if (!res.ok) return

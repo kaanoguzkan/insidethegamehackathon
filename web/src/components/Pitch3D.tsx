@@ -305,14 +305,21 @@ export default function Pitch3D(props: Props) {
     controls.addEventListener('start', () => {
       tween = 0
     })
+    // A viewer with several live tabs or windows open shares one GPU between them: when frames take too long, draw fewer pixels, then fewer frames.
+    let ratioCap = Math.min(2, window.devicePixelRatio || 1)
+    let frameMs = 16
+    let lastFrameAt = 0
+    let slow = 0
+    let frameN = 0
     const resize = () => {
+      renderer.setPixelRatio(ratioCap)
       const w = Math.max(1, el.clientWidth)
       const h = Math.max(1, el.clientHeight)
       size = { w, h }
       renderer.setSize(w, h, false)
       gl.style.width = '100%'
       gl.style.height = '100%'
-      const dpr = Math.min(2, window.devicePixelRatio || 1)
+      const dpr = ratioCap
       labelsCv.width = Math.round(w * dpr)
       labelsCv.height = Math.round(h * dpr)
       labelsCv.style.width = '100%'
@@ -344,6 +351,18 @@ export default function Pitch3D(props: Props) {
     const kicks = new Map<string, number[]>() // player id -> the match times (ms) at which he kicks the ball
     let raf = 0
     const draw = (now: number) => {
+      if (lastFrameAt && now - lastFrameAt < 250) frameMs = frameMs * 0.92 + (now - lastFrameAt) * 0.08
+      lastFrameAt = now
+      if (frameMs > 30 && ratioCap > 1 && ++slow > 60) {
+        ratioCap = Math.max(1, ratioCap - 0.5)
+        slow = 0
+        frameMs = 16
+        resize()
+      }
+      if (frameMs > 45 && frameN++ % 2 === 1) {
+        raf = requestAnimationFrame(draw) // still too slow at one pixel to a pixel: every other frame
+        return
+      }
       const p = latest.current
       if (p.cam !== wantCam || appliedCam !== p.cam) {
         wantCam = p.cam

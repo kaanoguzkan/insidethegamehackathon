@@ -45,3 +45,6 @@ shot-*.png
 demo/clips/
 demo/*.mp4
 demo/list.txt
+
+# Baked video-model readings of the demos (uv run matchmind vision-bake <demo>): large, made locally, copied into the image
+data/vision/

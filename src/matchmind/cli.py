@@ -227,6 +227,33 @@ def cmd_vision_eval(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_vision_bake(args: argparse.Namespace) -> int:
+    """Read demo matches through the video model once and save the result (data/vision/<demo>.pkl) for the image to carry: a live match then costs no video analysis."""
+    import time
+
+    from .core.paths import league_dir
+    from .demos import get_demo
+    from .live.feed import build_chunks, build_feed
+    from .sim.engine import simulate
+    from .sim.league import load_league
+    from .vision.feed import events_for_anchoring
+    from .vision.shared import SharedVision
+
+    for demo_id in args.demos:
+        d = get_demo(demo_id)
+        clubs = load_league(league_dir() / "league.json")
+        res = simulate(d.id, clubs[d.home], clubs[d.away], seed=d.seed)
+        truth = [(end, name, data) for end, name, data in build_chunks(res)]
+        sv = SharedVision(d.id, truth, events_for_anchoring(build_feed(res), res.meta["hz"]))
+        sv.results, sv.baked = {}, False  # bake afresh, even if there is a file already
+        t0 = time.perf_counter()
+        sv.run_all()
+        out = SharedVision.baked_path(d.id)
+        sv.dump(out)
+        print(f"{d.id}: {len(sv.results)} chunks in {time.perf_counter() - t0:.0f} s -> {out} ({out.stat().st_size // 1024} KB) {sv.stats()}", flush=True)
+    return 0
+
+
 def cmd_build_pdf(args: argparse.Namespace) -> int:
     """Write report.pdf into replay packages (every committed one unless ids are given)."""
     from .core.paths import replays_dir
@@ -313,6 +340,10 @@ def main(argv: list[str] | None = None) -> int:
     ve.add_argument("--chunks", type=int, default=0, help="only the first N chunks of 5 s (0: the whole match)")
     ve.add_argument("--no-events", action="store_true", help="do not use the event feed to tell players apart")
     ve.set_defaults(fn=cmd_vision_eval)
+
+    vb = sub.add_parser("vision-bake", help="read demo matches through the video model once and save the result for the Docker image to carry")
+    vb.add_argument("demos", nargs="+", help="demo ids from data/demos.json")
+    vb.set_defaults(fn=cmd_vision_bake)
 
     r2 = sub.add_parser("build-replay", aliases=["run-local"], help="simulate a demo match and write a replay package")
     r2.add_argument("demo", nargs="?", default=None, help="a demo id from data/demos.json")

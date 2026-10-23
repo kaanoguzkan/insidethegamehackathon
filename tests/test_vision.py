@@ -60,40 +60,57 @@ def test_the_png_is_a_picture():
 
 @pytest.fixture(scope="module")
 def vision_hub():
-    h = S.StreamHub(intel=Intel.load(), tick_s=0.02, max_sessions=2, vision=True)
+    from matchmind.vision import shared
+
+    shared.reset()
+    h = S.StreamHub(intel=Intel.load(), tick_s=0.02, max_sessions=4, vision=True)
     h.speeds = (*S.SPEEDS, 2000.0)
     h.preload(["red-card-drama"])
-    return h
+    yield h
+    shared.reset()
 
 
 def test_a_live_match_reads_its_physical_facts_from_the_video_feed(vision_hub):
-    s = vision_hub.start("red-card-drama", speed=2000.0, from_minute=88.0)
+    s = vision_hub.start("red-card-drama", speed=2000.0, from_minute=92.0)
     assert s.vision is not None
     t0 = time.monotonic()
     while time.monotonic() - t0 < 120 and not (s.finished_at is not None):
         time.sleep(0.1)
     assert s.finished_at is not None and s.error is None
     st = s.vision.stats()
-    assert st["chunks"] + st["skippedChunks"] > 5, st  # the late chunks went through the video model or, at 2000x, were skipped because it could not keep up
-    assert st["chunks"] == 0 or st["positionRmseCm"] < 25, st
+    assert st["takenChunks"] + st["skippedChunks"] > 5, st  # every chunk reached the analyzer, from the video model or, where it had not got to, the provider
     kinds = {d["kind"] for d in vision_hub.store.docs(s.id)}
-    assert "physical" in kinds or "enrichment" in kinds  # facts the analyzer derived from the reconstruction
-    assert s.vision.frame_png(s.vision.tracker.stats.frames and max(s.vision._det)) is not None
+    assert "physical" in kinds or "enrichment" in kinds
 
 
-def test_a_video_model_that_falls_behind_is_skipped_not_waited_for(match):
+def test_two_viewers_of_a_demo_share_one_reading_of_it(vision_hub):
+    a = vision_hub.start("red-card-drama", speed=5.0)
+    b = vision_hub.start("red-card-drama", speed=5.0)
+    assert a.vision.shared is b.vision.shared  # one reader for the demo, not one per viewer
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline and len(a.vision.shared.results) < 4:
+        time.sleep(0.2)
+    assert len(a.vision.shared.results) >= 4
+    vision_hub.stop(a.id)
+    vision_hub.stop(b.id)
+
+
+def test_a_chunk_the_shared_reader_has_not_reached_is_the_providers(match):
     from matchmind.tracking.frames import encode_chunk
-    from matchmind.vision.feed import MAX_BACKLOG, VisionFeed
+    from matchmind.vision.feed import VisionFeed
+    from matchmind.vision.shared import SharedVision
 
-    chunks = list(iter_chunks(match))[:12]
+    chunks = list(iter_chunks(match))[:6]
     truth = [((c.index + 1) * 5000, f"m/{c.index:05d}", encode_chunk(c)) for c in chunks]
-    feed = VisionFeed(truth, [], 5, 0)
-    feed.pool.submit(time.sleep, 0.5)  # the model is busy
+    idle = SharedVision("t", truth, [])  # never started: it has read nothing
+    feed = VisionFeed("t", truth, [], 5, shared=idle)
+    import matchmind.vision.feed as F
+
+    F.WAIT_S = 0.1
     for _, name, _ in truth:
         feed.submit(name)
-    assert feed.skipped >= len(truth) - MAX_BACKLOG - 1  # the rest were taken from the provider at once
-    deadline = time.monotonic() + 60
-    while time.monotonic() < deadline and not all(feed.blobs.exists(n) for _, n, _ in truth):
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline and feed.pending() > 0:
         time.sleep(0.05)
-    assert all(feed.blobs.exists(n) for _, n, _ in truth)  # every chunk exists for the analyzer, whichever way it got there
+    assert feed.skipped == len(truth) and all(feed.blobs.exists(n) for _, n, _ in truth)  # all of them exist for the analyzer, as the provider's
     feed.close()

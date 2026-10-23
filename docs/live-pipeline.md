@@ -175,6 +175,11 @@ The Azure path above spends its time on hops: the feed in Cosmos DB, the Event G
   (`vision/`, [vision.md](vision.md)): frames are rendered, a detector finds the players and the ball in the pixels, a tracker turns them back into tracking chunks. If
   the video model falls more than three chunks behind (a fast match, a busy server) the next chunks are the provider's tracking and the model starts again after them.
   `STREAM_VISION=0` switches it off. A viewer who joins mid-match gets the earlier chunks from the provider and the video model from the join point.
+* **Capacity.** Per viewer, a live match costs almost no CPU once the video model's reading of the demo exists (it is read once per demo and shared, and can be baked
+  into the image): measured locally, 1, 3 and 6 viewers of the same demo cost the same total. What each viewer still pays for is the narrative (model calls, shared
+  through the beat cache when the moment and viewer type are the same) and serving the feed (about 1-2 ms a poll). The Brain still holds each match in memory, so it
+  takes at most six at once on one replica. In the browser, the 3D pitch lowers its pixel ratio and then its frame rate when frames take too long (several live tabs
+  share one GPU), and a hidden tab stops asking for video frames.
 * **Speed can change while it plays.** `POST /api/stream/{id}/speed` (1, 5 or 10): the player re-anchors its clock where it stands, so the match carries on from the same minute.
   The picture holds for a few seconds when the match speeds up (the delay is in wall seconds, so it needs a longer lead) and runs a quick catch-up when it slows down.
 * **Ask the match, so far.** `POST /api/ask/live` answers from an interpreter rebuilt from only the documents that had arrived by the viewer's position (and never past the

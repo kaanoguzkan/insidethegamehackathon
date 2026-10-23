@@ -204,6 +204,7 @@ def create_app(
             async def preload_streams() -> None:
                 await asyncio.sleep(float(os.environ.get("MATCHMIND_PRELOAD_DELAY_S", "10")) + 5.0)
                 await asyncio.to_thread(app.state.stream_hub.preload, list(load_demos()))
+                app.state.stream_hub.prewarm_vision(list(load_demos()))  # the video model reads each demo once, in the background, for every viewer
 
             asyncio.ensure_future(preload_streams())
         for mid in reg.ids():  # read the packs now, in a thread, so the first request does not wait for them
