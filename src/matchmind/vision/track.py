@@ -21,6 +21,7 @@ GATE_M = 4.0  # farthest a detection can be from a track's prediction and still 
 LOST_AFTER = 5  # frames a track is carried before it is let go
 ROLE_WEIGHT = 0.6  # how much the role prior counts against distance in matching
 ROLE_RATE = 0.02
+RESEED_BELOW = 0.5  # a team that kept fewer than this share of its tracks in one frame is started again from its role pattern
 ANCHOR_M = 3.0  # an event's player is the track within this far of the event's location
 REACQUIRE_M = 30.0  # how far from where it was last seen a lost track can be picked up again
 DT = 0.2
@@ -100,7 +101,7 @@ class VideoTracker:
                 t.role = off if t.role is None else (1 - ROLE_RATE) * t.role + ROLE_RATE * off
                 claimed.add(c)
                 matched.add(active[r])
-        if active and len(dets) >= 0.7 * len(active) and len(matched) < 0.5 * len(active):
+        if active and len(dets) >= 0.7 * len(active) and len(matched) < RESEED_BELOW * len(active):
             # Most of the team lost its detection at once: a restart that moved everyone (half-time, a goal kick for the whole side). Start the team again from the
             # pattern of roles: each player is the detection that sits where he usually stands relative to his team.
             dc = dets.mean(axis=0)

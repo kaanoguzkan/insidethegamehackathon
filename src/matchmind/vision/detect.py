@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from scipy import ndimage
 
-from .render import AWAY, BALL_R_M, HOME, PLAYER_R_M, PX, to_m
+from .render import AWAY, BALL_R_M, BG_MEAN, HOME, PLAYER_R_M, PX, H, W, to_m
 
 PLAYER_AREA = np.pi * (PLAYER_R_M * PX) ** 2  # pixels
 BALL_AREA = np.pi * (BALL_R_M * PX) ** 2
@@ -27,7 +27,7 @@ class Detections:
 
 
 def _close(img: np.ndarray, colour: np.ndarray, tol: int) -> np.ndarray:
-    d = np.abs(img - colour.astype(np.int16)).sum(axis=2)  # city-block distance in colour space: cheaper than a norm, as good for flat team colours
+    d = np.abs(img - colour.astype(np.int16)).sum(axis=-1)  # city-block distance in colour space: cheaper than a norm, as good for flat team colours
     return d < tol
 
 
@@ -72,17 +72,26 @@ def _team_points(mask: np.ndarray) -> list[tuple[float, float]]:
 
 
 def detect(img: np.ndarray) -> Detections:
+    # Background subtraction: only the pixels that differ from the empty pitch (a few hundred of the ~120 000) are looked at any further
     px = img.astype(np.int16)
+    ys, xs = np.nonzero(np.abs(px - BG_MEAN).sum(axis=2) > 70)
+    cols = px[ys, xs]
     teams = []
     blobs: list[tuple[str, float, float, float]] = []
     for kind, col in (("home", HOME), ("away", AWAY)):
-        pts = _team_points(_close(px, col, 110))
+        sel = _close(cols, col, 110)
+        m = np.zeros((H, W), dtype=bool)
+        m[ys[sel], xs[sel]] = True
+        pts = _team_points(m)
         blobs += [(kind, x, y, PLAYER_R_M * PX) for x, y in pts]
-        xs, ys = (np.array([p[0] for p in pts]), np.array([p[1] for p in pts])) if pts else (np.zeros(0), np.zeros(0))
-        mx, my = to_m(xs, ys)
+        tx, ty = (np.array([p[0] for p in pts]), np.array([p[1] for p in pts])) if pts else (np.zeros(0), np.zeros(0))
+        mx, my = to_m(tx, ty)
         teams.append(np.stack([mx, my], axis=1) if len(pts) else np.zeros((0, 2)))
     # The ball is the white blob that is not a line: lines are long and thin, so keep compact blobs of about a ball's size
-    lab, xs, ys, area, n = _blobs(np.min(px, axis=2) > 222)
+    wm = np.zeros((H, W), dtype=bool)
+    bright = cols.min(axis=1) > 222
+    wm[ys[bright], xs[bright]] = True
+    lab, bxs, bys, area, n = _blobs(wm)
     ball = None
     best = 1e9
     for i in range(1, n + 1):
@@ -92,7 +101,7 @@ def detect(img: np.ndarray) -> Detections:
         if score < best:
             best = score
             sel = lab == i
-            cx, cy, r_px = float(xs[sel].mean()), float(ys[sel].mean()), float(np.sqrt(area[i] / np.pi))
+            cx, cy, r_px = float(bxs[sel].mean()), float(bys[sel].mean()), float(np.sqrt(area[i] / np.pi))
             bx, by = to_m(cx, cy)
             height = max(0.0, (r_px / (BALL_R_M * PX) - 1.0) * 5.0)  # the apparent size says how high the ball is
             ball = np.array([float(bx), float(by), min(height, 25.0)])

@@ -68,16 +68,18 @@ def _stamp(img: np.ndarray, cx: float, cy: float, r: float, color: np.ndarray) -
     xs, ys = np.arange(max(x0, 0), min(x1, W)), np.arange(max(y0, 0), min(y1, H))
     d = np.hypot(xs[None, :] + 0.5 - cx, ys[:, None] + 0.5 - cy)
     a = np.clip(r - d + 0.5, 0.0, 1.0)[:, :, None]
-    sl = img[ys[0] : ys[-1] + 1, xs[0] : xs[-1] + 1]
-    sl[:] = sl * (1 - a) + color * a
+    sl = img[ys[0] : ys[-1] + 1, xs[0] : xs[-1] + 1]  # a small window of the uint8 frame: blended in float, written back as uint8
+    sl[:] = (sl * (1 - a) + color * a).astype(np.uint8)
 
 
-_NOISE = np.random.default_rng(7).normal(0.0, 5.0, (6, H, W, 1)).astype(np.float32)  # a few frames of camera noise, shared out frame by frame
+_NOISY = np.clip(_BG[None] + np.random.default_rng(7).normal(0.0, 5.0, (6, H, W, 1)), 0, 255).astype(np.uint8)  # the pitch under a few frames of camera noise, shared out frame by frame
+BG_MEAN = np.clip(_BG, 0, 255).astype(np.int16)  # the pitch with no players: what a detector subtracts
 
 
 def render_frame(players: np.ndarray, ball: np.ndarray, rng: np.random.Generator | None = None, noise: float = 5.0) -> np.ndarray:
     """``players``: (22, 2) metres (NaN: off the pitch), slots 0-10 home and 11-21 away; ``ball``: (3,) metres x, y, height. Returns (H, W, 3) uint8."""
-    img = _BG.copy()
+    rng = rng or np.random.default_rng(0)
+    img = (_NOISY[int(rng.integers(0, len(_NOISY)))] if noise > 0 else _BG.astype(np.uint8)).copy()
     px, py = to_px(players[:, 0], players[:, 1])
     for i in range(22):
         if not np.isnan(px[i]):
@@ -85,10 +87,7 @@ def render_frame(players: np.ndarray, ball: np.ndarray, rng: np.random.Generator
     bx, by = to_px(ball[0], ball[1])
     if not np.isnan(bx):
         _stamp(img, float(bx), float(by), BALL_R_M * PX * (1.0 + float(ball[2]) / 5.0), BALL)  # the ball looks bigger the closer to the camera
-    if noise > 0:
-        rng = rng or np.random.default_rng(0)
-        img += _NOISE[int(rng.integers(0, len(_NOISE)))] * (noise / 5.0) + rng.normal(0.0, 1.5, (1, 1, 3)).astype(np.float32)  # luminance noise, and a little colour drift
-    return np.clip(img, 0, 255).astype(np.uint8)
+    return img
 
 
 def png(img: np.ndarray) -> bytes:

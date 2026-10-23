@@ -19,7 +19,7 @@ flowchart LR
   the higher it is, as a camera sees it), camera noise and a little colour drift. Pixel and pitch coordinates are a plain scaling, so the pitch lines are there for a
   homography if the camera were not top-down. This is the stand-in for the video provider; nothing downstream sees the simulator's numbers.
 * **Detect** (`detect.py`). Per frame, from the pixels alone: a colour mask per team and for the ball, connected blobs, a centroid per blob. A blob with
-  about two players' worth of pixels is split with k-means. The ball's apparent size gives its height. About 2 ms a frame.
+  about two players' worth of pixels is split with k-means. The ball's apparent size gives its height. 
 * **Track** (`track.py`). One track per player slot. Detections of a team are matched to its tracks with the Hungarian algorithm (gated by what a player can run in
   a frame) and a *role prior* (where a player usually stands relative to his team) to break ties when two cross. A track that is not seen is carried on its velocity
   for a second and then let go (a sending-off is simply a track that does not come back); a detection nobody claims is given to a lost track. The tracker starts from
@@ -37,14 +37,18 @@ Measured against the simulator's truth (`matchmind vision-eval <demo>`), whole m
 
 | Match | Player position error (RMS) | Ball position error (RMS) | Player speed error | Ball speed error | Ball seen | Players kept as themselves |
 |---|---|---|---|---|---|---|
-{{TABLE}}
+| red-card-drama | 8.3 cm | 3.6 cm | 1.5 km/h | 0.45 km/h | 100% | 75% |
+| pressing-collapse | 8.8 cm | 3.6 cm | 1.6 km/h | 0.46 km/h | 100% | 76% |
+| eight-goal-thriller | 9.5 cm | 3.5 cm | 2.2 km/h | 0.43 km/h | 100% | 64% |
 
 * **Position and speed are what the metrics need and they are close**: a few centimetres, about a kilometre an hour.
 * **Who is who is the weak spot**, and it is honest to say so. Two simulated players can stand 0.1 to 0.4 m apart, which from above is one blob; when they separate
   the tracker can swap them. The event feed (a pass, a shot, a tackle names the player and the place) corrects most swaps; the rest is shown as the last column. The facts that
   name a player (a sprint, the fastest runner) can therefore be wrong about *which* player; facts about the ball, the team and the moment are not affected.
-* **Cost.** About 5 ms a frame, so a 5-second chunk takes about 0.14 s of one core: a match at 10 times real time uses about a quarter of a core for the video
-  stage. It runs in its own thread, in order, and the analyzer simply waits for the next chunk.
+* **Cost.** About 3 to 5 ms a frame on a laptop (the background is subtracted first, so only the few hundred pixels that differ from the empty pitch are classified), so a
+  5-second chunk takes roughly 0.1 s of one core; on the Container App's cores it is slower (about 0.4 s a chunk before this was optimised). It runs in its own thread,
+  in order, and the analyzer simply waits for the next chunk. The first version of the tracker lost 40 cm on average over a whole match because everyone moves at
+  half-time; it now restarts a team from its pattern of roles when most of its tracks lose their detection at once.
 
 ## What this is not
 
