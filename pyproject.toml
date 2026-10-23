@@ -22,7 +22,12 @@ openai = ["agent-framework-openai>=1.15"]
 # A Microsoft Foundry project (model deployments, hosted agents, tracing, evaluations).
 foundry = ["agent-framework-foundry>=1.14", "azure-identity>=1.19"]
 # The Brain service: REST API plus the MCP server over streamable HTTP.
-brain = ["fastapi>=0.115", "uvicorn>=0.30", "httpx>=0.27"]
+brain = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "httpx>=0.27",
+    "scipy>=1.18.1",
+]
 # Azure adapters (Cosmos DB, Blob Storage, SignalR publishing, telemetry).
 azure = [
   "azure-cosmos>=4.7", "azure-storage-blob>=12.20", "azure-identity>=1.19",
