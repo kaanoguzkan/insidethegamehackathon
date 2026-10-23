@@ -147,7 +147,7 @@ served from an answer cache. Tried against the live model with six questions (En
 test an answer said the red card came before a goal that was scored five minutes earlier, with every number and name correct. The answerer's prompt therefore forbids stating an order,
 a cause or a comparison that no result states, and this is reduced, not eliminated; a user can still be misled by a fluent sentence whose facts are all real.
 
-Limits: answers may use the whole match, not only what the viewer has seen so far (the viewer's minute is only passed to the planner); a question that no tool covers gets "I could not find
+Limits: on a **recorded** match answers may use the whole match, not only what the viewer has seen so far (the viewer's minute is only passed to the planner). On a **live** match (`POST /api/ask/live`) the tools read an interpreter rebuilt from only the documents that had arrived by the viewer's position, never past the match clock, so an answer cannot contain what has not happened yet. A question that no tool covers gets "I could not find
 that"; the planner's tool arguments are validated but not always sensible, which is why the keyword planner is the second chance.
 
 ## The Verifier

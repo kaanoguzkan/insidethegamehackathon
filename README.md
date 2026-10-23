@@ -5,6 +5,8 @@ Built for the Microsoft × Premier League *Inside the Game* developer hackathon.
 
 ![The match center: a verified, personalized lower-third explaining why Northbridge stopped pressing](docs/img/match-center.png)
 
+![A live match: the 3D pitch, the Video feed card showing what the detector found and how close it is to the truth, and the speed control](docs/img/live-match.png)
+
 Football stories do not end at the scoreline. MatchMind ingests a stream of synthetic match events and
 tracking, works out *what changed and why it matters*, and delivers it as timed on-screen graphics and
 recaps that read differently for an analyst and a casual fan, in English, Spanish or Turkish. Every
