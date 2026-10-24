@@ -14,10 +14,12 @@ number in every sentence is traced to computed evidence and checked by code befo
 
 All data is synthetic. The league, clubs, crests and players are fictional.
 
-**Try it:** open the site on Azure Static Web Apps (<https://happy-beach-0379fb50f.5.azurestaticapps.net>). It opens on the match center with a recorded match:
-pause anywhere, ask *why* a moment mattered, ask the match a question, switch viewer profile. **Go live** plays a match of your own, with your own clock, inside the Brain
+**Try it:** open the site on Azure Static Web Apps (<https://happy-beach-0379fb50f.5.azurestaticapps.net>). It opens on a start page with the things worth doing, and one menu
+on every page (**Live · Replay · Ask · Cloud pipeline · Operations · Architecture**), each one click away; the viewer menu and **More** (the Live AI switch, the match report,
+the overlay-only page) are on the right. **Replay** is the match center with a recorded match: pause anywhere, ask *why* a moment mattered, ask the match a question,
+switch viewer profile. **Live** plays a match of your own, with your own clock, inside the Brain
 (a simulator, the detectors and the agents running while you watch, at 1, 5 or 10 times real time, changeable while it plays); everything it shows has been written for the minute you are at, and **Ask** answers questions about the match so far without ever using what is still to come.
-A **Video feed** card on a live match shows the video the physical analysis reads (speeds, sprints, pass difficulty, shot speed), with what the detector found boxed and how close it is to the truth ([docs/vision.md](docs/vision.md)). **Tools** has the Live AI switch, the match report, **Operations** (`#ops`: latency, errors, how every story was made, live matches against capacity) and **Cloud pipeline**
+A **Video feed** card on a live match shows the video the physical analysis reads (speeds, sprints, pass difficulty, shot speed), with what the detector found boxed and how close it is to the truth ([docs/vision.md](docs/vision.md)). **Operations** (`#ops`: latency, errors, how every story was made, live matches against capacity) and **Cloud pipeline**
 (`#pipeline`: the same match run as a Container Apps Job and carried by Event Grid, Functions, the Brain and SignalR, stage by stage). The static mirror on GitHub Pages
 (<http://kaanoguzkan.com/insidethegamehackathon/>) plays the recorded matches with no backend. The live path is described in [docs/live-pipeline.md](docs/live-pipeline.md),
 the Brain's API in [docs/brain-api.md](docs/brain-api.md), running it as a service in [docs/enterprise.md](docs/enterprise.md).

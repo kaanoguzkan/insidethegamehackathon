@@ -87,12 +87,12 @@ All data is synthetic. A live match lives in one Brain replica's memory, so a re
 
 ### How to try it (2 minutes)
 
-1. Open the live site and click **Watch live** (top right). The first start may take up to 30 seconds.
-2. Watch the moments and stories arrive. Switch viewer (top bar) between analyst and casual, or language, and watch the next stories change.
+1. Open the live site and click **Watch it live** on the start page, or **Live** in the menu. The first start may take up to 30 seconds.
+2. Watch the moments and stories arrive. Switch viewer (top right) between analyst and casual, or language, and watch the next stories change.
 3. Change the speed (bottom left). The match carries on from the same minute.
 4. Open **Ask**, and ask "Who controlled the match?" or "How is the pressing going?".
-5. **Tools → Cloud pipeline** runs the same match through Container Apps Job, Event Grid, Functions, the Brain and SignalR. **Tools → Operations** shows latency, errors and story quality.
-6. The match center on a recorded match (**Replays**) has the evidence drawer, tactics and numbers tabs.
+5. **Cloud pipeline** (in the menu) runs the same match through Container Apps Job, Event Grid, Functions, the Brain and SignalR. **Operations** shows latency, errors and story quality, and **Architecture** has the figures.
+6. **Replay** is the match center on a recorded match and has the evidence drawer, tactics and numbers tabs.
 
 ---
 
