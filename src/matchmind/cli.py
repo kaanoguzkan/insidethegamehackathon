@@ -228,7 +228,7 @@ def cmd_vision_eval(args: argparse.Namespace) -> int:
 
 
 def cmd_vision_bake(args: argparse.Namespace) -> int:
-    """Read demo matches through the video model once and save the result (data/vision/<demo>.pkl) for the image to carry: a live match then costs no video analysis."""
+    """Read demo matches through the video model once and save the result (data/vision/<demo>.mmv) for the image to carry: a live match then costs no video analysis."""
     import time
 
     from .core.paths import league_dir

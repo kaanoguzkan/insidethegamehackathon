@@ -8,8 +8,10 @@ App). One worker per demo now reads the match chunk by chunk, in the background,
 
 from __future__ import annotations
 
+import json
 import os
-import pickle  # noqa: S403 - only ever loads the file this project baked into its own image
+import re
+import struct
 import threading
 import time
 from pathlib import Path
@@ -17,7 +19,9 @@ from pathlib import Path
 from ..tracking.frames import Chunk, decode_chunk, encode_chunk
 from .track import VideoTracker, VisionStats
 
-BAKE_VERSION = 1
+BAKE_VERSION = 2
+MAGIC = b"MMV2"
+SAFE_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 PAUSE_S = 0.04  # a breath between chunks: the worker must never starve the matches that are being played
 
 
@@ -37,23 +41,32 @@ class SharedVision:
         self._stats: dict = {}
         self._load_baked()
 
-    # ----- a reading done ahead of time (data/vision/<demo>.pkl, made by `matchmind vision-bake` and copied into the image) ---------------
+    # ----- a reading done ahead of time (data/vision/<demo>.mmv, made by `matchmind vision-bake` and copied into the image) ---------------
 
     @staticmethod
     def baked_path(demo_id: str) -> Path:
         root = Path(os.environ.get("MATCHMIND_DATA") or Path(__file__).resolve().parents[3] / "data")
-        return root / "vision" / f"{demo_id}.pkl"
+        if not SAFE_ID.match(demo_id):
+            raise ValueError(f"invalid demo id {demo_id!r}")
+        return root / "vision" / f"{demo_id}.mmv"
 
     def _load_baked(self) -> None:
         path = self.baked_path(self.demo_id)
         try:
             if not path.exists():
                 return
-            blob = pickle.loads(path.read_bytes())  # noqa: S301
-            if blob.get("version") == BAKE_VERSION and len(blob["chunks"]) == len(self.truth):
-                self.results = dict(enumerate(blob["chunks"]))
-                self._stats = blob["stats"]
-                self.baked = True
+            data = path.read_bytes()  # a plain container, not a pickle: a JSON header, then the chunks one after another, each as long as the header says
+            if data[:4] != MAGIC:
+                return
+            (hl,) = struct.unpack(">I", data[4:8])
+            head = json.loads(data[8 : 8 + hl])
+            sizes = head["sizes"]
+            if head.get("version") == BAKE_VERSION and len(sizes) == len(self.truth) and 8 + hl + sum(sizes) == len(data):
+                at, results = 8 + hl, {}
+                for i, n in enumerate(sizes):
+                    results[i] = data[at : at + n]
+                    at += n
+                self.results, self._stats, self.baked = results, head["stats"], True
         except Exception as e:  # noqa: BLE001 - a file that does not load is as good as none: the worker reads the demo
             print(f"WARN vision baked {path.name}: {type(e).__name__}: {e}", flush=True)
 
@@ -63,7 +76,9 @@ class SharedVision:
 
     def dump(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(pickle.dumps({"version": BAKE_VERSION, "demo": self.demo_id, "chunks": [self.results[i] for i in range(len(self.truth))], "stats": self.stats()}, protocol=5))
+        chunks = [self.results[i] for i in range(len(self.truth))]
+        head = json.dumps({"version": BAKE_VERSION, "demo": self.demo_id, "stats": self.stats(), "sizes": [len(c) for c in chunks]}, separators=(",", ":")).encode()
+        path.write_bytes(MAGIC + struct.pack(">I", len(head)) + head + b"".join(chunks))
 
     # ----- the worker -----------------------------------------------------------------------------------
 
