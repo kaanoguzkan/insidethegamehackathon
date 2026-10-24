@@ -140,7 +140,7 @@ def fig_stages() -> None:
         [("Azure SignalR", ["pushes each overlay to the page", "as soon as it is stored"], "azure"),
          ("Static Web Apps", ["match center, #ops, #pipeline,", "#architecture; GitHub Pages mirror"], "azure")],
         [("Managed identity", ["roles per service; no connection", "strings or keys in code or image"], "azure"),
-         ("Guard rails", ["6 live matches at once, rate limits,", "429/503 with Retry-After"], "azure")],
+         ("Guard rails", ["12 live matches at once, rate limits,", "429/503 with Retry-After"], "azure")],
     ]
     for i, col in enumerate(az):
         y = 558
@@ -187,7 +187,7 @@ def fig_paths() -> None:
     xs1 = lane(s, 142, n1, ["chunks", "tracking", "facts", "moments", "evidence", "stories", "poll"])
     s.text(46, 282, "0 network hops between stages: every stage is a function call inside the Brain (Azure Container Apps, 2 vCPU).", size=12.5, weight=600)
     s.text(46, 304, "A viewer's match has its own store and clock, so nothing from their future can be in it. Measured on Azure: about 2 s from a moment to its story when warm.", size=12, fill="muted")
-    s.text(46, 324, "Cost of the choice: a live match lives in one replica's memory, so the Brain is one always-on replica with at most 6 live matches.", size=12, fill="muted")
+    s.text(46, 324, "Cost of the choice: a live match lives in one replica's memory, so the Brain is one always-on replica with at most 12 live matches.", size=12, fill="muted")
 
     s.rect(30, 440, 1580, 270, fill="panel", stroke=C["azure"], r=14, sw=1.5)
     s.text(46, 466, "CLOUD PIPELINE   event-driven across Azure services, one match at a time (#pipeline)", size=12, weight=800, fill="azure")
@@ -293,7 +293,7 @@ def fig_azure() -> None:
     s.box(56, 146, 168, 84, "Static Web Apps", ["match center, #ops,", "#pipeline, #architecture"], stroke="azure")
     s.box(56, 300, 168, 110, "Browser", ["React + three.js", "polls the feed,", "WebSocket for push"], stroke="line")
     zone(s, 280, 110, 360, 330, "AZURE CONTAINER APPS", "azure")
-    s.box(296, 146, 328, 160, "The Brain", ["2 vCPU, always on, one replica", "REST API + MCP server (23 tools)", "live matches in memory (6 at most)", "Agent Framework agents + Verifier", "streams, Ask, Operations, vision"], stroke="azure")
+    s.box(296, 146, 328, 160, "The Brain", ["2 vCPU, always on, one replica", "REST API + MCP server (23 tools)", "live matches in memory (12 at most)", "Agent Framework agents + Verifier", "streams, Ask, Operations, vision"], stroke="azure")
     s.box(296, 322, 328, 102, "Container Apps Job", ["the simulator: plays a demo match", "into Cosmos DB and Blob Storage"], stroke="azure")
     zone(s, 280, 470, 360, 240, "AZURE FUNCTIONS (FLEX CONSUMPTION)", "azure")
     s.box(296, 506, 328, 184, "Event-driven stages", ["analyze: tracking chunk → physical facts", "interpret: change feed → moments", "dispatch: moment → the Brain's /beats", "push: stored overlay → SignalR", "negotiate: a SignalR token for the page"], stroke="azure")

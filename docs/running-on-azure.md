@@ -7,7 +7,7 @@
 
 | Resource | Region | What uses it |
 |---|---|---|
-| Container App `ca-matchmind-brain` (2 vCPU, 4 GiB, one always-on replica: live matches are held in the replica's memory, capped at six) | North Europe | The Brain: REST, MCP, both agent paths |
+| Container App `ca-matchmind-brain` (2 vCPU, 4 GiB, one always-on replica: live matches are held in the replica's memory, capped at twelve) | North Europe | The Brain: REST, MCP, both agent paths |
 | Availability test `ready-matchmind`, action group, four metric alerts (readiness, 5xx, CPU, restarts) | Sweden Central / global | Monitoring of the Brain; see [enterprise.md](enterprise.md). Mail goes to `BUDGET_CONTACT` when set |
 | Static Web App `swa-matchmind` | East US 2 | The match center, built with the Brain's address (`BRAIN_URI`) |
 | Microsoft Foundry account and project `kaanoguzkan-9930` | Sweden Central | The models (`gpt-6-luna` in use, `gpt-4.1-mini` kept as a fallback deployment, 120 000 tokens a minute for the latter), eight registered prompt agents, the hosted agent `matchmind-newsroom`, evaluations |

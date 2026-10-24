@@ -278,7 +278,7 @@ tests/ evals/    Python tests (3 slow) + 92 web tests      SOLUTION PLAN.md   de
 * **The first request after idle is slow.** The Brain scales to zero (free tier), so a cold start takes about 20 seconds; the page wakes it on load
   and shows "Waking the AI service" meanwhile.
 * **A live match lives in one replica's memory.** Each viewer's match is played in the Brain's process (so it has the full match center, not a reduced page), which is why the Brain runs
-  as one always-on replica (2 vCPU) and takes at most six live matches at once; a restart ends them. The event-driven path through Functions and SignalR is real and deployed, and
+  as one always-on replica (2 vCPU) and takes at most twelve live matches at once (twelve concurrent viewers measured on Azure: feed polls median 221 ms, p95 0.7 s, which is mostly the network round trip); a restart ends them. The event-driven path through Functions and SignalR is real and deployed, and
   runs one match at a time from the Cloud pipeline page; it is not what carries the match center. There is no load test beyond that cap.
 * **Experimental SDK parts.** Registered Foundry agents, the hosted agent and Foundry evaluations use experimental Agent Framework APIs that may change.
   The hosted agent's first call to a new session can time out while its container starts.

@@ -315,7 +315,7 @@ resource brain 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'MATCHMIND_LLM', value: empty(foundryProjectEndpoint) ? 'offline' : 'foundry' }
             { name: 'FOUNDRY_PROJECT_ENDPOINT', value: foundryProjectEndpoint }
             { name: 'MATCHMIND_LLM_MODEL', value: modelName }
-            { name: 'STREAM_MAX_SESSIONS', value: '6' }
+            { name: 'STREAM_MAX_SESSIONS', value: '12' }
             { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
             { name: 'MATCHMIND_PRELOAD', value: '1' } // load the matches the MCP tools use in the background after start-up
             { name: 'MATCHMIND_SHARED_CACHE', value: '1' } // verified model text is also kept in Cosmos DB: it survives restarts and is shared
@@ -438,7 +438,7 @@ resource cpuAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
   location: 'global'
   tags: tags
   properties: {
-    description: 'The Brain used more than 85% of its CPU for fifteen minutes: live matches are at capacity (the hub caps them at six).'
+    description: 'The Brain used more than 85% of its CPU for fifteen minutes: live matches are at capacity (the hub caps them at twelve).'
     severity: 2
     enabled: true
     scopes: [brain.id]

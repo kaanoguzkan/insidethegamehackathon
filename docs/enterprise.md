@@ -14,7 +14,7 @@ What an operator gets, and where the limits are. Everything here is in the repos
 - `GET /health` says the process is alive; `GET /ready` says it can do its job (matches loaded, a model client configured, the shared cache reachable) and answers 503 with the reason when not. An availability test in Application Insights calls `/ready` every five minutes from three regions.
 - The narrative has four levels of degradation (model text, repaired once, template, and the pitch without text), so a model outage costs wording, never the product. The verifier checks every number and name in a story against the evidence, so a fluent wrong story does not reach a viewer.
 - Alerts (`infra/resources.bicep`): readiness failing from two places, more than five 5xx in ten minutes, CPU above 85% for fifteen minutes, any restart. They mail `budgetContact` when it is set.
-- Live matches live in the memory of one replica, so the Brain runs as one always-on replica and caps live matches at six. A restart ends the matches that were on that replica; a viewer sees the match stop and can start another. Recorded matches and the shared cache are not affected.
+- Live matches live in the memory of one replica, so the Brain runs as one always-on replica and caps live matches at twelve. A restart ends the matches that were on that replica; a viewer sees the match stop and can start another. Recorded matches and the shared cache are not affected.
 
 ## Observability
 
@@ -44,4 +44,4 @@ What an operator gets, and where the limits are. Everything here is in the repos
 
 ## What would come next
 
-Key Vault references for the two keys; a second region with Cosmos-backed live sessions so a replica loss does not end a match; sign-in for operator pages; load tests in CI against a preview environment.
+Key Vault references for the two keys; a second region with Cosmos-backed live sessions so a replica loss does not end a match; sign-in for operator pages; load tests in CI against a preview environment (`scripts/load_test.py` runs one by hand against a deployed Brain: see [live-pipeline.md](live-pipeline.md)).

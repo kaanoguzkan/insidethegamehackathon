@@ -83,7 +83,7 @@ Managed identities and role assignments instead of keys, a readiness endpoint, a
 
 ### Honest limits
 
-All data is synthetic. A live match lives in one Brain replica's memory, so a restart ends live matches and the Brain is capped at six at once. The video feed is synthetic, top-down and simple, not broadcast footage, and under load or at 10x speed the video model skips chunks and the provider's tracking is used for them. The first live start after a deploy can take about 30 seconds. Key Vault is provisioned but not yet used for the two operator keys. There is no end-user sign-in.
+All data is synthetic. A live match lives in one Brain replica's memory, so a restart ends live matches and the Brain is capped at twelve at once (measured: twelve concurrent viewers, p95 feed latency 0.7 s). The video feed is synthetic, top-down and simple, not broadcast footage, and under load or at 10x speed the video model skips chunks and the provider's tracking is used for them. The first live start after a deploy can take about 30 seconds. Key Vault is provisioned but not yet used for the two operator keys. There is no end-user sign-in.
 
 ### How to try it (2 minutes)
 
