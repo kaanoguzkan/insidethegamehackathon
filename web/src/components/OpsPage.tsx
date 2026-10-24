@@ -1,3 +1,4 @@
+import { Brand, SiteNav } from './SiteNav'
 import { useEffect, useState } from 'react'
 import { BRAIN_URL, brainConfigured } from '../lib/brain'
 
@@ -58,7 +59,7 @@ export function OpsPage() {
   return (
     <main className="ops">
       <header>
-        <a href="#" className="btn">← Match center</a>
+        <div className="topbar-lite"><Brand lang="en" /><SiteNav lang="en" active="ops" /></div>
         <h1>Operations</h1>
         <p className="muted">The last 15 minutes of the running Brain. Read-only; nothing here identifies a viewer.</p>
       </header>

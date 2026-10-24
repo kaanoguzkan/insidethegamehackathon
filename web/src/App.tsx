@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EvidenceDrawer } from './components/EvidenceDrawer'
-import { GoLive } from './components/GoLive'
-import { Welcome } from './components/Welcome'
+import { Home } from './components/Home'
+import { Brand, SiteNav } from './components/SiteNav'
 import { isViewId, type ViewId } from './components/insights/Insights'
 import { MatchStrip } from './components/MatchStrip'
 import { Popover } from './components/Popover'
@@ -153,6 +153,19 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
       setRoute({ step: 'understand' })
     }
   }
+  // The site menu: each of these is one click from anywhere.
+  const goLive = () => { closeWelcome(); void startStream(replay.id, 5, liveCohorts, 0).then((st) => setRoute({ stream: st.streamId })).catch(() => undefined) }
+  const goReplay = () => { closeWelcome(); if (stream) { void stopStream(stream.id); setRoute({ stream: null }) } else selectTab('moments') }
+  const goAsk = () => { closeWelcome(); selectTab('ask') }
+  // A link from another page (#/?go=live, #/?go=ask) does its thing once, then the address goes back to what it was.
+  useEffect(() => {
+    const m = /[?&]go=(live|ask)/.exec(window.location.hash)
+    if (!m) return
+    window.history.replaceState(null, '', window.location.hash.replace(/[?&]go=(live|ask)/, '') || '#/')
+    if (m[1] === 'live' && brainConfigured && !stream) goLive()
+    if (m[1] === 'ask') goAsk()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const goHome = () => { if (stream) { void stopStream(stream.id); setRoute({ stream: null }) } setWelcome(true) }
   const [health, setHealth] = useState<Health>('healthy')
   const [variants, setVariants] = useState<Partial<Record<Health, Overlay[]>>>({})
   useEffect(() => {
@@ -238,10 +251,7 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
     <div className={`app${profile.highContrast ? ' hc' : ''}`}>
       <header className="topbar">
         <div className="tb-left">
-          <div className="brand">
-            <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="10" fill="none" stroke="currentColor" strokeWidth="3" /><circle cx="16" cy="16" r="3" fill="currentColor" /></svg>
-            <b>{t(lang, 'appTitle')}</b>
-          </div>
+          <Brand lang={lang} onClick={goHome} />
           {stream ? (
             <span className="live-badge" role="status">
               <span className="live-dot" aria-hidden="true" />
@@ -260,8 +270,10 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
           )}
         </div>
 
+        <SiteNav lang={lang} active={stream ? 'live' : 'replay'} liveAvailable={brainConfigured} onLive={stream ? () => follow.goLive() : goLive} onReplay={goReplay} onAsk={goAsk} />
+
         <div className="tb-right">
-          {!stream && brainConfigured && <GoLive lang={lang} demo={replay.id} cohorts={liveCohorts} onStarted={(id) => setRoute({ stream: id })} />}
+          {stream && !follow.following && <button type="button" className="btn live" onClick={follow.goLive}>{t(lang, 'stream.back')}</button>}
           <Popover label={<><span className="pop-key">{t(lang, 'viewer')}</span><span className="pop-val">{viewerSummary}</span></>} title={t(lang, 'viewer')} className="viewer-pop">
             <ProfilePanel profile={profile} onChange={setProfile} replay={replay} heading={route.split ? `${t(lang, 'viewer')} A` : undefined} />
             {route.split && <ProfilePanel profile={profileB} onChange={setProfileB} replay={replay} heading={`${t(lang, 'viewer')} B`} />}
@@ -270,49 +282,39 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
             </button>
           </Popover>
           {!stream && (
-            <>
-              <Popover
-                label={<><span className={`health-dot h-${health}`} aria-hidden="true" /><span className="pop-key">{t(lang, 'tools.menu')}</span></>}
-                title={t(lang, 'tools.title')}
-                className="tools-pop"
-              >
-                <p className="pop-title">{t(lang, 'tools.title')}</p>
-                {hasVariants && (
-                  <>
-                    <p className="hint">{t(lang, 'healthNote')}</p>
-                    <div className="seg stacked" role="radiogroup" aria-label={t(lang, 'health')}>
-                      {(['healthy', 'unreliable', 'outage'] as const).map((h) => (
-                        <button key={h} type="button" role="radio" aria-checked={health === h} className={`${health === h ? 'on' : ''} h-${h}`} onClick={() => setHealth(h)}>
-                          <span className={`health-dot h-${h}`} aria-hidden="true" />
-                          {t(lang, h === 'healthy' ? 'healthHealthy' : h === 'unreliable' ? 'healthUnreliable' : 'healthOutage')}
-                        </button>
-                      ))}
-                    </div>
-                  </>
+            <Popover
+              label={<><span className={`health-dot h-${health}`} aria-hidden="true" /><span className="pop-key">{t(lang, 'tools.menu')}</span></>}
+              title={t(lang, 'tools.title')}
+              className="tools-pop"
+            >
+              <p className="pop-title">{t(lang, 'tools.title')}</p>
+              {hasVariants && (
+                <>
+                  <p className="hint">{t(lang, 'healthNote')}</p>
+                  <div className="seg stacked" role="radiogroup" aria-label={t(lang, 'health')}>
+                    {(['healthy', 'unreliable', 'outage'] as const).map((h) => (
+                      <button key={h} type="button" role="radio" aria-checked={health === h} className={`${health === h ? 'on' : ''} h-${h}`} onClick={() => setHealth(h)}>
+                        <span className={`health-dot h-${h}`} aria-hidden="true" />
+                        {t(lang, h === 'healthy' ? 'healthHealthy' : h === 'unreliable' ? 'healthUnreliable' : 'healthOutage')}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              <div className="tools-list">
+                {live.available && (
+                  <button type="button" className={`btn live${live.enabled ? ' on' : ''}`} aria-pressed={live.enabled} onClick={live.toggle} title={t(lang, 'liveAIHint')}>
+                    {live.enabled && <span className={`health-dot h-${live.status === 'ready' ? 'healthy' : live.status === 'waking' ? 'unreliable' : 'outage'}`} aria-hidden="true" />}
+                    {t(lang, 'tools.ai')}
+                    <span className="tools-state">{t(lang, live.enabled ? 'tools.aiOn' : 'tools.aiOff')}</span>
+                  </button>
                 )}
-                <div className="tools-list">
-                  {live.available && (
-                    <button type="button" className={`btn live${live.enabled ? ' on' : ''}`} aria-pressed={live.enabled} onClick={live.toggle} title={t(lang, 'liveAIHint')}>
-                      {live.enabled && <span className={`health-dot h-${live.status === 'ready' ? 'healthy' : live.status === 'waking' ? 'unreliable' : 'outage'}`} aria-hidden="true" />}
-                      {t(lang, 'tools.ai')}
-                      <span className="tools-state">{t(lang, live.enabled ? 'tools.aiOn' : 'tools.aiOff')}</span>
-                    </button>
-                  )}
-                  <a className="btn" href={`${import.meta.env.BASE_URL}replays/${replay.id}/report.pdf`} target="_blank" rel="noreferrer" title={t(lang, 'reportHint')}>{t(lang, 'report')}</a>
-                  <a className="btn" href="#ops">Operations</a>
-                  <a className="btn" href="#pipeline">Cloud pipeline</a>
-                  <a className="btn" href="#architecture">Architecture</a>
-                  <a className="btn" href={broadcastHref} target="_blank" rel="noreferrer">{t(lang, 'broadcastLink')}</a>
-                </div>
-              </Popover>
-            </>
+                <a className="btn" href={`${import.meta.env.BASE_URL}replays/${replay.id}/report.pdf`} target="_blank" rel="noreferrer" title={t(lang, 'reportHint')}>{t(lang, 'report')}</a>
+                <a className="btn" href={broadcastHref} target="_blank" rel="noreferrer">{t(lang, 'broadcastLink')}</a>
+              </div>
+            </Popover>
           )}
-          {stream ? (
-            <>
-              {!follow.following && <button type="button" className="btn live" onClick={follow.goLive}>{t(lang, 'stream.back')}</button>}
-              <button type="button" className="btn" onClick={() => { void stopStream(stream.id); setRoute({ stream: null }) }}>{t(lang, 'stream.exit')}</button>
-            </>
-          ) : null}
+          {stream && <button type="button" className="btn" onClick={() => { void stopStream(stream.id); setRoute({ stream: null }) }}>{t(lang, 'stream.exit')}</button>}
         </div>
       </header>
 
@@ -321,10 +323,13 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
           <StageHead replay={replay} ms={ms} lang={lang} />
           <div className="stage-slot">
             {welcome && (
-              <Welcome
+              <Home
                 lang={lang}
-                onPlay={() => { closeWelcome(); clock.toggle() }}
-                onLive={brainConfigured ? () => { closeWelcome(); void startStream(replay.id, 5, liveCohorts, 0).then((s) => setRoute({ stream: s.streamId })).catch(() => undefined) } : undefined}
+                profile={profile}
+                onProfile={(p) => setProfile({ ...profile, ...p })}
+                onLive={brainConfigured ? goLive : undefined}
+                onAsk={brainConfigured ? goAsk : undefined}
+                onReplay={() => { closeWelcome(); clock.toggle() }}
                 onSkip={closeWelcome}
               />
             )}

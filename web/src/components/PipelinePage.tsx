@@ -1,3 +1,4 @@
+import { Brand, SiteNav } from './SiteNav'
 import { useEffect, useMemo, useState } from 'react'
 import { useLiveFeed } from '../hooks/useLiveFeed'
 import { useLivePush } from '../hooks/useLivePush'
@@ -79,7 +80,7 @@ export function PipelinePage({ lang = 'en' as const }) {
   return (
     <main className="live-page ops">
       <header>
-        <a href="#" className="btn">← Match center</a>
+        <div className="topbar-lite"><Brand lang="en" /><SiteNav lang="en" active="pipeline" /></div>
         <h1>Cloud pipeline</h1>
         <p className="muted">
           The same match, played as a Container Apps Job and carried by events through Azure. Start one and watch it move from stage to stage. The match center plays the engine in-process for speed; this is the event-driven path.
