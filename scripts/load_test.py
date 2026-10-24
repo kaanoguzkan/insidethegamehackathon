@@ -1,3 +1,4 @@
+# ruff: noqa  (a one-off harness: written for being read and run, not for style)
 """Load test of the live matches: N viewers at one speed, each polling the feed every 0.7 s, against a deployed Brain.
 
     python scripts/load_test.py <brain url> <viewers> <speed 1|5|10> <seconds> [seconds between starts]
