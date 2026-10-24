@@ -1,13 +1,15 @@
-# MatchMind
+# Rifinitore
 
 **Explained, personalized football match intelligence from synthetic events.**
 Built for the Microsoft × Premier League *Inside the Game* developer hackathon.
+
+> *Rifinitore* is the Italian word for the creative player who makes the final pass: the one who turns the work of the whole team into the chance. The Python package, the `matchmind` command and the Azure resource names keep the project's original working name.
 
 ![The match center: a verified, personalized lower-third explaining why Northbridge stopped pressing](docs/img/match-center.png)
 
 ![A live match: the 3D pitch, the Video feed card showing what the detector found and how close it is to the truth, and the speed control](docs/img/live-match.png)
 
-Football stories do not end at the scoreline. MatchMind ingests a stream of synthetic match events and
+Football stories do not end at the scoreline. Rifinitore ingests a stream of synthetic match events and
 tracking, works out *what changed and why it matters*, and delivers it as timed on-screen graphics and
 recaps that read differently for an analyst and a casual fan, in English, Spanish or Turkish. Every
 number in every sentence is traced to computed evidence and checked by code before it reaches the screen.
@@ -169,7 +171,7 @@ Brain, so you can ask *"who controlled the last 15 minutes of pressing-collapse?
 
 <details open><summary><b>The Azure map</b></summary>
 
-![The Azure resources, which talk to which, and how MatchMind is operated and shipped](docs/img/architecture-azure.svg)
+![The Azure resources, which talk to which, and how Rifinitore is operated and shipped](docs/img/architecture-azure.svg)
 
 </details>
 

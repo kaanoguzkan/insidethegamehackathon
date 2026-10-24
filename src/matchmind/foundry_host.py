@@ -62,7 +62,7 @@ def deploy(endpoint: str | None = None, model: str | None = None, wait_s: int = 
     project = AIProjectClient(endpoint=endpoint, credential=DefaultAzureCredential())
     with zpath.open("rb") as f:
         v = project.agents.create_version_from_code(
-            NAME, definition=definition, code=f, description="The MatchMind newsroom: verified, personalized overlays for chosen moments.",
+            NAME, definition=definition, code=f, description="The Rifinitore newsroom: verified, personalized overlays for chosen moments.",
             metadata={"app": "matchmind", "zipSha256": hashlib.sha256(zpath.read_bytes()).hexdigest()[:32]},
         )
     version, status, t0 = str(v.version), str(getattr(v, "status", "")), time.monotonic()

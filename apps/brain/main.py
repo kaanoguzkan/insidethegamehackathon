@@ -219,7 +219,7 @@ def create_app(
     for noisy in ("azure", "httpx", "httpcore"):  # the Azure SDK logs every request and its headers at INFO: ingestion cost, no value
         logging.getLogger(noisy).setLevel(logging.WARNING)
     setup_tracing()  # before the app object exists, so its requests are instrumented
-    app = FastAPI(title="MatchMind Brain", version=__version__, lifespan=lifespan)
+    app = FastAPI(title="Rifinitore Brain", version=__version__, lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware, allow_origins=cors_origins(), allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
         allow_headers=["content-type", "x-director-key", ADMIN_HEADER], allow_credentials=False, max_age=600,

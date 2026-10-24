@@ -1,4 +1,4 @@
-// MatchMind on Azure, sized for the free tier. `azd up` runs this at subscription scope.
+// Rifinitore on Azure, sized for the free tier. `azd up` runs this at subscription scope.
 //
 // What it creates: Log Analytics + Application Insights, a user-assigned managed identity, Storage
 // (replay packages, tracking chunks, work queue), Cosmos DB (free tier) with the containers the

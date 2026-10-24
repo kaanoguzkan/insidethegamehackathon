@@ -58,7 +58,7 @@ def decode(data: bytes) -> tuple[np.ndarray, np.ndarray, int]:
     raw = gzip.decompress(data)
     magic, version, hz, _, n, players = HEADER.unpack_from(raw)
     if magic != MAGIC or version != 1 or players != 22:
-        raise ValueError("not a MatchMind tracking bundle")
+        raise ValueError("not a Rifinitore tracking bundle")
     off = HEADER.size
     pos = np.frombuffer(raw, dtype="<i2", count=n * 22 * 2, offset=off).reshape(n, 22, 2).astype(np.float32)
     off += n * 22 * 2 * 2

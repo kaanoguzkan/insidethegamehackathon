@@ -1,4 +1,4 @@
-"""The MatchMind agents as Microsoft Foundry agents.
+"""The Rifinitore agents as Microsoft Foundry agents.
 
 Each agent's instructions (``agents/prompts.py``) are registered in the Foundry project as a versioned *prompt agent*,
 so the team shows up in the Foundry portal with its prompts, versions and traces, and can be called by name. The

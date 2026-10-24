@@ -96,7 +96,7 @@ async def run(per_group: int = 12, evaluators: tuple[str, ...] = DEFAULT_EVALUAT
             EvalItem(conversation=[Message("user", [Content.from_text(i["query"])]), Message("assistant", [Content.from_text(i["response"])])], context=i["context"])
             for i in items
         ]
-        res = await evals.evaluate(eval_items, eval_name=f"MatchMind overlays: {kind}-written text")
+        res = await evals.evaluate(eval_items, eval_name=f"Rifinitore overlays: {kind}-written text")
         results["groups"][kind] = {
             "samples": len(items), "status": res.status, "report_url": res.report_url, "result_counts": res.result_counts,
             "per_evaluator": res.per_evaluator, "error": res.error,

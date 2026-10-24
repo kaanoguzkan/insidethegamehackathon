@@ -135,7 +135,7 @@ def table(rows: list[list], widths: list[float], header: bool = True, align_righ
 
 class ReportDoc(BaseDocTemplate):
     def __init__(self, path: str, title: str, footer: str, **kw):
-        super().__init__(path, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=22 * mm, bottomMargin=18 * mm, title=title, author="MatchMind", subject="Match report", **kw)
+        super().__init__(path, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=22 * mm, bottomMargin=18 * mm, title=title, author="Rifinitore", subject="Match report", **kw)
         self._title, self._footer = title, footer
         self.addPageTemplates([PageTemplate(id="p", frames=[Frame(MARGIN, 18 * mm, CW, PAGE_H - 40 * mm, id="f", leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)], onPage=self._decorate)])
 
@@ -144,7 +144,7 @@ class ReportDoc(BaseDocTemplate):
         if doc.page > 1:
             canv.setFont("Helvetica-Bold", 8)
             canv.setFillColor(INK)
-            canv.drawString(MARGIN, PAGE_H - 12 * mm, "MatchMind")
+            canv.drawString(MARGIN, PAGE_H - 12 * mm, "Rifinitore")
             canv.setFont("Helvetica", 8)
             canv.setFillColor(MUTED)
             canv.drawRightString(PAGE_W - MARGIN, PAGE_H - 12 * mm, self._title)

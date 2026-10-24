@@ -283,7 +283,7 @@ function Nav({ lang, mode, onProfile, onNext }: { lang: Profile['language']; mod
   return (
     <header className="live-head">
       <nav className="live-nav">
-        <strong className="live-brand">MatchMind</strong>
+        <strong className="live-brand">Rifinitore</strong>
         <a className="btn" href="#/season">{t(lang, 'season.link')}</a>
         <a className="btn" href="#/replay">{t(lang, 'season.replays')}</a>
         {onNext && <button type="button" className="btn" onClick={onNext}>{t(lang, 'season.channel.next')}</button>}

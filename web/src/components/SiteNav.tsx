@@ -21,7 +21,7 @@ const ORDER: NavKey[] = ['live', 'replay', 'ask', 'pipeline', 'ops', 'architectu
 export function SiteNav({ lang, active, onLive, onReplay, onAsk, liveAvailable = true }: Props) {
   const act: Partial<Record<NavKey, (() => void) | undefined>> = { live: onLive, replay: onReplay, ask: onAsk }
   return (
-    <nav className="sitenav" aria-label="MatchMind">
+    <nav className="sitenav" aria-label="Rifinitore">
       {ORDER.filter((k) => k !== 'live' || liveAvailable).map((k) => {
         const cls = `nav-item${active === k ? ' on' : ''}${k === 'live' ? ' is-live' : ''}`
         const label = (

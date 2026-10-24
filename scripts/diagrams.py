@@ -84,7 +84,7 @@ class Svg:
 
 # ====================================================================================================
 def fig_stages() -> None:
-    s = Svg(1640, 900, "What runs where", "MatchMind is one pipeline of five stages; code computes every number, models only choose and phrase, and each stage runs on named Azure services.")
+    s = Svg(1640, 900, "What runs where", "Rifinitore is one pipeline of five stages; code computes every number, models only choose and phrase, and each stage runs on named Azure services.")
     s.header("One match, five stages: what runs where", "Code computes every number; models only choose and phrase; a verifier checks every claim.")
     names = [("1", "Ingest", "code"), ("2", "Interpret", "code"), ("3", "Explain", "models"), ("4", "Render", "code"), ("5", "Personalize", "per viewer")]
     X = [40 + 320 * i for i in range(5)]
@@ -287,7 +287,7 @@ def badge(s: Svg, x, y, n, color="accent") -> None:  # noqa: ANN001
 
 
 def fig_azure() -> None:
-    s = Svg(1640, 990, "The Azure map", "Which Azure resources MatchMind uses, which talk to which, and how it is operated and shipped.")
+    s = Svg(1640, 990, "The Azure map", "Which Azure resources Rifinitore uses, which talk to which, and how it is operated and shipped.")
     s.header("The Azure map", "Eleven Azure services, one identity, one command to deploy. Numbers follow a match through the cloud pipeline.")
     zone(s, 40, 110, 200, 320, "CLIENT")
     s.box(56, 146, 168, 84, "Static Web Apps", ["match center, #ops,", "#pipeline, #architecture"], stroke="azure")

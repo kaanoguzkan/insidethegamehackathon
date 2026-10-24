@@ -1,6 +1,6 @@
 # Configuration
 
-Everything is an environment variable. Nothing is required: with none set, MatchMind runs offline on the template engine with no keys and no network.
+Everything is an environment variable. Nothing is required: with none set, Rifinitore runs offline on the template engine with no keys and no network.
 On Azure the Bicep sets the Brain's variables from `azd env` values (names in the last column).
 
 ## The model

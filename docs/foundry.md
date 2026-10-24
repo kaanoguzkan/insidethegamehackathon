@@ -1,6 +1,6 @@
 # Microsoft Foundry
 
-MatchMind uses Foundry for four things beyond hosting the model. Each is a command, and each was run against the project
+Rifinitore uses Foundry for four things beyond hosting the model. Each is a command, and each was run against the project
 `kaanoguzkan-9930` (Sweden Central, free subscription) in October 2026.
 
 | What | Command / setting | What you see |

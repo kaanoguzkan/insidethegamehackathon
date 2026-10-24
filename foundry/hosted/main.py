@@ -1,4 +1,4 @@
-"""The MatchMind newsroom as a Microsoft Foundry hosted agent.
+"""The Rifinitore newsroom as a Microsoft Foundry hosted agent.
 
 Foundry runs this file in a container it manages and exposes it at the project's agent endpoint
 (``.../agents/matchmind-newsroom/endpoint/protocols/openai/responses``). The message is a JSON request, the reply a JSON

@@ -2,7 +2,7 @@
 
 The metrics that Opta, StatsBomb, SkillCorner, Second Spectrum and Impect publish, computed from the
 synthetic feed. Each one is a deterministic function of events and tracking, goes through the same
-evidence-pack, glossary and Verifier discipline as every other number in MatchMind, and is available three
+evidence-pack, glossary and Verifier discipline as every other number in Rifinitore, and is available three
 ways: in the match center (the **Explore** step and live pitch graphics, called Lenses), through MCP tools
 (`get_win_probability`, `get_key_actions` ... 25 tools in all) and as `analytics.json` in every replay package.
 
@@ -10,7 +10,7 @@ ways: in the match center (the **Explore** step and live pitch graphics, called 
 
 ## What is implemented
 
-| Idea | Provider analogue | What MatchMind computes | Where |
+| Idea | Provider analogue | What Rifinitore computes | Where |
 |---|---|---|---|
 | **Win probability and leverage** | Opta win probability | Live P(win/draw/loss) from the score, time left, expected goals so far and red cards; every goal and red card carries the change in the evidence pack, and the Editor ranks goals by it | `analytics/winprob.py` |
 | **Possession value** | StatsBomb OBV, Opta possession value, VAEP | Two logistic models predict scoring and conceding within ten actions; an action's value is the change in P(score) - P(concede). Gives most valuable actions, value by player, a player of the match | `analytics/vaep.py` |

@@ -1,4 +1,4 @@
-# MatchMind: Solution Plan
+# Rifinitore: Solution Plan
 
 *Working name. Entry plan for the Microsoft × Premier League "Inside the Game" Developer Hackathon. Written Sunday 4 October 2026; the status section was rewritten on 10 October after the first deployment and the first runs against a real model. The design sections below are the original plan; where the build differs, the status section says so.*
 
@@ -114,7 +114,7 @@ You can start building now. Rule 4.3 only requires the project to be created aft
 
 ## 1. Summary
 
-MatchMind turns a live stream of synthetic football events into **explained, personalized match intelligence**:
+Rifinitore turns a live stream of synthetic football events into **explained, personalized match intelligence**:
 
 1. **Ingest.** A code-based simulator plays realistic matches of a fictional league. It emits events plus 5 Hz player tracking, the way a data provider would.
 2. **Interpret.** Deterministic code computes stats and indices: pass difficulty, ball and shot speed, sprints, momentum, pressure, control vs chaos and rhythm. It flags candidate moments, each with an **evidence pack**.
@@ -152,7 +152,7 @@ MatchMind turns a live stream of synthetic football events into **explained, per
 
 ### 3.1 One match, many experiences
 
-| Viewer | What MatchMind gives them |
+| Viewer | What Rifinitore gives them |
 |---|---|
 | Analyst | Dense stat cards, live indices, timelines (xG race, momentum, pressure) and an evidence drawer on every claim |
 | Casual fan | A few plain-language story beats, no jargon and a simple momentum bar |
@@ -1075,7 +1075,7 @@ This schedule is aggressive for one person. §19 says what to drop first.
 | Time | On screen | Voice-over (short) |
 |---|---|---|
 | 0:00–0:08 | Split screen: the same chance, analyst view in English and casual view in Spanish | "Same moment. Two fans. Two different stories, both built from the same verified data." |
-| 0:08–0:20 | Title and a one-line architecture graphic | "MatchMind turns a live stream of football events into explained, personalized match intelligence, on Microsoft Foundry and Agent Framework." |
+| 0:08–0:20 | Title and a one-line architecture graphic | "Rifinitore turns a live stream of football events into explained, personalized match intelligence, on Microsoft Foundry and Agent Framework." |
 | 0:20–0:45 | Live Match Center: name tags, speed badge, pass-difficulty card, momentum bar, chaos meter | "Code computes the stats from the event and tracking feed: pass difficulty, speed, momentum, pressure, control versus chaos." |
 | 0:45–1:05 | The match center on `red-card-drama` (the classic replay view, not the live channel): the red card (45'), Redmoor's pressing collapse (56') and Saltmarsh's change of shape (61'), then a goal for each side in the last ten minutes; click "Why?" to open the evidence drawer with the event chain highlighted on the pitch | "Agents decide what matters and explain why. Every number links to evidence, and a verifier checks each claim before it goes on screen." |
 | 1:05–1:20 | Switch profile: club fan, then player focus, then Turkish | "Change the viewer, and the same intelligence becomes a different experience." |
@@ -1233,7 +1233,7 @@ Coordinates are in metres on a 105 × 68 m pitch.
 
 ## Appendix B: Pitch draft
 
-> **MatchMind** turns a live stream of synthetic football events into explained, personalized match intelligence. A realism-calibrated simulator feeds an event-driven Azure pipeline. Deterministic code computes pass difficulty, ball and shot speed, momentum, pressure and a control-vs-chaos index.
+> **Rifinitore** turns a live stream of synthetic football events into explained, personalized match intelligence. A realism-calibrated simulator feeds an event-driven Azure pipeline. Deterministic code computes pass difficulty, ball and shot speed, momentum, pressure and a control-vs-chaos index.
 >
 > A team of Microsoft Agent Framework agents (Editor, Explainer, Verifier, Storyteller and Localizer) decides what matters and explains why, citing evidence. The agents check every number, then rewrite each story for an analyst, a casual fan, a club loyalist or a fan following one player, in their own language. The output is timed overlay JSON, rendered over a live 2D match view, plus automated recaps for studio and streaming.
 >

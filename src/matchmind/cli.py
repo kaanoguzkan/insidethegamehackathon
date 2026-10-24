@@ -272,7 +272,7 @@ def cmd_build_pdf(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="matchmind", description="MatchMind: explainable football match intelligence")
+    p = argparse.ArgumentParser(prog="matchmind", description="Rifinitore: explainable football match intelligence")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     r = sub.add_parser("report-realism", help="check simulated league averages against target bands")

@@ -39,7 +39,7 @@ const en: Dict = {
   liveSeconds: 's',
   liveFromCache: 'from cache',
   liveTemplate: 'The model was too slow or its text failed the checks, so the verified template text is shown.',
-  appTitle: 'MatchMind',
+  appTitle: 'Rifinitore',
   tagline: 'Explained, personalized match intelligence',
   match: 'Match',
   viewer: 'Viewer',

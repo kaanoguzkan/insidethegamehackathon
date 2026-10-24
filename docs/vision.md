@@ -1,7 +1,7 @@
 # Auto-eventing from video
 
 The challenge asks for "a model over an incoming video feed to generate the pass and speed metrics automatically, rather than tagging them by hand". No footage is
-provided, so MatchMind makes its own feed and reads it the way a studio would meet one: video in, metrics out. A live match runs this stage for real.
+provided, so Rifinitore makes its own feed and reads it the way a studio would meet one: video in, metrics out. A live match runs this stage for real.
 
 ```mermaid
 flowchart LR

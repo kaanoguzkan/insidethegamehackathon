@@ -1,6 +1,6 @@
 """Ask the match: a viewer asks a question and gets an answer that is checked against the match data.
 
-The same rule as the rest of MatchMind: *code gets the evidence, the model only phrases it*.
+The same rule as the rest of Rifinitore: *code gets the evidence, the model only phrases it*.
 
     question ──▶ Planner (model, or rules) ──▶ tools run by code ──▶ Answerer (model, or a digest) ──▶ Verifier ──▶ answer
                     │ off topic                    the Match Data MCP server's tools, in process          │ reject

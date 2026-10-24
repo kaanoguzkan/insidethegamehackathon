@@ -57,7 +57,7 @@ export class Tracking implements TrackingSource {
   constructor(raw: ArrayBuffer, private slots: SlotRow[]) {
     const dv = new DataView(raw)
     const magic = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3))
-    if (magic !== 'MMT1') throw new Error('not a MatchMind tracking bundle')
+    if (magic !== 'MMT1') throw new Error('not a Rifinitore tracking bundle')
     this.hz = dv.getUint8(5)
     this.frames = dv.getUint32(8, true)
     const players = dv.getUint8(12)

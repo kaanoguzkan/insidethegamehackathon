@@ -1,6 +1,6 @@
 # Instructions for GitHub Copilot in this repository
 
-MatchMind turns synthetic football events into explained, personalized match intelligence.
+Rifinitore turns synthetic football events into explained, personalized match intelligence.
 Read `SOLUTION PLAN.md` (status section first), `docs/architecture.md` and `docs/agents.md` before changing behaviour; the API and every setting are in `docs/brain-api.md` and `docs/configuration.md`.
 
 ## Rules that must not be broken

@@ -1,10 +1,10 @@
-# MatchMind: submission
+# Rifinitore: submission
 
 Every field of the Innovation Studio "Create Project" form, ready to paste (or to send to the Microsoft Global Hackathon Support Team, who said they will accept a manual submission).
 
 ## Title
 
-MatchMind: a live match explained, minute by minute, by verified AI agents
+Rifinitore: a live match explained, minute by minute, by verified AI agents
 
 ## Tagline
 
@@ -40,7 +40,7 @@ https://happy-beach-0379fb50f.5.azurestaticapps.net
 
 ### What it is
 
-MatchMind turns synthetic football events into explainable match intelligence in real time. Press **Watch live** and a match of your own is played on a 3D pitch with humanoid players. While it plays, the system detects what matters (a pressing collapse, a red card, a momentum swing), explains why, and writes the story for *you*: an analyst gets the numbers, a casual fan gets the narrative, in English, Spanish or Turkish. You can change the match's speed (1x, 5x, 10x) while it plays, and **ask the match a question** at any point.
+Rifinitore turns synthetic football events into explainable match intelligence in real time. Press **Watch live** and a match of your own is played on a 3D pitch with humanoid players. While it plays, the system detects what matters (a pressing collapse, a red card, a momentum swing), explains why, and writes the story for *you*: an analyst gets the numbers, a casual fan gets the narrative, in English, Spanish or Turkish. You can change the match's speed (1x, 5x, 10x) while it plays, and **ask the match a question** at any point.
 
 ### Architecture
 
@@ -62,7 +62,7 @@ More figures (two live paths, a story's path, the Azure map): `docs/img/architec
 
 ### Auto-eventing from video
 
-The challenge asks for a model over a video feed that generates the pass and speed metrics automatically. With no footage provided, MatchMind renders its own video feed from the tracking, and in a live match the physical analysis reads **only what a vision model saw in the pixels**: a detector finds the players and the ball in each frame, a tracker rebuilds the tracking chunks, and the speeds, sprints, pass difficulty and shot speed are derived from that. A **Video feed** card shows the frame with the detections boxed and the live error against the simulator's truth. Measured over whole matches: player position error 8–10 cm, ball 3.5 cm, player speed 1.5–2.2 km/h, ball speed under 0.5 km/h; "who is who" is the weak spot (64–76% kept, corrected by the event feed), and `docs/vision.md` says so.
+The challenge asks for a model over a video feed that generates the pass and speed metrics automatically. With no footage provided, Rifinitore renders its own video feed from the tracking, and in a live match the physical analysis reads **only what a vision model saw in the pixels**: a detector finds the players and the ball in each frame, a tracker rebuilds the tracking chunks, and the speeds, sprints, pass difficulty and shot speed are derived from that. A **Video feed** card shows the frame with the detections boxed and the live error against the simulator's truth. Measured over whole matches: player position error 8–10 cm, ball 3.5 cm, player speed 1.5–2.2 km/h, ball speed under 0.5 km/h; "who is who" is the weak spot (64–76% kept, corrected by the event feed), and `docs/vision.md` says so.
 
 ### Ask the match, as far as you have seen it
 
@@ -98,4 +98,4 @@ All data is synthetic. A live match lives in one Brain replica's memory, so a re
 
 ## Pitch (short, for the "Project Pitch" field)
 
-MatchMind is an AI insights engine for football studios and fans. It ingests synthetic match events as they happen, computes the numbers with code, and has Foundry agents (orchestrated with the Microsoft Agent Framework) pick the key moments and explain why they matter, personalised by viewer type, language, club and player. A verifier checks every claim against the data before it is shown, and a viewer can ask the match questions that are answered only from what has happened so far. It runs on Azure Container Apps, Functions, Event Grid, Cosmos DB, SignalR and Static Web Apps, deployed with Bicep and azd, with monitoring, alerts and an operations page. It solves the problem that a scoreline hides the story: every fan gets the match explained at their level, as it happens, in their language.
+Rifinitore is an AI insights engine for football studios and fans. It ingests synthetic match events as they happen, computes the numbers with code, and has Foundry agents (orchestrated with the Microsoft Agent Framework) pick the key moments and explain why they matter, personalised by viewer type, language, club and player. A verifier checks every claim against the data before it is shown, and a viewer can ask the match questions that are answered only from what has happened so far. It runs on Azure Container Apps, Functions, Event Grid, Cosmos DB, SignalR and Static Web Apps, deployed with Bicep and azd, with monitoring, alerts and an operations page. It solves the problem that a scoreline hides the story: every fan gets the match explained at their level, as it happens, in their language.

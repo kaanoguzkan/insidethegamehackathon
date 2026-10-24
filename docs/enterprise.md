@@ -1,4 +1,4 @@
-# Running MatchMind as a service
+# Running Rifinitore as a service
 
 What an operator gets, and where the limits are. Everything here is in the repository; nothing is a slide.
 
