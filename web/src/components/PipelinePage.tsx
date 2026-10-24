@@ -1,4 +1,4 @@
-import { Brand, SiteNav } from './SiteNav'
+import { TopBar } from './TopBar'
 import { useEffect, useMemo, useState } from 'react'
 import { useLiveFeed } from '../hooks/useLiveFeed'
 import { useLivePush } from '../hooks/useLivePush'
@@ -78,9 +78,10 @@ export function PipelinePage({ lang = 'en' as const }) {
   const recent = useMemo(() => [...stories].sort((a, b) => b.displayAt.matchMs - a.displayAt.matchMs).slice(0, 6), [stories])
 
   return (
+    <>
+      <TopBar lang="en" active="pipeline" />
     <main className="live-page ops">
       <header>
-        <div className="topbar-lite"><Brand lang="en" /><SiteNav lang="en" active="pipeline" /></div>
         <h1>Cloud pipeline</h1>
         <p className="muted">
           The same match, played as a Container Apps Job and carried by events through Azure. Start one and watch it move from stage to stage. The match center plays the engine in-process for speed; this is the event-driven path.
@@ -136,5 +137,6 @@ export function PipelinePage({ lang = 'en' as const }) {
         </>
       )}
     </main>
+    </>
   )
 }

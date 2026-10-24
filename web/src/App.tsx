@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EvidenceDrawer } from './components/EvidenceDrawer'
 import { Home } from './components/Home'
-import { Brand, SiteNav } from './components/SiteNav'
+import { TopBar } from './components/TopBar'
 import { isViewId, type ViewId } from './components/insights/Insights'
 import { MatchStrip } from './components/MatchStrip'
 import { Popover } from './components/Popover'
@@ -249,9 +249,9 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
 
   return (
     <div className={`app${profile.highContrast ? ' hc' : ''}`}>
-      <header className="topbar">
+      <TopBar lang={lang} active={stream ? 'live' : 'replay'} liveAvailable={brainConfigured} onHome={goHome} onLive={stream ? () => follow.goLive() : goLive} onReplay={goReplay} onAsk={goAsk} />
+      <div className="toolbar">
         <div className="tb-left">
-          <Brand lang={lang} onClick={goHome} />
           {stream ? (
             <span className="live-badge" role="status">
               <span className="live-dot" aria-hidden="true" />
@@ -269,8 +269,6 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
             </label>
           )}
         </div>
-
-        <SiteNav lang={lang} active={stream ? 'live' : 'replay'} liveAvailable={brainConfigured} onLive={stream ? () => follow.goLive() : goLive} onReplay={goReplay} onAsk={goAsk} />
 
         <div className="tb-right">
           {stream && !follow.following && <button type="button" className="btn live" onClick={follow.goLive}>{t(lang, 'stream.back')}</button>}
@@ -316,7 +314,7 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
           )}
           {stream && <button type="button" className="btn" onClick={() => { void stopStream(stream.id); setRoute({ stream: null }) }}>{t(lang, 'stream.exit')}</button>}
         </div>
-      </header>
+      </div>
 
       <main className="workspace" data-step={step}>
         <section className="stage-col">

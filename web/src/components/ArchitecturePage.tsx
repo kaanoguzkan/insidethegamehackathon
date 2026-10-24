@@ -1,4 +1,4 @@
-import { Brand, SiteNav } from './SiteNav'
+import { TopBar } from './TopBar'
 const FIGURES = [
   { file: 'architecture-stages.svg', title: 'One match, five stages: what runs where', claim: 'Code computes every number, models only choose and phrase, a verifier checks every claim, and each stage runs on named Azure services.' },
   { file: 'architecture-paths.svg', title: 'Two live paths, the same stages', claim: 'What changes between watching a match live and the cloud pipeline is the transport between stages: in memory for the viewer, events across Azure for the cloud demonstration.' },
@@ -10,9 +10,10 @@ const FIGURES = [
 export function ArchitecturePage() {
   const base = import.meta.env.BASE_URL
   return (
+    <>
+      <TopBar lang="en" active="architecture" />
     <main className="ops arch">
       <header>
-        <div className="topbar-lite"><Brand lang="en" /><SiteNav lang="en" active="architecture" /></div>
         <h1>Architecture</h1>
         <p className="muted">
           Four figures, each making one claim. Every box is something in the repository; the live Brain also serves its own health at <a href="#ops">Operations</a>, and the event-driven path can be run at{' '}
@@ -26,5 +27,6 @@ export function ArchitecturePage() {
         </figure>
       ))}
     </main>
+    </>
   )
 }

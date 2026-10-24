@@ -1,4 +1,4 @@
-import { Brand, SiteNav } from './SiteNav'
+import { TopBar } from './TopBar'
 import { useEffect, useState } from 'react'
 import { BRAIN_URL, brainConfigured } from '../lib/brain'
 
@@ -57,9 +57,10 @@ export function OpsPage() {
 
   const n = ops?.narrative
   return (
+    <>
+      <TopBar lang="en" active="ops" />
     <main className="ops">
       <header>
-        <div className="topbar-lite"><Brand lang="en" /><SiteNav lang="en" active="ops" /></div>
         <h1>Operations</h1>
         <p className="muted">The last 15 minutes of the running Brain. Read-only; nothing here identifies a viewer.</p>
       </header>
@@ -112,5 +113,6 @@ export function OpsPage() {
         </>
       )}
     </main>
+    </>
   )
 }
