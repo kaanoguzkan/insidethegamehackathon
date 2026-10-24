@@ -2,7 +2,7 @@
 
 Two live paths share the same stages (analyse, detect moments, write verified stories) and the same code:
 
-* **Streams** (what the match center's *Go live* uses): one viewer, one match, played in the Brain's process with that viewer's own clock. See [Streams](#streams-the-same-stages-in-one-process).
+* **Streams** (what **Live** in the menu uses): one viewer, one match, played in the Brain's process with that viewer's own clock. See [Streams](#streams-the-same-stages-in-one-process).
 * **The event-driven path** (the *Cloud pipeline* page, `#pipeline`): a Container Apps Job plays the match into Cosmos DB and Blob Storage and Azure carries it through Event Grid, Functions, the Brain and SignalR,
   as described under [The pipeline](#the-pipeline). It runs one match at a time and is the cloud-native reference for the stages.
 

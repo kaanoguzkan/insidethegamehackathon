@@ -9,6 +9,8 @@ Built for the Microsoft × Premier League *Inside the Game* developer hackathon.
 
 ![A live match: the 3D pitch, the Video feed card showing what the detector found and how close it is to the truth, and the speed control](docs/img/live-match.png)
 
+![The Operations page of the running service: readiness, request latency and errors, how every story was made, cache hits and live matches against capacity](docs/img/operations.png)
+
 Football stories do not end at the scoreline. Rifinitore ingests a stream of synthetic match events and
 tracking, works out *what changed and why it matters*, and delivers it as timed on-screen graphics and
 recaps that read differently for an analyst and a casual fan, in English, Spanish or Turkish. Every
@@ -26,21 +28,27 @@ A **Video feed** card on a live match shows the video the physical analysis read
 (<http://kaanoguzkan.com/insidethegamehackathon/>) plays the recorded matches with no backend. The live path is described in [docs/live-pipeline.md](docs/live-pipeline.md),
 the Brain's API in [docs/brain-api.md](docs/brain-api.md), running it as a service in [docs/enterprise.md](docs/enterprise.md).
 
-## How to use the match center (Replays)
+## How to use it
 
-The pitch always fits the screen. Depth comes from three steps in the top bar (keys `1`, `2`, `3`), so nobody has to scroll to find things:
+One menu on every page: **Live · Replay · Ask · Cloud pipeline · Operations · Architecture**. The start page puts the prime features first (watch live, replay a match, ask the
+match, choose how you watch). In the match center the pitch always fits the screen, and one panel on the right has five tabs (keys `1` to `5`), so nobody has to scroll to find things:
 
-| Step | Question it answers | What you see |
+| Tab | Question it answers | What you see |
 |---|---|---|
-| **1 Watch** | What is happening? | The pitch with verified lower-thirds, the score and live win probability, the key-moment list. |
-| **2 Understand** | Why did it happen? | The recap in your language and tone, the tactics of both teams, the moments; **Why?** on any graphic opens the evidence drawer (explanation, caveats, before/after numbers, agent trace). |
-| **3 Explore** | What do the numbers say? | Eleven analytics views grouped by question (the match, shape and space, players, phases of play, context). Views that have a pitch drawing offer **Show on pitch**. |
+| **Moments** | What is happening? | The key moments of the match, each one a click away from the pitch, which shows verified lower-thirds, the score and the live win probability. |
+| **Story** | What is the story? | The preview, half-time and full-time recaps in your language and tone. **Why?** on any graphic opens the evidence drawer (explanation, caveats, before/after numbers, agent trace). |
+| **Tactics** | How are the teams set up? | Both teams' shapes in every phase of play, set pieces and style tags. |
+| **Numbers** | What do the numbers say? | Eleven analytics views grouped by question (the match, shape and space, players, phases of play, context). Views that have a pitch drawing offer **Show on pitch**. |
+| **Ask** | Anything else? | Ask the match a question in plain words (below). |
 
-The match strip at the bottom never goes away: play, speed, **View** (2D or 3D, camera angle, follow the ball), **Lenses** (pitch control, team shape, offside line, passing options, runs) and a draggable ribbon of win probability, momentum, chaos and pressure with the key moments marked. Viewer settings (analyst or casual, language, club, followed player, accessibility, two viewers side by side) and the model-health switch live in menus in the top bar. The whole view is in the URL, so any state can be shared.
+The viewer menu (top right of the match center) sets analyst or casual, language, favourite club and a followed player, and can show two viewers side by side; **More** has the Live AI switch,
+the match report (PDF), the model-health simulation and the overlay-only broadcast page.
+
+The match strip at the bottom never goes away: play, speed, **View** (2D or 3D, camera angle, follow the ball), **Lenses** (pitch control, team shape, offside line, passing options, runs) and a draggable ribbon of win probability, momentum, chaos and pressure with the key moments marked.
 
 **Ask the match.** In the panel, the **Ask** tab takes a question ("who controlled the match?", "how did the pressing change?") and answers it from the match data: a planner picks match-data tools, code runs them, an answerer writes the reply from their results only, and the Verifier checks every number and name. Each answer shows which tools it looked at and how long it took; an off-topic question is politely refused. It works in English, Spanish and Turkish and needs the Brain, like Live AI.
 
-**Live AI.** Switch it on (top bar, or inside the evidence drawer) and select a moment: the page asks the Brain to write that
+**Live AI.** Switch it on (under **More**, or inside the evidence drawer) and select a moment: the page asks the Brain to write that
 moment's story for each viewer on screen, and swaps the model's text in for the recorded one. The drawer shows who wrote it
 (`E R C ✓`: editor, router, composer, verifier), how long it took, and whether it came from the cache. If the Brain is asleep
 the page says so and waits (a Container App that scaled to zero needs about 20 seconds); if it is down or slow, the recorded

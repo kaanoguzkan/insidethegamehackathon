@@ -6,7 +6,7 @@ evidence-pack, glossary and Verifier discipline as every other number in Rifinit
 ways: in the match center (the **Explore** step and live pitch graphics, called Lenses), through MCP tools
 (`get_win_probability`, `get_key_actions` ... 25 tools in all) and as `analytics.json` in every replay package.
 
-![Win probability over a match, with each goal's swing marked (a screenshot from an earlier demo match)](img/insights-winprob.png)
+![Win probability over a match, with each goal's swing marked (the red-card match, after full time)](img/insights-winprob.png)
 
 ## What is implemented
 

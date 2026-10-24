@@ -19,6 +19,8 @@ What an operator gets, and where the limits are. Everything here is in the repos
 ## Observability
 
 - OpenTelemetry to Application Insights (`src/matchmind/telemetry.py`): a span per agent call and per verification, request telemetry, and the model's token counts.
+![The Operations page](img/operations.png)
+
 - `GET /api/ops` and the page at `#ops` show the last fifteen minutes without opening the portal: requests, errors, latency percentiles per group, how each story was made (model, repaired, template), the share of claims verified, cache hits, hedged calls, live matches against capacity. It carries no viewer identifiers.
 
 ## Data
