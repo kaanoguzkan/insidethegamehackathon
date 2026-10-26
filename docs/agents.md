@@ -95,7 +95,7 @@ The response carries `stats` (cache hits, model calls, hedged, repaired, rejecte
 templates; at most 18 model calls a request, most important moments first.
 
 **Cache** (`agents/cache.py`). Verified model text only, never a template. Memory in front (LRU, 2 048 entries, one hour), Cosmos DB behind
-(`beats`, seven days, shared by replicas and kept across restarts). Keyed by match, moment, cohort, model and prompt version. Every Cosmos call
+(`beats`, no expiry, shared by replicas and kept across restarts). Keyed by match, moment, cohort, model and prompt version, so text from an older prompt or model is never served: it simply stops being hit. Every Cosmos call
 is time-boxed (0.6 s) and any error is a miss; the connection is opened at start-up with a generous limit because the first call needs an
 identity token and account discovery. `/health` reports `sharedCache`.
 

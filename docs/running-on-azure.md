@@ -11,7 +11,7 @@
 | Availability test `ready-matchmind`, action group, four metric alerts (readiness, 5xx, CPU, restarts) | Sweden Central / global | Monitoring of the Brain; see [enterprise.md](enterprise.md). Mail goes to `BUDGET_CONTACT` when set |
 | Static Web App `swa-matchmind` | East US 2 | The match center, built with the Brain's address (`BRAIN_URI`) |
 | Microsoft Foundry account and project `kaanoguzkan-9930` | Sweden Central | The models (`gpt-6-luna` in use, `gpt-4.1-mini` kept as a fallback deployment, 120 000 tokens a minute for the latter), eight registered prompt agents, the hosted agent `matchmind-newsroom`, evaluations |
-| Cosmos DB (free tier), database `matchmind` | Sweden Central | `beats`: the Brain's shared cache of verified model text (7-day expiry). `matches`, `events`, `moments`, `overlays`, `state`, `leases`: the live pipeline. `season`: the season's fixtures and results. Identity only, no keys |
+| Cosmos DB (free tier), database `matchmind` | Sweden Central | `beats`: the Brain's shared cache of verified model text (no expiry: the key carries the model and prompt version). `matches`, `events`, `moments`, `overlays`, `state`, `leases`: the live pipeline. `season`: the season's fixtures and results. Identity only, no keys |
 | Application Insights, Log Analytics (30 days, 0.1 GB a day cap) | Sweden Central | Traces and logs. The Brain exports to the **Foundry project's own** Application Insights so traces show in the Foundry portal |
 | Container Registry (Basic), user-assigned managed identity | Sweden Central | The Brain image; the identity pulls it and calls Cosmos, Storage and the model |
 | Container Apps Job `caj-matchmind-season` (1 vCPU, 2 GiB, 5 parallel replicas, manual trigger) | North Europe | Simulates a season: each replica claims fixtures, simulates them and stores their match packs until none is left (`python -m matchmind.live.season_job`, the Brain's image). The Brain starts it |
@@ -135,7 +135,7 @@ Three things that used to stall or lose work, and what fixed them:
   MCP tools now run in worker threads, `moments`, `analytics` and `win-probability` are read from the replay package, and the
   matches are preloaded in the background after start-up (`MATCHMIND_PRELOAD=1`). A cold MCP call used to take 22 s and freeze
   `/health` for 20 s; it now takes about 0.3 s and nothing waits.
-* **Cached text outlives a restart.** Verified model text is kept in memory and in Cosmos DB (`beats` container, 7-day expiry,
+* **Cached text outlives a restart.** Verified model text is kept in memory and in Cosmos DB (`beats` container, no expiry,
   `MATCHMIND_SHARED_CACHE=1`). A fresh replica served a result cached before it existed in 282 ms with no model call. Cosmos is
   time-boxed and any error counts as a miss, so it can only make a request faster. `/health` shows `sharedCache`.
 * **Hedging is for the slow tail only.** A second identical model call starts after 4 s (`MATCHMIND_HEDGE_S`). With the earlier, faster model, at 2.2 s about half of

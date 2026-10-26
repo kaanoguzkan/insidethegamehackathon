@@ -83,7 +83,7 @@ class SharedBeatCache:
     ``open_container`` is an async callable returning a Cosmos container client (partition key ``/matchId``).
     """
 
-    def __init__(self, local: BeatCache, open_container, *, ttl_s: int = 7 * 86400, timeout_s: float = 0.6, cooldown_s: float = 60.0, clock: Callable[[], float] = time.monotonic) -> None:  # noqa: ANN001
+    def __init__(self, local: BeatCache, open_container, *, ttl_s: int = -1, timeout_s: float = 0.6, cooldown_s: float = 60.0, clock: Callable[[], float] = time.monotonic) -> None:  # noqa: ANN001
         self.local, self._open, self.ttl_s, self.timeout_s, self.cooldown_s, self._clock = local, open_container, ttl_s, timeout_s, cooldown_s, clock
         self._container = None
         self._down_until = 0.0
