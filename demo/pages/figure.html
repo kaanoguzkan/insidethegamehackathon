@@ -2,11 +2,17 @@
 <style>
 html,body{margin:0;height:100%;background:#0d1310;overflow:hidden}
 body{display:flex;align-items:center;justify-content:center}
-img{max-width:100vw;max-height:100vh;width:auto;height:auto}
+svg{max-width:100vw;max-height:100vh;width:auto;height:auto}
 </style>
-<!-- Full-screen architecture figure for the demo video: figure.html?f=stages | paths | story | azure -->
-<img id="f" alt="">
+<!-- Full-screen architecture figure for the demo video: figure.html?f=stages | paths | story | azure
+     The figure is loaded inline so that it can be recorded with its motion even on a machine that asks for reduced motion (add ?still=1 to see it still). -->
+<div id="f"></div>
 <script>
-const f = new URLSearchParams(location.search).get('f') || 'stages'
-document.getElementById('f').src = `../../docs/img/architecture-${f}.svg`
+const q = new URLSearchParams(location.search)
+const name = q.get('f') || 'stages'
+fetch(`../../docs/img/architecture-${name}.svg`).then((r) => r.text()).then((svg) => {
+  const box = document.getElementById('f')
+  box.innerHTML = svg
+  if (q.get('still') !== '1') box.querySelector('style').textContent = '.dash{animation:df 1.4s linear infinite}@keyframes df{to{stroke-dashoffset:-22}}'
+})
 </script>

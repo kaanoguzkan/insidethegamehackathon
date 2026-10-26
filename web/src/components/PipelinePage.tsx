@@ -108,7 +108,7 @@ export function PipelinePage({ lang = 'en' as const }) {
               {FLOW.map(([name, what], i) => (
                 <li className="live-stage" key={name}>
                   <span className="live-stage-name">{name}</span>
-                  <b className="live-stage-value">{counts[i]}</b>
+                  <b key={counts[i]} className="live-stage-value flash">{counts[i]}</b>
                   <span className="muted">{what}</span>
                 </li>
               ))}

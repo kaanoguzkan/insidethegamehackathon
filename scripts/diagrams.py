@@ -18,11 +18,20 @@ C = {
 }
 
 
+# What moves is switched off for a reader who asks their system for less motion; the drawing is complete without it.
+FX_DEFS = (
+    '<filter id="glow" x="-20%" y="-30%" width="140%" height="160%"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
+    "<style>.dash{animation:df 1.4s linear infinite}@keyframes df{to{stroke-dashoffset:-22}}@media (prefers-reduced-motion:reduce){.fx{display:none}.dash{animation:none}}</style>"
+)
+
+
 class Svg:
     def __init__(self, w: int, h: int, title: str, claim: str) -> None:
         self.w, self.h, self.title, self.claim = w, h, title, claim
         self.parts: list[str] = []
         self.markers: set[str] = set()
+        self.fx: list[str] = []  # the moving parts (pulses along arrows, a glow that passes through stages), drawn over everything else
+        self.flows = 0
 
     # ----- primitives -------------------------------------------------------------------------------
     def rect(self, x, y, w, h, *, fill="panel", stroke="line", r=10, sw=1.5, dash: str | None = None, opacity=1.0) -> None:  # noqa: ANN001
@@ -48,11 +57,13 @@ class Svg:
         self.rect(cx - w / 2, cy - 12, w, 24, fill=fill, stroke=stroke, r=12, sw=1.3)
         self.text(cx, cy + 4, s, size=size, weight=weight, fill=color, anchor="middle")
 
-    def arrow(self, pts, *, color="muted", label=None, at=0.5, dash=None, sw=1.8, above=True, dx=0, dy=0, anchor="middle") -> None:  # noqa: ANN001
+    def arrow(self, pts, *, color="muted", label=None, at=0.5, dash=None, sw=1.8, above=True, dx=0, dy=0, anchor="middle", flow=True) -> None:  # noqa: ANN001
         self.markers.add(color)
-        d = f' stroke-dasharray="{dash}"' if dash else ""
+        d = f' stroke-dasharray="{dash}" class="dash"' if dash else ""
         p = " ".join(f"{x},{y}" for x, y in pts)
         self.parts.append(f'<polyline points="{p}" fill="none" stroke="{C.get(color, color)}" stroke-width="{sw}"{d} marker-end="url(#a-{color.lstrip("#")})" stroke-linejoin="round"/>')
+        if flow and color != "dim":
+            self.pulse(pts, color)
         if label:
             # label on the segment that holds ``at`` of the path length (by segment index when at is an int)
             seg = int(at) if isinstance(at, int) else 0
@@ -60,6 +71,25 @@ class Svg:
             f = 0.5 if isinstance(at, int) else at
             lx, ly = x1 + (x2 - x1) * f + dx, y1 + (y2 - y1) * f + (-7 if above else 16) + dy
             self.text(lx, ly, label, size=11, weight=600, fill=color if color in C and color not in ("muted", "line") else "text", anchor=anchor, halo=True)
+
+    def pulse(self, pts, color) -> None:  # noqa: ANN001
+        """A small light that travels along an arrow, over and over: what moves from one box to the next."""
+        length = sum(((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5 for (x1, y1), (x2, y2) in zip(pts, pts[1:], strict=False))
+        dur = max(1.3, length / 105)
+        begin = (self.flows * 0.43) % 3.1
+        self.flows += 1
+        path = "M" + " L".join(f"{x},{y}" for x, y in pts)
+        col = C.get(color, color)
+        for r, op in ((7, 0.2), (3.2, 0.95)):
+            self.fx.append(f'<circle r="{r}" fill="{col}" opacity="{op}"><animateMotion dur="{dur:.2f}s" begin="{begin:.2f}s" repeatCount="indefinite" path="{path}"/></circle>')
+
+    def glow(self, x, y, w, h, r, color, begin, dur) -> None:  # noqa: ANN001
+        """A glow around a box that comes up and fades once per cycle; give the boxes of a row staggered ``begin`` and the light seems to run through them."""
+        col = C.get(color, color) if color not in ("line", "dim") else C["accent"]
+        self.fx.append(
+            f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" fill="none" stroke="{col}" stroke-width="3" opacity="0" filter="url(#glow)">'
+            f'<animate attributeName="opacity" values="0;0.95;0.2;0" keyTimes="0;0.07;0.2;1" dur="{dur}s" begin="{begin:.2f}s" repeatCount="indefinite"/></rect>'
+        )
 
     def header(self, title, sub) -> None:  # noqa: ANN001
         self.text(40, 44, title, size=24, weight=800)
@@ -72,8 +102,8 @@ class Svg:
         )
         return (
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {self.w} {self.h}" width="{self.w}" height="{self.h}" role="img" aria-label="{escape(self.claim)}" font-family="{FONT}">'
-            f"<title>{escape(self.title)}</title><desc>{escape(self.claim)}</desc><defs>{defs}</defs>"
-            f'<rect width="{self.w}" height="{self.h}" fill="{C["bg"]}"/>' + "".join(self.parts) + "</svg>\n"
+            f"<title>{escape(self.title)}</title><desc>{escape(self.claim)}</desc><defs>{defs}{FX_DEFS}</defs>"
+            f'<rect width="{self.w}" height="{self.h}" fill="{C["bg"]}"/>' + "".join(self.parts) + '<g class="fx">' + "".join(self.fx) + "</g></svg>\n"
         )
 
     def save(self, name: str) -> None:
@@ -94,6 +124,7 @@ def fig_stages() -> None:
         s.text(X[i] + 24, 120, n, size=18, weight=800, fill="accent")
         s.text(X[i] + 48, 120, name, size=17, weight=700)
         s.text(X[i] + W - 20, 119, kind, size=11, weight=700, fill="ai" if kind == "models" else "muted", anchor="end")
+        s.glow(X[i], 90, W, 46, 23, "ai" if kind == "models" else "accent", i * 1.1, 7.0)
     pay = ["events + 5 Hz tracking", "evidence packs", "verified overlays"]
     for i, p in enumerate(pay):
         cx = X[i] + W + 20
@@ -162,13 +193,14 @@ def fig_stages() -> None:
 
 
 # ====================================================================================================
-def lane(s: Svg, y: int, nodes: list, labels: list[str], *, w: int = 150, gap: int = 50, h: int = 96) -> list[int]:
+def lane(s: Svg, y: int, nodes: list, labels: list[str], *, w: int = 150, gap: int = 50, h: int = 96, step: float = 0.45, cycle: float = 5.0) -> list[int]:
     """A row of boxes joined by labelled arrows; returns the x of each box."""
     xs = []
     for i, (title, lines, st) in enumerate(nodes):
         x = 40 + (w + gap) * i
         xs.append(x)
         s.box(x, y, w, h, title, lines, stroke=st)
+        s.glow(x, y, w, h, 10, st, i * step, cycle)
     for i, lab in enumerate(labels):
         x1 = xs[i] + w
         s.arrow([(x1 + 2, y + h / 2), (x1 + gap - 3, y + h / 2)], color="accent", label=lab, dy=-1, sw=2)
@@ -184,7 +216,7 @@ def fig_paths() -> None:
           ("Analyzer", ["speeds, sprints, pass", "difficulty, shot speed"], "line"), ("Interpreter", ["metrics, moments,", "evidence packs"], "line"),
           ("Dispatcher", ["one verified story per", "viewer; beat cache"], "line"), ("Foundry agents", ["Composer, Verifier", "gpt-6-luna"], "ai"),
           ("Session store", ["in memory: only what", "the clock has reached"], "data"), ("Browser", ["polls the feed ~0.7 s", "pitch and overlays"], "line")]
-    xs1 = lane(s, 142, n1, ["chunks", "tracking", "facts", "moments", "evidence", "stories", "poll"])
+    xs1 = lane(s, 142, n1, ["chunks", "tracking", "facts", "moments", "evidence", "stories", "poll"], step=0.3, cycle=4.0)  # in memory: the light runs through quickly
     s.text(46, 282, "0 network hops between stages: every stage is a function call inside the Brain (Azure Container Apps, 2 vCPU).", size=12.5, weight=600)
     s.text(46, 304, "A viewer's match has its own store and clock, so nothing from their future can be in it. Measured on Azure: about 2 s from a moment to its story when warm.", size=12, fill="muted")
     s.text(46, 324, "Cost of the choice: a live match lives in one replica's memory, so the Brain is one always-on replica with at most 12 live matches.", size=12, fill="muted")
@@ -195,7 +227,7 @@ def fig_paths() -> None:
           ("Event Grid", ["BlobCreated wakes", "the analyzer"], "azure"), ("Functions", ["analyze, interpret,", "dispatch, push"], "azure"),
           ("Brain /beats", ["fast path: one verified", "story per viewer"], "azure"), ("Foundry agents", ["Composer, Verifier", "gpt-6-luna"], "ai"),
           ("Azure SignalR", ["pushes each overlay", "as it is stored"], "azure"), ("Browser", ["#pipeline page,", "stage counters"], "line")]
-    xs2 = lane(s, 486, n2, ["events", "created", "trigger", "request", "calls", "stored", "push"])
+    xs2 = lane(s, 486, n2, ["events", "created", "trigger", "request", "calls", "stored", "push"], step=0.8, cycle=8.0)  # seven hops: it takes longer
     s.text(46, 626, "7 network hops: every stage is its own service that scales, retries and fails on its own, and hands the next one work through a change feed or an event.", size=12.5, weight=600)
     s.text(46, 648, "Slower to start and about 12 s from a moment to its story, but it is the production shape: events in, nothing shared in memory, the stages replaceable one by one.", size=12, fill="muted")
     s.parts.append(f'<circle cx="52" cy="665" r="5.5" fill="{C["accent"]}"/>')

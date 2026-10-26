@@ -768,3 +768,11 @@ body:has(.broadcast) { background: transparent; }
   .ops-stat { padding: 8px 10px; }
   .ops-stat strong { font-size: 1.05rem; }
 }
+
+/* The cloud pipeline page: a number that changes lights up, and a pulse sweeps along the stages */
+@keyframes flash { from { color: var(--accent); text-shadow: 0 0 14px var(--accent); } to { text-shadow: 0 0 0 transparent; } }
+@keyframes sweep { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.live-stage-value.flash { animation: flash 1.6s ease-out; }
+.live-stages { position: relative; }
+.live-stages::before { content: ''; position: absolute; left: 0; right: 0; top: -6px; height: 3px; border-radius: 3px; background: linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%); background-size: 50% 100%; background-repeat: no-repeat; animation: sweep 3.2s linear infinite; opacity: 0.8; }
+@media (prefers-reduced-motion: reduce) { .live-stage-value.flash, .live-stages::before { animation: none; } .live-stages::before { display: none; } }
