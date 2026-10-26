@@ -14,6 +14,7 @@ What an operator gets, and where the limits are. Everything here is in the repos
 - `GET /health` says the process is alive; `GET /ready` says it can do its job (matches loaded, a model client configured, the shared cache reachable) and answers 503 with the reason when not. An availability test in Application Insights calls `/ready` every five minutes from three regions.
 - The narrative has four levels of degradation (model text, repaired once, template, and the pitch without text), so a model outage costs wording, never the product. The verifier checks every number and name in a story against the evidence, so a fluent wrong story does not reach a viewer.
 - Alerts (`infra/resources.bicep`): readiness failing from two places, more than five 5xx in ten minutes, CPU above 85% for fifteen minutes, any restart. They mail `budgetContact` when it is set.
+- **First start after a deploy or restart:** the Brain builds the three demo matches in the background, so the first live start in the first minutes (up to about 30 seconds) waits for its demo. Later starts are immediate.
 - Live matches live in the memory of one replica, so the Brain runs as one always-on replica and caps live matches at twelve. A restart ends the matches that were on that replica; a viewer sees the match stop and can start another. Recorded matches and the shared cache are not affected.
 
 ## Observability

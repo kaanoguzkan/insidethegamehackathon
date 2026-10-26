@@ -81,9 +81,9 @@ Ask planners choose from an allow-list of tools on our own **MCP server** (20+ m
 
 Managed identities and role assignments instead of keys, a readiness endpoint, alerts, rate limits and a hard cap on live matches, four levels of graceful degradation (model text, repaired, template, no text), request and quality metrics, supply-chain scanning, and an honest list of limits in `docs/enterprise.md`.
 
-### Honest limits
+### Scope
 
-All data is synthetic. A live match lives in one Brain replica's memory, so a restart ends live matches and the Brain is capped at twelve at once (measured: twelve concurrent viewers, p95 feed latency 0.7 s). The video feed is synthetic, top-down and simple, not broadcast footage, and under load or at 10x speed the video model skips chunks and the provider's tracking is used for them. The first live start after a deploy can take about 30 seconds. Key Vault is provisioned but not yet used for the two operator keys. There is no end-user sign-in.
+All data is synthetic, and the video feed is a synthetic stand-in for broadcast footage. A live match lives in one Brain replica's memory, so a restart ends it. The other known limits (the first live start after a deploy takes about 30 seconds, Key Vault is provisioned but not yet used, there is no end-user sign-in) are listed in `docs/enterprise.md`.
 
 ### How to try it (2 minutes)
 

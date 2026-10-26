@@ -57,6 +57,7 @@ Measured against the simulator's truth (`matchmind vision-eval <demo>`), whole m
 
 ## What this is not
 
+* Under load, or at 10x speed, the video model can fall behind: a chunk it has not reached is the provider's own tracking, and the Video feed card says how many chunks were taken that way.
 * It is a *synthetic* video feed made from tracking, with a deliberately simple look (top-down, flat colours), not broadcast footage; a production system would
   need a detector trained on real frames and a camera model. The stages and the interface (video in, tracking chunks out) are the ones that would stay.
 * The ball's height is estimated from its apparent size, which is a crude stand-in for a real height measurement.
