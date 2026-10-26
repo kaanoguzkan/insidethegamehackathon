@@ -723,3 +723,48 @@ body:has(.broadcast) { background: transparent; }
 .tb-link:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
 .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 16px; border-bottom: 1px solid var(--line); background: var(--bg); }
 .toolbar .tb-left, .toolbar .tb-right { flex-wrap: wrap; row-gap: 6px; }
+
+/* ---------- phones and small tablets: less chrome, more match ---------- */
+.nav-item .ns { display: none; }
+@media (max-width: 1100px) {
+  /* the bar stays one row (brand, menu, link) as long as the menu fits; it never stacks */
+  .topbar { grid-template-columns: auto minmax(0, 1fr) auto; justify-items: stretch; padding: 6px 12px; }
+  .sitenav { max-width: 100%; justify-content: center; }
+  .toolbar { flex-wrap: wrap; padding: 6px 12px; }
+  .toolbar .tb-left { justify-content: flex-start; flex: 1 1 260px; min-width: 0; }
+  .toolbar .tb-right { justify-content: flex-end; flex-wrap: nowrap; }
+}
+@media (max-width: 760px) {
+  :root { --row-h: 12px; }
+  .strip.tall { --row-h: 26px; }
+  .topbar { grid-template-columns: auto minmax(0, 1fr); gap: 6px; padding: 4px 10px; min-height: 48px; }
+  .brand b, .tb-link { display: none; }
+  .sitenav { justify-content: flex-start; gap: 2px; }
+  .nav-item { padding: 7px 9px; font-size: 13px; gap: 5px; }
+  .nav-item .nl { display: none; }
+  .nav-item .ns { display: inline; }
+  .toolbar { flex-wrap: nowrap; gap: 8px; padding: 5px 10px; }
+  .toolbar .tb-left { flex: 1 1 0; min-width: 0; }
+  .toolbar .tb-right { flex: 0 0 auto; gap: 6px; }
+  .match-pick { display: block; width: 100%; min-width: 0; }
+  .match-pick select { width: 100%; max-width: none; text-overflow: ellipsis; padding: 6px; font-size: 12.5px; }
+  .toolbar .pop-btn, .toolbar .btn { padding: 6px 9px; font-size: 12.5px; }
+  .live-badge small { display: none; }
+  /* the start page is a sheet under the bar, not a card squeezed into the pitch */
+  .startpage, .startpage.welcome { position: fixed; top: 48px; left: 0; right: 0; bottom: 0; z-index: 25; padding: 14px 12px 24px; background: var(--bg); }
+  .startpage h2 { font-size: 22px; }
+  .home-card { padding: 12px 14px; }
+  /* the controls strip is about half its height */
+  .strip { padding: 6px 10px 4px; gap: 4px; }
+  .strip-controls { padding-top: 0; gap: 6px; max-width: none; }
+  .strip-controls .btn { padding: 6px 10px; font-size: 13px; }
+  .rb-markers { height: 16px; }
+  .rb-name { font-size: 11px; }
+  /* figures are drawn for a wide screen: let them scroll sideways at a size that can be read */
+  .arch figure { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: 12px; }
+  .arch figure img { width: 1180px; max-width: none; border: 0; border-radius: 0; }
+  .arch figure::before { content: 'Swipe sideways to read the whole figure'; display: block; position: sticky; left: 0; padding: 6px 10px; font-size: 12px; color: var(--muted); }
+  .ops-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .ops-stat { padding: 8px 10px; }
+  .ops-stat strong { font-size: 1.05rem; }
+}

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { t } from '../i18n'
 import type { Lang, Mode, Profile } from '../lib/types'
 
@@ -15,6 +16,8 @@ interface Props {
 /** The start page: the things worth doing, each one click away, before anything else. */
 export function Home({ lang, profile, onProfile, onLive, onAsk, onReplay, onSkip }: Props) {
   const modes: Mode[] = ['casual', 'analyst']
+  const first = useRef<HTMLButtonElement>(null)
+  useEffect(() => first.current?.focus({ preventScroll: true }), []) // the first action is focused, but the sheet stays at its top
   return (
     <div className="welcome startpage" role="dialog" aria-modal="false" aria-label={t(lang, 'welcome.title')}>
       <div className="home-inner">
@@ -25,13 +28,13 @@ export function Home({ lang, profile, onProfile, onLive, onAsk, onReplay, onSkip
             <section className="home-card prime">
               <h3><span className="live-dot" aria-hidden="true" />{t(lang, 'home.live.t')}</h3>
               <p>{t(lang, 'home.live.d')}</p>
-              <button type="button" className="btn live-cta" onClick={onLive} autoFocus><span className="live-dot" aria-hidden="true" />{t(lang, 'welcome.live')}</button>
+              <button type="button" ref={first} className="btn live-cta" onClick={onLive}><span className="live-dot" aria-hidden="true" />{t(lang, 'welcome.live')}</button>
             </section>
           )}
           <section className="home-card">
             <h3>{t(lang, 'home.replay.t')}</h3>
             <p>{t(lang, 'home.replay.d')}</p>
-            <button type="button" className={`btn${onLive ? '' : ' primary'}`} onClick={onReplay} autoFocus={!onLive}>{t(lang, 'welcome.play')}</button>
+            <button type="button" ref={onLive ? undefined : first} className={`btn${onLive ? '' : ' primary'}`} onClick={onReplay}>{t(lang, 'welcome.play')}</button>
           </section>
           {onAsk && (
             <section className="home-card">

@@ -15,6 +15,7 @@ interface Props {
 
 const LINKS: Record<NavKey, string> = { live: '#/?go=live', replay: '#/', ask: '#/?go=ask', pipeline: '#pipeline', ops: '#ops', architecture: '#architecture' }
 const LABELS: Record<NavKey, string> = { live: 'nav.live', replay: 'nav.replay', ask: 'nav.ask', pipeline: 'nav.pipeline', ops: 'nav.ops', architecture: 'nav.arch' }
+const SHORT: Partial<Record<NavKey, string>> = { pipeline: 'nav.pipeline.s', ops: 'nav.ops.s', architecture: 'nav.arch.s' } // a phone has room for a word or two
 const ORDER: NavKey[] = ['live', 'replay', 'ask', 'pipeline', 'ops', 'architecture']
 
 /** The one menu of the site: the same six places on every page, each one click away. */
@@ -27,7 +28,14 @@ export function SiteNav({ lang, active, onLive, onReplay, onAsk, liveAvailable =
         const label = (
           <>
             {k === 'live' && <span className="live-dot" aria-hidden="true" />}
-            {t(lang, LABELS[k])}
+            {SHORT[k] ? (
+              <>
+                <span className="nl">{t(lang, LABELS[k])}</span>
+                <span className="ns" aria-hidden="true">{t(lang, SHORT[k]!)}</span>
+              </>
+            ) : (
+              t(lang, LABELS[k])
+            )}
           </>
         )
         const handler = act[k]
