@@ -12,7 +12,7 @@
 | Static Web App `swa-matchmind` | East US 2 | The match center, built with the Brain's address (`BRAIN_URI`) |
 | Microsoft Foundry account and project `kaanoguzkan-9930` | Sweden Central | The models (`gpt-6-luna` in use, `gpt-4.1-mini` kept as a fallback deployment, 120 000 tokens a minute for the latter), eight registered prompt agents, the hosted agent `matchmind-newsroom`, evaluations |
 | Cosmos DB (free tier), database `matchmind` | Sweden Central | `beats`: the Brain's shared cache of verified model text (7-day expiry). `matches`, `events`, `moments`, `overlays`, `state`, `leases`: the live pipeline. `season`: the season's fixtures and results. Identity only, no keys |
-| Application Insights, Log Analytics (30 days, 0.5 GB a day cap) | Sweden Central | Traces and logs. The Brain exports to the **Foundry project's own** Application Insights so traces show in the Foundry portal |
+| Application Insights, Log Analytics (30 days, 0.1 GB a day cap) | Sweden Central | Traces and logs. The Brain exports to the **Foundry project's own** Application Insights so traces show in the Foundry portal |
 | Container Registry (Basic), user-assigned managed identity | Sweden Central | The Brain image; the identity pulls it and calls Cosmos, Storage and the model |
 | Container Apps Job `caj-matchmind-season` (1 vCPU, 2 GiB, 5 parallel replicas, manual trigger) | North Europe | Simulates a season: each replica claims fixtures, simulates them and stores their match packs until none is left (`python -m matchmind.live.season_job`, the Brain's image). The Brain starts it |
 | Container Apps Job `caj-matchmind-sim` (1 vCPU, 2 GiB, manual trigger) | North Europe | Plays a demo match as a feed (`python -m matchmind.live.simulator`); a Live match on the **Live** page is played inside the Brain instead, one per viewer |
@@ -127,7 +127,7 @@ and `apps/brain/main.py`, and was checked on the live service.
 | Concurrency cap | At most 8 `/api/beats` and 4 `/api/ask` requests are served at once; a burst gets 503 at once instead of queueing behind slow model calls. |
 | Admin key | `mode: "full"`, `useCache: false` and `deadlineMs` over 10 000 need the `x-admin-key` header. The key is `MATCHMIND_ADMIN_KEY` in the azd environment, stored as a Container Apps secret. Unset (local development), nothing is restricted. |
 | Headers | `X-Content-Type-Options`, `Referrer-Policy`, `Strict-Transport-Security`. |
-| Spend ceiling | The model deployment is capped at 120 000 tokens a minute, and the Log Analytics workspace at 0.5 GB a day. |
+| Spend ceiling | The model deployment is capped at 120 000 tokens a minute, and the Log Analytics workspace at 0.1 GB a day. |
 
 Three things that used to stall or lose work, and what fixed them:
 
