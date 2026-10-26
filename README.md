@@ -125,7 +125,7 @@ uv run matchmind build-pdf                          # the printable match report
 uv run matchmind fit-models                         # win probability, possession value, post-shot xG
 uv run matchmind build-season                       # the league's simulated history
 uv run pytest -m "not slow"                         # the fast suite
-cd web && pnpm install && pnpm dev                  # the match center (92 tests: pnpm test)
+cd web && pnpm install && pnpm dev                  # the match center (104 tests: pnpm test)
 ```
 
 No keys, network or GPU needed: the default model client answers from the template engine so the real

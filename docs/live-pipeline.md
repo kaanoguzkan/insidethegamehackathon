@@ -6,8 +6,8 @@ Two live paths share the same stages (analyse, detect moments, write verified st
 * **The event-driven path** (the *Cloud pipeline* page, `#pipeline`): a Container Apps Job plays the match into Cosmos DB and Blob Storage and Azure carries it through Event Grid, Functions, the Brain and SignalR,
   as described under [The pipeline](#the-pipeline). It runs one match at a time and is the cloud-native reference for the stages.
 
-The older "channel and season" design (a 30-match season simulated ahead of time into packs, one shared channel on the home page) is still in the code and the API
-([brain-api.md](brain-api.md)), but no page of the web app uses it any more. It is kept below for reference.
+The older "channel and season" design (a 30-match season simulated ahead of time into packs, one shared channel on the home page) is still in the Brain's code and API
+([brain-api.md](brain-api.md)), but no page of the web app uses it any more (its pages were removed). It is kept below for reference only.
 
 ## The channel and the season (not used by the web app)
 
@@ -69,7 +69,7 @@ flowchart LR
 | **Dispatch** | Function `dispatch` (change-feed trigger on `moments`) | `apps/functions/function_app.py` | Asks the Brain to write the narrative overlays for the new moments. |
 | **Explain** | The Brain, `POST /api/live/{id}/beats` | `live/dispatch.py`, `agents/` | The same fast path as `/api/beats`: the Editor, the cache, one model call per viewer cohort, the Verifier, the template fallback. Overlays are stored in Cosmos DB. |
 | **Push** | Functions `negotiate` and `push_overlays`, `push_moments`, `push_events` (change-feed triggers with the SignalR output binding) | `apps/functions/function_app.py` | The browser negotiates a connection to Azure SignalR (serverless mode, Microsoft Entra authentication, no keys); every overlay, moment and event that is stored is pushed to it in batches. |
-| **Show** | The Brain's read API and the web page | `live/api.py`, `web/src/components/LivePage.tsx` | Catch-up (`GET /api/live/{id}/feed`), the match's metadata, the tracking chunks (the Brain serves them: the storage account is private), and a slow reconciling poll while push works. The page draws the 3D pitch from the chunks with the same components as the replay player. |
+| **Show** | The Brain's read API and the web page | `live/api.py`, `web/src/components/PipelinePage.tsx` | Catch-up (`GET /api/live/{id}/feed`), the match's metadata, the tracking chunks (the Brain serves them: the storage account is private), and a slow reconciling poll while push works. The Cloud pipeline page shows each stage as it happens; **Live** itself uses a stream (above), not this path. |
 | **Safety net** | Function `sweep` (timer, every 30 s) | `apps/functions/function_app.py` | For each live match, does what the triggers would have done: drain the chunks, interpret. A lost Event Grid event or a restarted instance cannot stall a match for long. |
 
 ## Why it is built this way

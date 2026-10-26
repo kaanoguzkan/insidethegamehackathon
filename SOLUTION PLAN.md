@@ -47,7 +47,7 @@
 | Foundry red-teaming, content-safety policy, hosted recap agent | Not built | |
 | Demo video | Not recorded | Required: under two minutes, public link |
 
-656 Python tests (3 slow; all pass; the 653 fast ones in about 70 seconds in parallel) plus 92 web tests; ruff clean. About 18,500 lines of Python in `src`, `apps` and `foundry`, 4,800 of Python tests and 8,500 of web code.
+701 Python tests (4 slow; the 697 fast ones run in parallel) plus 104 web tests; ruff clean. About 19,400 lines of Python in `src`, 5,500 of Python tests and 10,500 of web code.
 
 ### Measured results
 
@@ -983,7 +983,7 @@ matchmind/
 │   └── replays/               # pre-generated replay packages
 ├── evals/                     # golden set, custom evaluators, run script
 ├── docs/                      # architecture, metrics, agents, overlay contract, data card, responsible AI
-├── tests/                     # 160 tests  [built]
+├── tests/                     # 700 tests  [built]
 └── .github/
     ├── workflows/             # ci.yml, deploy.yml, evals.yml, pages.yml
     └── copilot-instructions.md

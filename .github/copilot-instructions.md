@@ -32,7 +32,7 @@ Read `SOLUTION PLAN.md` (status section first), `docs/architecture.md` and `docs
 - No pronouns for people in generated text; no case suffixes attached to numbers (Turkish).
 
 ## Working here
-- Python 3.12 with `uv`: `uv sync`, `uv run pytest -m "not slow" -n auto` (the 3 slow tests run nightly), `uv run ruff check src tests apps`.
+- Python 3.12 with `uv`: `uv sync`, `uv run pytest -m "not slow" -n auto` (the slow tests run nightly), `uv run ruff check src tests apps`.
 - Web: `cd web && pnpm install && pnpm typecheck && pnpm test && pnpm build`. `VITE_BRAIN_URL` points the Live AI switch at a Brain.
 - Foundry and Azure: `uv run matchmind foundry-register | foundry-evals | foundry-host`, `azd provision && azd deploy` (Docker must be running); the Dockerfile builds from `ghcr.io`, not Docker Hub.
 - After changing the simulator, run `uv run matchmind report-realism`; every metric must stay in its band.

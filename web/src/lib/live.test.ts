@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest'
-import { dueOverlays } from '../components/LivePage'
 import { clockLabel, getFeed, LiveBusy, liveClock, type LiveEvent, type LiveMoment, type LiveOverlay, median, pipelineDelays, playClock, scoreOf, stageDelays, startLive, writer } from './live'
 import { type ChunkJson, LiveTracking } from './tracking'
 import type { Overlay } from './types'
@@ -60,22 +59,6 @@ describe('the pipeline delay', () => {
     expect(median([])).toBeNull()
     expect(median([3, 1, 2])).toBe(2)
     expect(median([1, 2, 3, 4])).toBe(2.5)
-  })
-})
-
-describe('what is on screen', () => {
-  it('shows this viewer type, once its time has come, newest first', () => {
-    const rows = [
-      ov('now', { displayAt: { matchMs: 5000 } }),
-      ov('older', { displayAt: { matchMs: 2000 } }),
-      ov('future', { displayAt: { matchMs: 9000 } }),
-      ov('es', { displayAt: { matchMs: 1000 }, cohort: { mode: 'casual', language: 'es', perspective: 'neutral', focusPlayer: null } }),
-      ov('analyst', { displayAt: { matchMs: 1000 }, cohort: { mode: 'analyst', language: 'en', perspective: 'neutral', focusPlayer: null } }),
-      ov('fan', { displayAt: { matchMs: 1000 }, cohort: { mode: 'casual', language: 'en', perspective: 'RED', focusPlayer: null } }),
-      ov('shared', { displayAt: { matchMs: 3000 }, kind: 'fact_card', cohort: { mode: 'any', language: 'en', perspective: 'neutral', focusPlayer: null } }),
-      ov('graphic', { displayAt: { matchMs: 1000 }, kind: 'graphic' }),
-    ]
-    expect(dueOverlays(rows, 'en', 'casual', 6000).map((o) => o.id)).toEqual(['now', 'shared', 'older'])
   })
 })
 
