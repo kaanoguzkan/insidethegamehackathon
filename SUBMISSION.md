@@ -32,7 +32,7 @@ https://happy-beach-0379fb50f.5.azurestaticapps.net
 
 ## Demo video
 
-[public YouTube/Vimeo URL: to add once recorded and uploaded]
+https://www.youtube.com/watch?v=IcC8Hgkt26s
 
 ---
 

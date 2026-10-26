@@ -3,6 +3,8 @@
 **Explained, personalized football match intelligence from synthetic events.**
 Built for the Microsoft × Premier League *Inside the Game* developer hackathon.
 
+**Demo video (1:39):** <https://www.youtube.com/watch?v=IcC8Hgkt26s>
+
 > *Rifinitore* is the Italian word for the creative player who makes the final pass: the one who turns the work of the whole team into the chance. The Python package, the `matchmind` command and the Azure resource names keep the project's original working name.
 
 ![The match center: a verified, personalized lower-third explaining why Northbridge stopped pressing](docs/img/match-center.png)
