@@ -325,7 +325,7 @@ def fig_azure() -> None:
     s.box(56, 146, 168, 84, "Static Web Apps", ["match center, #ops,", "#pipeline, #architecture"], stroke="azure")
     s.box(56, 300, 168, 110, "Browser", ["React + three.js", "polls the feed,", "WebSocket for push"], stroke="line")
     zone(s, 280, 110, 360, 330, "AZURE CONTAINER APPS", "azure")
-    s.box(296, 146, 328, 160, "The Brain", ["2 vCPU, always on, one replica", "REST API + MCP server (23 tools)", "live matches in memory (12 at most)", "Agent Framework agents + Verifier", "streams, Ask, Operations, vision"], stroke="azure")
+    s.box(296, 146, 328, 160, "The Brain", ["2 vCPU, always on, one replica", "REST API + MCP server (25 tools)", "live matches in memory (12 at most)", "Agent Framework agents + Verifier", "streams, Ask, Operations, vision"], stroke="azure")
     s.box(296, 322, 328, 102, "Container Apps Job", ["the simulator: plays a demo match", "into Cosmos DB and Blob Storage"], stroke="azure")
     zone(s, 280, 470, 360, 240, "AZURE FUNCTIONS (FLEX CONSUMPTION)", "azure")
     s.box(296, 506, 328, 184, "Event-driven stages", ["analyze: tracking chunk → physical facts", "interpret: change feed → moments", "dispatch: moment → the Brain's /beats", "push: stored overlay → SignalR", "negotiate: a SignalR token for the page"], stroke="azure")

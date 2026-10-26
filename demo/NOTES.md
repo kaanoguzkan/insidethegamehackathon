@@ -1,6 +1,6 @@
 # Demo video
 
-Two videos: a **2-minute demo** (the one in the form's Demo video field) and an optional **5-minute walkthrough** (linked from the README). Silent, English captions burned in, no logos or music.
+Two videos: a **2-minute demo** (the one in the form's Demo video field) and an optional **5-minute walkthrough** (linked from the README). English captions burned in and an English voice-over made with Azure AI Speech (neural HD voice en-US-Andrew); no logos or music.
 Record against the deployed site; wait about 2 minutes after a deploy so the demos preload. `demo/pages/figure.html` shows an architecture figure full screen with its animation on
 (serve the repo root over http; `?still=1` for a still).
 
@@ -23,3 +23,31 @@ Record against the deployed site; wait about 2 minutes after a deploy so the dem
 | 1:52 | End card | "Rifinitore: football, explained as it happens, and checked." |
 
 Upload as Public and check that it plays when logged out, then put the URL in `SUBMISSION.md` and the README.
+
+## Voice-over and subtitles (the recorded cut, 1:39)
+
+The voice is Azure AI Speech (`en-US-Andrew:DragonHDLatestNeural`), one clip per phrase; "Rifinitore" is given an Italian pronunciation with an SSML phoneme. The subtitles are drawn from the same phrase list and timings, so voice, picture and text cannot drift apart; `rifinitore-demo.en.srt` is the same text for a YouTube caption upload.
+
+* This is Rifinitore: football, explained as it happens.
+* Start a live match.
+* Every moment is found, explained and checked while the match is played.
+* Every number links to its evidence,
+* and with no tracking data given, a model reads the video feed itself.
+* Change the speed while it plays.
+* The match keeps its own clock for you.
+* Ask the match anything.
+* The answer comes only from what has already happened,
+* and every number in it is checked against the data.
+* Two viewers, one match:
+* the same moment told in English and in Spanish, for different fans.
+* Or replay a recorded match.
+* Open the evidence behind a goal: the numbers, how the story was made and the events behind it.
+* Then the tactics,
+* and every number behind the match.
+* Five stages: ingest, analyse, interpret, explain and personalise, each one running on Azure.
+* Code computes the numbers. Agents write the story. A verifier stops any claim the data cannot support.
+* It is built on Azure: Container Apps, Event Grid, Functions, Cosmos DB and SignalR, with Foundry agents and one managed identity, so there are no keys.
+* The same match also runs as an event-driven cloud pipeline,
+* and each moment becomes a verified story within seconds.
+* Operations shows latency, errors and live capacity as they happen.
+* Rifinitore. Football, explained as it happens, and checked.

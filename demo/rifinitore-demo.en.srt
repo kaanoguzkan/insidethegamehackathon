@@ -1,0 +1,92 @@
+1
+00:00:00,201 --> 00:00:03,751
+This is Rifinitore: football, explained as it happens.
+
+2
+00:00:03,951 --> 00:00:05,301
+Start a live match.
+
+3
+00:00:06,000 --> 00:00:09,900
+Every moment is found, explained and checked while the match is played.
+
+4
+00:00:10,100 --> 00:00:12,000
+Every number links to its evidence,
+
+5
+00:00:13,700 --> 00:00:17,400
+and with no tracking data given, a model reads the video feed itself.
+
+6
+00:00:17,700 --> 00:00:19,550
+Change the speed while it plays.
+
+7
+00:00:19,750 --> 00:00:21,700
+The match keeps its own clock for you.
+
+8
+00:00:22,601 --> 00:00:24,301
+Ask the match anything.
+
+9
+00:00:24,500 --> 00:00:27,050
+The answer comes only from what has already happened,
+
+10
+00:00:27,251 --> 00:00:30,251
+and every number in it is checked against the data.
+
+11
+00:00:31,007 --> 00:00:32,757
+Two viewers, one match:
+
+12
+00:00:33,808 --> 00:00:37,758
+the same moment told in English and in Spanish, for different fans.
+
+13
+00:00:37,808 --> 00:00:39,608
+Or replay a recorded match.
+
+14
+00:00:39,807 --> 00:00:45,957
+Open the evidence behind a goal: the numbers, how the story was made and the events behind it.
+
+15
+00:00:46,158 --> 00:00:47,558
+Then the tactics,
+
+16
+00:00:49,958 --> 00:00:51,908
+and every number behind the match.
+
+17
+00:00:54,407 --> 00:01:02,207
+Five stages: ingest, analyse, interpret, explain and personalise, each one running on Azure.
+
+18
+00:01:02,907 --> 00:01:09,457
+Code computes the numbers. Agents write the story. A verifier stops any claim the data cannot support.
+
+19
+00:01:10,207 --> 00:01:21,107
+It is built on Azure: Container Apps, Event Grid, Functions, Cosmos DB and SignalR, with Foundry agents and one managed identity, so there are no keys.
+
+20
+00:01:21,707 --> 00:01:25,407
+The same match also runs as an event-driven cloud pipeline,
+
+21
+00:01:25,607 --> 00:01:28,957
+and each moment becomes a verified story within seconds.
+
+22
+00:01:29,157 --> 00:01:33,157
+Operations shows latency, errors and live capacity as they happen.
+
+23
+00:01:33,907 --> 00:01:38,457
+Rifinitore. Football, explained as it happens, and checked.
+
