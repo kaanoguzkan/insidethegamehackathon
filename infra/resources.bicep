@@ -47,8 +47,8 @@ resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   properties: {
     sku: { name: 'PerGB2018' }
     retentionInDays: 30
-    // A cap, so that verbose logs can never turn into a bill: ingestion stops for the day at 0.5 GB (normal use is a few MB).
-    workspaceCapping: { dailyQuotaGb: json('0.5') }
+    // A cap, so that verbose logs can never turn into a bill: ingestion stops for the day at 0.1 GB (the Brain's console logs reached 0.5 GB a day, about $1.4).
+    workspaceCapping: { dailyQuotaGb: json('0.1') }
     features: { disableLocalAuth: false }
   }
 }
@@ -374,11 +374,11 @@ resource readyTest 'Microsoft.Insights/webtests@2022-06-15' = {
     SyntheticMonitorId: 'ready-${environmentName}'
     Name: 'Brain is ready'
     Enabled: true
-    Frequency: 300
+    Frequency: 900
     Timeout: 30
     Kind: 'standard'
     RetryEnabled: true
-    Locations: [{ Id: 'emea-nl-ams-azr' }, { Id: 'us-va-ash-azr' }, { Id: 'emea-gb-db3-azr' }]
+    Locations: [{ Id: 'emea-nl-ams-azr' }, { Id: 'us-va-ash-azr' }]
     Request: { RequestUrl: 'https://${brain.properties.configuration.ingress.fqdn}/ready', HttpVerb: 'GET', ParseDependentRequests: false }
     ValidationRules: { ExpectedHttpStatusCode: 200, SSLCheck: true, SSLCertRemainingLifetimeCheck: 7 }
   }
@@ -618,7 +618,7 @@ resource funcApp 'Microsoft.Web/sites@2023-12-01' = {
           authentication: { type: 'UserAssignedIdentity', userAssignedIdentityResourceId: identity.id }
         }
       }
-      scaleAndConcurrency: { maximumInstanceCount: 4, instanceMemoryMB: 2048 }
+      scaleAndConcurrency: { maximumInstanceCount: 2, instanceMemoryMB: 512 }
       runtime: { name: 'python', version: '3.12' }
     }
     siteConfig: {

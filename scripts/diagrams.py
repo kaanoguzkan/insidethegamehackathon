@@ -338,7 +338,7 @@ def fig_azure() -> None:
     s.box(1106, 146, 478, 164, "Microsoft Foundry project (Sweden Central)", ["gpt-6-luna: the model every agent uses", "8 registered prompt agents + a hosted agent", "evaluations of the text; agent traces in the project", "reached with the Brain's managed identity: no key"], stroke="ai")
     zone(s, 720, 630, 880, 160, "OPERATE", "ok")
     s.box(736, 666, 260, 104, "App Insights + OpenTelemetry", ["traces and metrics from the", "Brain and Functions; a span per", "agent call and verification"], stroke="ok")
-    s.box(1012, 666, 300, 104, "Availability test + alerts", ["a test on /ready from 3 regions;", "alerts: readiness, 5xx, CPU, restarts", "→ an action group (email)"], stroke="ok")
+    s.box(1012, 666, 300, 104, "Availability test + alerts", ["a test on /ready from 2 regions;", "alerts: readiness, 5xx, CPU, restarts", "→ an action group (email)"], stroke="ok")
     s.box(1328, 666, 256, 104, "Key Vault", ["provisioned, not used yet:", "the two operator keys are still", "Container Apps secrets"], stroke="dim", dash="5 4")
     s.rect(720, 804, 880, 38, fill="panel2", stroke=C["azure"], r=19, sw=1.3)
     s.text(1160, 828, "One user-assigned managed identity: roles for Blob, Queue, Table, Cosmos data, registry pull and SignalR. No keys in code or image.", size=12, weight=600, anchor="middle")
