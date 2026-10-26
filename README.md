@@ -282,22 +282,9 @@ docs/            architecture, agents, live-pipeline, brain-api, configuration, 
 tests/ evals/    Python tests (3 slow) + 92 web tests      SOLUTION PLAN.md   design, schedule, status
 ```
 
-## Honest limits
+## Scope
 
-* **Real-model quality is measured on a small scale.** The live numbers above come from one model (`gpt-4.1-mini`; `gpt-6-luna` was measured on 27 requests), 45 calls and one
-  afternoon; latency of a shared model endpoint varies by a second or more, which is why the live path has a hard deadline, template
-  fallbacks and a hedged second call. The Foundry evaluation scores recorded text and uses a judge from the same model family.
-* **The first request after idle is slow.** The Brain scales to zero (free tier), so a cold start takes about 20 seconds; the page wakes it on load
-  and shows "Waking the AI service" meanwhile.
-* **A live match lives in one replica's memory.** Each viewer's match is played in the Brain's process (so it has the full match center, not a reduced page), which is why the Brain runs
-  as one always-on replica (2 vCPU) and takes at most twelve live matches at once (twelve concurrent viewers measured on Azure: feed polls median 221 ms, p95 0.7 s, which is mostly the network round trip); a restart ends them. The event-driven path through Functions and SignalR is real and deployed, and
-  runs one match at a time from the Cloud pipeline page; it is not what carries the match center. There is no load test beyond that cap.
-* **Experimental SDK parts.** Registered Foundry agents, the hosted agent and Foundry evaluations use experimental Agent Framework APIs that may change.
-  The hosted agent's first call to a new session can time out while its container starts.
-* The demo video is not recorded.
-* Other detectors (chaos flip, momentum swing) are noisier than the pressing detector.
-* Pitch control uses positions only, not velocities or the ball, and win probability, possession value and xG are fitted on simulated, not real,
-  matches ([docs/analytics.md](docs/analytics.md)).
+All data is synthetic, and the video feed is a synthetic stand-in for broadcast footage. A live match lives in one Brain replica's memory (twelve at once, measured with twelve viewers), so a restart ends it. Model quality was measured on a small scale, and the Foundry agents use experimental Agent Framework APIs. The detectors, pitch control and the fitted models are described, with their limits, in [docs/analytics.md](docs/analytics.md) and [docs/vision.md](docs/vision.md); the rest (first start after a deploy, Key Vault, no end-user sign-in) is in [docs/enterprise.md](docs/enterprise.md).
 
 ## License
 
