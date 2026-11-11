@@ -1,8 +1,7 @@
 # The Brain API
 
-The Brain is a FastAPI service (`apps/brain/main.py`) that serves the match data, the live overlay endpoint and an MCP server. It is
-deployed at `https://ca-matchmind-brain.ambitiouswave-e3f38943.northeurope.azurecontainerapps.io` (Container Apps, scale to zero: the first request
-after idle takes about 20 seconds, so call `/health` first). Interactive docs are at `/docs` and the schema at `/openapi.json`.
+The Brain is a FastAPI service (`apps/brain/main.py`) that serves the match data, the live overlay endpoint and an MCP server. It was
+deployed at `https://ca-matchmind-brain.ambitiouswave-e3f38943.northeurope.azurecontainerapps.io` while the entry was judged (Container Apps; those Azure resources were deleted afterwards, and `azd provision` then `azd deploy` recreates them). Interactive docs are at `/docs` and the schema at `/openapi.json`.
 
 | Method and path | What it does |
 |---|---|

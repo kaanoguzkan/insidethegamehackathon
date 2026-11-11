@@ -1,5 +1,7 @@
 # Running on Azure
 
+> **Status.** This describes the deployment that ran while the entry was judged (27 Oct to 10 Nov 2026). It was deleted afterwards to stop the bill; the commands below recreate it.
+
 **Status: deployed and verified on a free subscription (October 2026).** `azd up` provisions everything below into one resource group
 (`rg-matchmind`); the Brain and the web app were then deployed with `azd deploy`.
 

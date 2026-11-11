@@ -30,6 +30,8 @@ https://github.com/kaanoguzkan/insidethegamehackathon
 
 https://happy-beach-0379fb50f.5.azurestaticapps.net
 
+*Status: this Azure site ran during judging (27 Oct to 10 Nov 2026) and was deleted afterwards to stop the bill. The portfolio version, with the recorded matches, the architecture and the demo video, is at https://kaanoguzkan.com/insidethegamehackathon/*
+
 ## Demo video
 
 https://www.youtube.com/watch?v=IcC8Hgkt26s
