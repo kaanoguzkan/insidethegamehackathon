@@ -1,4 +1,5 @@
 import { t } from '../i18n'
+import { brainConfigured } from '../lib/brain'
 import type { Replay } from '../lib/data'
 import type { Layers } from '../lib/layers'
 import type { Lang, Profile } from '../lib/types'
@@ -10,7 +11,7 @@ import { TacticsPanel } from './TacticsPanel'
 
 /** The right-hand panel: one tab bar that is always there, so any view of the match is one click away and the pitch never leaves the screen. */
 export type PanelTab = 'moments' | 'story' | 'tactics' | 'numbers' | 'ask'
-export const PANEL_TABS: PanelTab[] = ['moments', 'story', 'tactics', 'numbers', 'ask']
+export const PANEL_TABS: PanelTab[] = brainConfigured ? ['moments', 'story', 'tactics', 'numbers', 'ask'] : ['moments', 'story', 'tactics', 'numbers'] // Ask needs a Brain
 // In a live match Ask is answered from the match as the viewer has seen it so far, so every tab is there.
 
 interface Props {

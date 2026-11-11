@@ -1,5 +1,5 @@
-# The fallback mirror: the same replay-only build on GitHub Pages, so the judge link keeps working
-# even if anything on Azure is down or its credit has run out. No backend, no model calls.
+# The portfolio mirror: the replay-only build on GitHub Pages (kaanoguzkan.com/insidethegamehackathon/), with the demo video. No backend, no model calls,
+# so it keeps working with Azure switched off. To point it at a Brain again, set the repository variable BRAIN_URL.
 name: pages
 
 on:
@@ -26,8 +26,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build # base './' keeps asset URLs relative, so it works under /<repo>/
         env:
-          # The Brain API the Live AI mode calls. Set the repository variable BRAIN_URL to point somewhere else.
-          VITE_BRAIN_URL: ${{ vars.BRAIN_URL || 'https://ca-matchmind-brain.ambitiouswave-e3f38943.northeurope.azurecontainerapps.io' }}
+          # Empty: no Brain, so the build is replay-only (no Live, Ask, Cloud pipeline or Operations) and its menu has the demo video.
+          VITE_BRAIN_URL: ${{ vars.BRAIN_URL }}
       - uses: actions/upload-pages-artifact@v3
         with: { path: web/dist }
   deploy:

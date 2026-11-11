@@ -222,7 +222,7 @@ function Player({ replay, index, route, setRoute, stream }: { replay: Replay; in
       else if (e.key === ']') setSpeed(stream ? nextStreamSpeed(speed, 1) : Math.min(60, speed * 2))
       else if (e.key === '[') setSpeed(stream ? nextStreamSpeed(speed, -1) : Math.max(1, Math.round(speed / 2)))
       else if (e.key === 'Escape') setSelected(null)
-      else if (e.key >= '1' && e.key <= '5' && !e.metaKey && !e.ctrlKey && !e.altKey) selectTab(PANEL_TABS[Number(e.key) - 1])
+      else if (e.key >= '1' && e.key <= '5' && !e.metaKey && !e.ctrlKey && !e.altKey && PANEL_TABS[Number(e.key) - 1]) selectTab(PANEL_TABS[Number(e.key) - 1])
     }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)

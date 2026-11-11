@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { t } from '../i18n'
+import { brainConfigured } from '../lib/brain'
 import type { Lang, Mode, Profile } from '../lib/types'
 
 interface Props {
@@ -23,6 +24,7 @@ export function Home({ lang, profile, onProfile, onLive, onAsk, onReplay, onSkip
       <div className="home-inner">
         <h2>{t(lang, 'welcome.title')}</h2>
         <p className="home-lead">{t(lang, 'welcome.body')}</p>
+        {!brainConfigured && <p className="home-lead">{t(lang, 'static.note')}</p>}
         <div className="home-grid">
           {onLive && (
             <section className="home-card prime">
@@ -36,6 +38,13 @@ export function Home({ lang, profile, onProfile, onLive, onAsk, onReplay, onSkip
             <p>{t(lang, 'home.replay.d')}</p>
             <button type="button" ref={onLive ? undefined : first} className={`btn${onLive ? '' : ' primary'}`} onClick={onReplay}>{t(lang, 'welcome.play')}</button>
           </section>
+          {!brainConfigured && (
+            <section className="home-card prime">
+              <h3>{t(lang, 'home.video.t')}</h3>
+              <p>{t(lang, 'home.video.d')}</p>
+              <a className="btn live-cta" href="#video">{t(lang, 'nav.video')}</a>
+            </section>
+          )}
           {onAsk && (
             <section className="home-card">
               <h3>{t(lang, 'home.ask.t')}</h3>
@@ -55,8 +64,8 @@ export function Home({ lang, profile, onProfile, onLive, onAsk, onReplay, onSkip
             <h3>{t(lang, 'home.under.t')}</h3>
             <p>{t(lang, 'home.under.d')}</p>
             <div className="chips">
-              <a className="btn" href="#pipeline">{t(lang, 'nav.pipeline')}</a>
-              <a className="btn" href="#ops">{t(lang, 'nav.ops')}</a>
+              {brainConfigured && <a className="btn" href="#pipeline">{t(lang, 'nav.pipeline')}</a>}
+              {brainConfigured && <a className="btn" href="#ops">{t(lang, 'nav.ops')}</a>}
               <a className="btn" href="#architecture">{t(lang, 'nav.arch')}</a>
             </div>
           </section>

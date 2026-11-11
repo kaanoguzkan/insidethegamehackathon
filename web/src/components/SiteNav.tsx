@@ -1,7 +1,8 @@
 import { t } from '../i18n'
+import { brainConfigured } from '../lib/brain'
 import type { Lang } from '../lib/types'
 
-export type NavKey = 'live' | 'replay' | 'ask' | 'pipeline' | 'ops' | 'architecture'
+export type NavKey = 'live' | 'replay' | 'ask' | 'pipeline' | 'ops' | 'architecture' | 'video'
 
 interface Props {
   lang: Lang
@@ -13,17 +14,19 @@ interface Props {
   liveAvailable?: boolean
 }
 
-const LINKS: Record<NavKey, string> = { live: '#/?go=live', replay: '#/', ask: '#/?go=ask', pipeline: '#pipeline', ops: '#ops', architecture: '#architecture' }
-const LABELS: Record<NavKey, string> = { live: 'nav.live', replay: 'nav.replay', ask: 'nav.ask', pipeline: 'nav.pipeline', ops: 'nav.ops', architecture: 'nav.arch' }
-const SHORT: Partial<Record<NavKey, string>> = { pipeline: 'nav.pipeline.s', ops: 'nav.ops.s', architecture: 'nav.arch.s' } // a phone has room for a word or two
+const LINKS: Record<NavKey, string> = { live: '#/?go=live', replay: '#/', ask: '#/?go=ask', pipeline: '#pipeline', ops: '#ops', architecture: '#architecture', video: '#video' }
+const LABELS: Record<NavKey, string> = { live: 'nav.live', replay: 'nav.replay', ask: 'nav.ask', pipeline: 'nav.pipeline', ops: 'nav.ops', architecture: 'nav.arch', video: 'nav.video' }
+const SHORT: Partial<Record<NavKey, string>> = { pipeline: 'nav.pipeline.s', ops: 'nav.ops.s', architecture: 'nav.arch.s', video: 'nav.video.s' } // a phone has room for a word or two
 const ORDER: NavKey[] = ['live', 'replay', 'ask', 'pipeline', 'ops', 'architecture']
+/** The portfolio build has no Brain behind it: the menu is what it can show (the recorded matches, the figures and the demo video). */
+const STATIC_ORDER: NavKey[] = ['replay', 'architecture', 'video']
 
 /** The one menu of the site: the same six places on every page, each one click away. */
 export function SiteNav({ lang, active, onLive, onReplay, onAsk, liveAvailable = true }: Props) {
   const act: Partial<Record<NavKey, (() => void) | undefined>> = { live: onLive, replay: onReplay, ask: onAsk }
   return (
     <nav className="sitenav" aria-label="Rifinitore">
-      {ORDER.filter((k) => k !== 'live' || liveAvailable).map((k) => {
+      {(brainConfigured ? ORDER.filter((k) => k !== 'live' || liveAvailable) : STATIC_ORDER).map((k) => {
         const cls = `nav-item${active === k ? ' on' : ''}${k === 'live' ? ' is-live' : ''}`
         const label = (
           <>
